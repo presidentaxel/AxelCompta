@@ -1,0 +1,134 @@
+# 11 — UX / UI : interface B2B
+
+> Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
+
+## 1. Intention
+
+Référence exprimée : la sobriété et la finition « à la Apple ». Traduction pour un
+outil B2B de production comptable :
+
+- **Clarté avant densité.** Beaucoup d'outils comptables affichent tout, tout le
+  temps. Nous affichons *ce qui demande une décision*, le reste est accessible mais
+  en retrait.
+- **Calme visuel.** Fond clair, blancs généreux, une seule couleur d'accent,
+  typographie soignée (Inter ou équivalent), coins arrondis discrets, ombres
+  légères, micro-transitions sobres (150-200 ms). Mode sombre en phase 2.
+- **La hiérarchie suit le flux de travail**, pas la structure de la base de données.
+- **Chiffres irréprochables** : alignement tabulaire des montants (chiffres à
+  chasse fixe), format français (`1 234,56 €`), négatifs visuellement distincts.
+- Accessibilité : contrastes AA, navigation clavier complète (les pros vivent au
+  clavier), focus visibles.
+
+## 1bis. Une UI qui s'adapte : 1 vs 200 dossiers, et au statut de chaque dossier
+
+Deux axes d'adaptation, prévus dès la conception même si le mode mono arrive après
+le pilote :
+
+**Axe 1 — Le mode du tenant (portefeuille vs mono-entreprise).** Le principe :
+le mode mono-entreprise est le mode portefeuille **sans la couche portefeuille**.
+La fiche dossier, les transactions, la revue, la clôture sont les mêmes écrans.
+Concrètement :
+
+| Élément | Mode portefeuille (200 dossiers) | Mode mono-entreprise (1 dossier) |
+|---------|----------------------------------|----------------------------------|
+| Accueil | Santé du portefeuille, dossiers en retard | Directement le tableau de bord DU dossier |
+| Navigation | Tenant → liste des dossiers → fiche | La fiche dossier EST la navigation racine |
+| File de revue | Transversale, tous dossiers, priorisée | Celle du dossier unique |
+| Vocabulaire | « Vos dossiers », « ce chauffeur » | « Votre comptabilité » |
+
+Règle d'implémentation : aucun composant d'écran de niveau dossier ne doit
+connaître l'existence du portefeuille (il reçoit un `dossier_id`, point). La couche
+portefeuille est un habillage au-dessus. C'est ce qui garantit qu'activer le mode
+mono plus tard = construire un habillage léger, pas refondre.
+
+**Axe 2 — Le statut/régime du dossier.** L'UI lit la configuration du dossier
+(doc 06 §7) et n'affiche que ce qui existe pour lui : un dossier à l'IS montre
+« IS et liasse 2050 », un dossier à l'IR montre « 2031 », un futur dossier micro
+n'aurait ni module liasse ni grand livre mais un livre des recettes et une jauge de
+seuils. Les modules s'activent par configuration — pas de pages grisées ni de
+fonctions qui « ne marchent pas pour ce dossier ».
+
+## 2. Architecture de l'information (mode portefeuille, V1)
+
+```text
+├── Tableau de bord (par tenant)
+│   ├── Santé du portefeuille : dossiers à jour / en retard / bloqués
+│   ├── À traiter : revues en attente, alertes ouvertes, pièces manquantes
+│   └── Santé des connexions bancaires (consentements à renouveler)
+├── Dossiers (liste → fiche dossier)
+│   ├── Vue d'ensemble : solde, complétude, prochaine échéance
+│   ├── Transactions (filtres : à valider / alertes / sans pièce)
+│   ├── Justificatifs (matching, orphelins)
+│   ├── Comptabilité : journaux, grand livre, balance (lecture experte)
+│   ├── Immobilisations & contrats (LOA)
+│   └── Clôture : checklist guidée, états, liasse
+├── File de revue (transversale, le « cockpit » quotidien)
+├── Alertes & anomalies (instruction, historique)
+├── Documents & signatures (paquets envoyés, statuts)
+└── Paramètres (tenant, dossiers, règles, profils d'import, utilisateurs)
+```
+
+## 3. Les trois écrans qui font le produit
+
+### 3.1 La file de revue (l'écran le plus utilisé)
+
+Objectif : **< 10 secondes par décision**.
+
+- Une transaction à la fois, en pleine largeur : libellé brut, montant, date,
+  justificatif côte à côte s'il existe, proposition avec **source et explication**
+  (« règle X » / « ML 0,87 » / « LLM : ... »), top-3 alternatives.
+- Clavier : `A` accepter, `1-3` choisir une alternative, `R` rechercher une
+  catégorie, `S` passer, `J` joindre une pièce. Lot suivant automatique.
+- Après 3 corrections identiques : proposition contextuelle de créer une règle
+  (« Toujours classer SHELL AUTOROUTE en carburant pour ce dossier ? »).
+
+### 3.2 L'instruction d'alerte
+
+- L'alerte présentée comme un dossier à instruire : transaction, détecteur
+  déclenché, **écart au profil comportemental du dossier** (« d'habitude : 45-70 €
+  de carburant, 2×/semaine — ici : 92 €, 3e fois cette semaine »), historique sur
+  cette enseigne, ticket s'il existe.
+- Trois issues claires : « Justifié » (commentaire/pièce), « Usage personnel »
+  (déclenche le template comptable, doc 06 §3.6), « Faux positif » (nourrit le ML).
+- Ton neutre dans toute l'UI : « à justifier », jamais « fraude » (doc 05 §6.1).
+
+### 3.3 La page de signature (seul écran vu par le chauffeur/gérant)
+
+- Accès par lien, zéro création de compte, OTP email, **mobile d'abord** (le
+  chauffeur est dans sa voiture).
+- Les documents présentés avec un résumé en langage clair au-dessus du PDF :
+  « Votre résultat 2025 : … ; vous signez : bilan, liasse, PV » — relecture
+  possible page par page, puis signature (prestataire eIDAS intégré).
+- Suivi côté B2B : envoyé / ouvert / lu / signé / relancé, avec relances
+  automatiques paramétrables.
+
+## 4. Patterns transverses
+
+| Pattern | Règle |
+|---------|-------|
+| États vides | Toujours une action (« Importer votre premier fichier »), jamais une page blanche. |
+| Chargements | Squelettes, jamais de spinner plein écran. |
+| Erreurs | Langage humain + action de récupération ; jamais un code brut. |
+| Destructif | Confirmation explicite ; rien de destructif sur les faits comptables de toute façon (append-only). |
+| Traçabilité visible | Sur chaque écriture : « qui, quand, pourquoi » à un clic (doc 05 §7) — la confiance se voit. |
+| Badges de statut | Un seul vocabulaire : proposé / validé / clôturé ; ouvert / instruit ; pièce manquante / matchée. |
+| Recherche globale | `⌘K` : dossiers, transactions, comptes, écrans. |
+
+## 5. Implémentation
+
+- **Next.js + TypeScript strict** (doc 03), composants sur base **Radix UI +
+  Tailwind** (shadcn/ui comme point de départ, personnalisé en design system
+  maison léger : tokens de couleur, espacement, typo documentés dans Storybook).
+- Tableaux virtualisés (TanStack Table + Virtual) pour les journaux/grand livre.
+- Page de signature : SSR, payload minimal, cible < 1 s de premier rendu en 4G.
+- Storybook publié = catalogue vivant du design system ; tests visuels de
+  régression (Chromatic ou Playwright screenshots) sur les composants clés.
+
+## 6. Validation UX prévue au planning
+
+- Maquettes Figma des trois écrans clés (§3) **avant** de coder le front.
+- Test utilisateur réel : 2-3 personnes du client gestionnaire sur les maquettes, puis
+  sur staging — prévu dans la roadmap (doc 12, jalon M2), pas en option.
+- L'A/B testing produit du lancement (mentionné au cadrage) portera d'abord sur la
+  file de revue (variantes de seuils d'auto-validation et de présentation des
+  explications).
