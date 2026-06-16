@@ -1,6 +1,11 @@
 # 11 — UX / UI : interface B2B
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
+> Statut : brouillon à valider — Dernière mise à jour : 2026-06-16
+
+> **Design system** : tous les tokens (couleurs, typo, spacing, composants,
+> breakpoints) sont dans [`DESIGN.md`](../DESIGN.md) à la racine du projet.
+> Ce document décrit l'intention et les patterns UX ; `DESIGN.md` est la
+> référence d'implémentation. En cas de conflit, `DESIGN.md` fait foi.
 
 ## 1. Intention
 
@@ -117,12 +122,21 @@ Objectif : **< 10 secondes par décision**.
 ## 5. Implémentation
 
 - **Next.js + TypeScript strict** (doc 03), composants sur base **Radix UI +
-  Tailwind** (shadcn/ui comme point de départ, personnalisé en design system
-  maison léger : tokens de couleur, espacement, typo documentés dans Storybook).
+  Tailwind** (shadcn/ui comme point de départ, tokens personnalisés selon
+  `DESIGN.md` — voir section correspondance Tailwind/shadcn de ce fichier).
 - Tableaux virtualisés (TanStack Table + Virtual) pour les journaux/grand livre.
 - Page de signature : SSR, payload minimal, cible < 1 s de premier rendu en 4G.
 - Storybook publié = catalogue vivant du design system ; tests visuels de
   régression (Chromatic ou Playwright screenshots) sur les composants clés.
+
+### Règles d'implémentation issues de `DESIGN.md`
+
+- Tout montant = token `amount-*` + `tabular-nums` + `text-right`. Sans exception.
+- Fond body = `canvas-app` (`#F8FAFC`), jamais `#FFFFFF` directement.
+- Un seul accent : bleu `primary` (`#2563EB`). Pas de deuxième couleur de marque.
+- Transitions à 150 ms max. Pas de spinner plein écran — squelettes uniquement.
+- Pas de page grisée : les modules non applicables au dossier sont absents, pas
+  désactivés.
 
 ## 6. Validation UX prévue au planning
 
