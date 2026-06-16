@@ -1,0 +1,54 @@
+---
+description: Règles générales AxeLCompta — architecture, conventions et invariants non négociables
+alwaysApply: true
+---
+
+# AxeLCompta — Règles générales
+
+## Projet
+
+Plateforme B2B de production comptable automatisée. Stack : Python 3.12+ / FastAPI (backend) + TypeScript / Next.js (frontend). PostgreSQL, multi-tenant, monolithe modulaire.
+
+Docs de référence :
+- Architecture : @docs/03-architecture.md
+- Objectifs et périmètre : @docs/01-objectifs-produit.md
+- Qualité de code : @docs/08-qualite-code.md
+
+## Invariants absolus — ne jamais enfreindre
+
+1. **Les montants sont des entiers (centimes), jamais des flottants.** Type `Money` dans `core/`. `1234` = `12,34 €`. Toute opération flottante sur des montants est un bug.
+2. **Le module `ledger` est pur.** Aucun import de `categorize`, `ml`, `api`, `anomaly`. Aucun appel réseau, aucune I/O. Entrée → sortie reproductible.
+3. **Toute table métier porte `tenant_id`.** Toute requête filtre sur `tenant_id`. Le RLS PostgreSQL est actif ET la couche applicative vérifie aussi (défense en profondeur).
+4. **Les écritures comptables sont append-only.** Jamais de UPDATE ou DELETE sur une écriture validée. Les corrections sont des contre-passations.
+5. **Avant tout appel LLM : pseudonymisation obligatoire.** Le module de pseudonymisation est la seule porte d'entrée vers un LLM. Jamais de données brutes (libellés, noms, IBAN) dans un prompt LLM.
+
+## Architecture — règles de dépendance des modules
+
+```
+core/        ← aucune dépendance interne
+ledger/      ← core uniquement
+tenants/     ← core
+packs/       ← core
+ingestion/   ← core, tenants, packs
+categorize/  ← core, tenants, packs, ingestion
+anomaly/     ← core, tenants, categorize
+workflow/    ← core, tenants, ledger, categorize, anomaly
+closing/     ← core, tenants, ledger, workflow
+filings/     ← core, tenants, closing
+api/         ← facades publiques de chaque module uniquement
+ml/          ← jamais importé au runtime API
+```
+
+Ne jamais introduire de dépendance qui violerait ce graphe. Si tu en as besoin, propose une interface dans `core/` d'abord.
+
+## Conventions générales
+
+- **Configuration > code.** Statut juridique, régime fiscal, pack métier = configuration du dossier, lue depuis la base. Jamais de `if statut == "SASU"` ou `if secteur == "vtc"` hors des modules `tenants/` et `packs/`.
+- **Result type pour les erreurs métier.** Les erreurs attendues (validation, métier) ne doivent pas traverser les frontières de module comme des exceptions Python. Utiliser un type `Result[T, E]` ou équivalent défini dans `core/`.
+- **Identifiants typés.** `DossierId`, `TenantId`, `TransactionId` sont des types distincts — pas des `UUID` génériques interchangeables.
+- **Pas de logique métier dans `api/`.** Les routes FastAPI appellent uniquement les façades publiques des modules. Validation Pydantic seulement.
+- **Tests obligatoires pour toute règle du moteur de règles.** Chaque règle déclarative embarque ses propres cas de test, exécutés en CI.
+
+## Ce que ce projet ne fait pas (périmètre V1)
+
+Ne pas implémenter : paie/DSN, juridique/statuts, conseil fiscal automatisé présenté comme définitif, interface pour les chauffeurs (hors page de signature), microservices, Kubernetes.

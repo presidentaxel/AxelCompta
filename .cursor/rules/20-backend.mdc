@@ -1,0 +1,130 @@
+---
+description: Règles back-end AxeLCompta — Python, FastAPI, SQLAlchemy, invariants comptables
+globs: ["**/*.py"]
+---
+
+# AxeLCompta — Règles back-end Python
+
+Références :
+- Architecture et modules : @docs/03-architecture.md
+- Moteur comptable et invariants : @docs/06-moteur-comptable.md
+- Qualité et conventions : @docs/08-qualite-code.md
+- Stratégie de tests : @docs/09-strategie-tests.md
+
+## Conventions Python
+
+- **Python 3.12+**, mypy strict (`--strict`). Pas de `Any` sans commentaire justifié. Pas de `# type: ignore` sans explication.
+- **Pydantic v2** pour tous les contrats de données à toute frontière de module.
+- **SQLAlchemy 2** pour l'ORM, migrations avec **Alembic** uniquement (jamais de DDL en dehors de migrations).
+- Formatage : **Black** + **isort**. Lint : **Ruff**.
+- Noms en snake_case. Classes en PascalCase. Constantes en UPPER_SNAKE_CASE.
+- Pas de `print()` — `structlog` ou le logger configuré uniquement.
+
+## Montants — règle absolue
+
+```python
+# CORRECT — toujours des centimes (int)
+montant: int = 12345  # représente 123,45 €
+
+# INTERDIT — jamais de float pour les montants
+montant: float = 123.45  # BUG POTENTIEL
+```
+
+Utiliser le type `Money` de `core/` partout. Les additions et soustractions de `Money` passent par ce type, jamais directement sur des `int` nus.
+
+## Multi-tenant — toujours filtrer
+
+```python
+# CORRECT
+async def get_transactions(tenant_id: TenantId, dossier_id: DossierId, db: AsyncSession):
+    return await db.execute(
+        select(Transaction)
+        .where(Transaction.tenant_id == tenant_id)
+        .where(Transaction.dossier_id == dossier_id)
+    )
+
+# INTERDIT — oubli du tenant_id = fuite inter-tenant
+async def get_transactions(dossier_id: DossierId, db: AsyncSession):
+    return await db.execute(select(Transaction).where(Transaction.dossier_id == dossier_id))
+```
+
+## Module `ledger` — pureté obligatoire
+
+Le module `ledger/` ne peut importer que `core/`. Jamais :
+- `from categorize import ...`
+- `from ml import ...`
+- `from api import ...`
+- Appels `httpx`, `aiohttp`, `requests`
+- Accès à des variables d'environnement (hors `core/config`)
+
+Tout écart est un bug d'architecture.
+
+## Écritures comptables — invariants
+
+Avant de créer toute écriture (`JournalEntry`), vérifier :
+1. `sum(debit) == sum(credit)` — la balance doit être exactement à zéro
+2. La période/exercice du dossier est ouverte (`status == "open"`)
+3. `tenant_id` et `dossier_id` correspondent bien à l'écriture
+
+Ces contrôles sont dans `ledger/` et doivent être exécutés aussi en aval (défense en profondeur). Ne jamais bypasser en passant `force=True` ou équivalent.
+
+## Gestion des erreurs
+
+```python
+# Préférer Result type pour les erreurs métier attendues
+from core.result import Result, Ok, Err
+
+def valider_ecriture(entry: JournalEntryDraft) -> Result[JournalEntry, LedgerError]:
+    if not entry.is_balanced():
+        return Err(LedgerError.UNBALANCED)
+    ...
+    return Ok(journal_entry)
+
+# Exceptions Python = erreurs inattendues (bugs) uniquement
+# Les erreurs métier ne doivent PAS traverser les frontières de module comme des exceptions
+```
+
+## Pseudonymisation avant LLM
+
+```python
+# CORRECT
+from categorize.pseudonymizer import pseudonymize
+
+pseudo_prompt = pseudonymize(transaction)
+result = await llm_provider.classify(pseudo_prompt)
+
+# INTERDIT — libellés bruts dans un prompt LLM
+result = await llm_provider.classify(f"Catégorise : {transaction.label}")
+```
+
+Jamais de libellé brut, nom, IBAN, montant non masqué dans un prompt envoyé à un LLM externe.
+
+## Configuration > code
+
+```python
+# INTERDIT — branchement sur le statut dans le code métier
+if dossier.statut == "SASU":
+    ...
+elif dossier.statut == "EURL":
+    ...
+
+# CORRECT — lire la configuration du dossier
+template = pack_service.get_template(dossier.pack_id, dossier.statut_id, "ecriture_carburant")
+ecritures = template.generate(transaction, dossier.config)
+```
+
+Le code métier ne connaît pas les valeurs spécifiques de statut ou de secteur — il reçoit une configuration.
+
+## Tests
+
+- Toute règle du moteur de règles → test embarqué obligatoire, exécuté en CI.
+- Tout template d'écriture → golden test sur au moins un dossier de référence (SASU IS, EURL IS, EURL option IR).
+- Toute nouvelle logique dans `ledger/` → propriété testée (Hypothesis si pertinent).
+- Les tests d'isolation multi-tenant vérifient qu'un `tenant_id` ne peut jamais accéder aux données d'un autre.
+- Coverage `ledger/` ≥ 95 % — bloquant en CI.
+
+## Routes FastAPI — règles
+
+- Aucune logique métier dans une route. Uniquement : validation du token, extraction du `tenant_id`, appel à la façade du module, retour Pydantic.
+- Toutes les routes authentifiées vérifient le `tenant_id` depuis le JWT/session, jamais depuis le body de la requête.
+- Paramètres de requête et body validés par Pydantic v2 uniquement. Jamais de `request.json()` brut.
