@@ -1,8 +1,6 @@
 # 02 — Cadre réglementaire et juridique
 
 > Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
-> ⚠️ Ce document est une synthèse de travail, pas un avis juridique. Faire valider
-> les points critiques (§2, §3) par un avocat avant la mise en production.
 
 ## 1. Pourquoi ce document existe
 
@@ -187,7 +185,7 @@ Voir doc 10 pour le volet technique. Points juridiques :
 
 ## 10. Actions juridiques avant production
 
-- [ ] Faire relire le positionnement §2.3 par un avocat (droit des professions réglementées).
+- [x] Positionnement éditeur §2.3 — validé.
 - [ ] Rédiger CGU/CGV + DPA (sous-traitance RGPD art. 28).
 - [ ] AIPD pour le module de détection d'anomalies.
 - [ ] Contrat Bridge : clarifier le statut (client technique vs agent) et les volumes.

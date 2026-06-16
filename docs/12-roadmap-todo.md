@@ -34,7 +34,7 @@ la phase suivante avec des invariants non tenus.
 ### 0.1 Décisions et juridique
 - [ ] Relecture/amendement de toute cette documentation par Louis + associé.
 - [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur**.
-- [ ] Avis d'avocat sur le positionnement éditeur (doc 02 §2.3).
+- [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
 - [ ] Contrat Bridge : pricing, volumes, statut, sandbox obtenue.
 - [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign.
@@ -50,7 +50,7 @@ la phase suivante avec des invariants non tenus.
 
 ### 0.3 Spike techniques (timeboxés, 2-3 jours chacun)
 - [ ] Spike Bridge sandbox : connexion, récupération transactions, webhooks.
-- [ ] Spike baseline ML : TF-IDF + régression logistique sur l'échantillon → première mesure de précision (donne le ton de tout le projet).
+- [ ] Spike baseline ML : TF-IDF + régression logistique **et** embeddings de phrases (`sentence-transformers` multilingue léger) sur le même échantillon → comparer les deux sur le même jeu de test gelé, décider lequel devient le challenger V1 (doc 07 §3.2). Produire en même temps la liste des classes rares et leur politique (doc 07 §3.4).
 - [ ] Spike OCR : 30 tickets réels dans Tesseract vs PaddleOCR vs Vision LLM (ADR-005).
 - [ ] Spike FEC : générer un FEC minimal et le passer dans « Test Compta Demat ».
 - [ ] Maquettes Figma des 3 écrans clés (doc 11 §3) + retours de 2 utilisateurs cibles.

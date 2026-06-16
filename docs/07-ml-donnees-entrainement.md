@@ -28,6 +28,11 @@ C'est l'actif le plus précieux du projet — et le chantier le plus sous-estim�
       d'imputation qui ont évolué → pondérer les années récentes.
 - [ ] Distribution des classes : déséquilibre attendu (énormément de carburant/péage,
       très peu d'immobilisations) → stratégie par classe (§4).
+- [ ] **Seuil de classe rare** : pour toute classe avec moins de **N_min exemples**
+      (à fixer après audit, indicativement 100), décider avant tout entraînement :
+      exclure de l'auto-validation, regrouper dans une super-catégorie, ou accepter
+      un routage direct LLM → revue humaine. Produire la liste des classes concernées
+      — c'est un livrable de l'audit, pas une décision prise à la volée (§3.4).
 
 ### 2.2 Constitution
 
@@ -58,10 +63,20 @@ C'est l'actif le plus précieux du projet — et le chantier le plus sous-estim�
 1. **Baseline obligatoire** : régression logistique sur TF-IDF. Simple, rapide,
    explicable. C'est la barre à battre — et elle est souvent dure à battre sur du
    libellé bancaire.
-2. **Challenger V1** : LightGBM/XGBoost sur features mixtes texte+numérique.
-3. **Plus tard seulement, si gain prouvé** : embeddings de phrases + classifieur,
-   ou fine-tuning d'un petit modèle type CamemBERT. Coût/complexité à justifier
-   par une amélioration mesurée sur le jeu de test.
+2. **À benchmarker en Phase 0 en même temps que la baseline** : embeddings de
+   phrases pré-entraînés, modèle léger multilingue (`sentence-transformers` /
+   `paraphrase-multilingual-MiniLM-L12-v2` ou équivalent). Sur des libellés
+   bancaires courts et bruités (troncatures, codes internes type `CB****1234`,
+   abréviations variables), les embeddings figés surclassent régulièrement TF-IDF
+   sans coût d'inférence notable (~20 ms/batch sur CPU). Le spike Phase 0 compare
+   les deux sur le même jeu de test — si le gain n'est pas prouvé, on garde la
+   LogReg ; s'il l'est, c'est le point de départ naturel pour le challenger V1.
+3. **Challenger V1** : LightGBM/XGBoost sur features mixtes (embeddings figés +
+   features numériques/catégorielles §3.1). À construire si l'étape 2 prouve un
+   gain sur la baseline pure texte.
+4. **Fine-tuning CamemBERT ou modèle multilingue** : seulement si les embeddings
+   figés plafonnent et que le gain justifie la complexité opérationnelle. Ce n'est
+   pas la voie par défaut.
 
 **Calibration systématique** (isotonic sur le set de validation) : les seuils
 d'auto-validation du pipeline n'ont de sens que si les probabilités sont honnêtes.
@@ -104,6 +119,20 @@ nuit** ; au-delà, on réduit les données, pas on rallonge le délai.
   historique et un modèle adapté évalué ; les profils comportementaux par dossier
   se construisent automatiquement dès l'import de l'historique.
 
+### 3.4 Politique des classes rares
+
+Toute classe de la taxonomie avec moins de **N_min exemples** dans le dataset
+d'entraînement est soumise à une politique explicite définie avant l'entraînement :
+
+| Situation | Politique |
+|-----------|-----------|
+| Classe rare, enjeu élevé (immobilisation, rémunération, TVA intracom…) | **Exclure de l'auto-validation** : τ_ml forcé à 1,0 pour cette classe. Le modèle prédit, mais la proposition passe toujours par revue humaine. |
+| Classe rare, enjeu faible | Regrouper dans une super-catégorie pour l'entraînement ; la catégorie fine reste sélectionnable à la revue humaine. |
+| Classe absente du dataset | Absente de la taxonomie du modèle jusqu'au prochain cycle d'entraînement ; routage direct LLM → revue humaine. |
+
+La liste des classes concernées et leur politique assignée est un livrable de
+l'audit dataset (§2.1), pas une décision prise à chaud au moment de l'entraînement.
+
 ## 4. Évaluation (avant toute mise en production d'un modèle)
 
 | Métrique | Seuil de mise en prod |
@@ -113,6 +142,7 @@ nuit** ; au-delà, on réduit les données, pas on rallonge le délai.
 | Erreur de calibration (ECE) | ≤ 0,05 |
 | Couverture à confiance ≥ τ (part auto-validable) | suivie, pas sacrifiée à la précision |
 | Matrice de confusion inspectée à la main | erreurs « graves » (charge ↔ immo) listées |
+| Classes rares (< N_min exemples, §3.4) | Toutes exclues de l'auto-validation (τ forcé à 1,0) — vérifié avant toute promotion |
 
 - **Jeu de test gelé et versionné** : jamais utilisé pour entraîner ni régler quoi
   que ce soit. Complété par un « jeu des pièges » construit à la main (TOTAL
