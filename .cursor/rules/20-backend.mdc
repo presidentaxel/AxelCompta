@@ -11,6 +11,16 @@ Références :
 - Qualité et conventions : @docs/08-qualite-code.md
 - Stratégie de tests : @docs/09-strategie-tests.md
 
+## Base de données — règles anti lock-in Supabase
+
+Le projet utilise Supabase comme PostgreSQL managé (ADR-003). Migration possible vers Scaleway/OVH si nécessaire. Pour que ça reste faisable :
+
+- **Jamais le client JS `supabase-py`** pour les requêtes de données — uniquement SQLAlchemy 2 + asyncpg.
+- **Jamais PostgREST** (l'API auto-générée Supabase) — uniquement FastAPI + SQLAlchemy.
+- **Jamais Supabase Auth** — uniquement l'implémentation maison (JWT + FastAPI).
+- **Jamais Supabase Storage SDK** — uniquement `boto3` avec l'endpoint S3 compatible.
+- La `DATABASE_URL` vient toujours d'une variable d'environnement. Jamais hardcodée.
+
 ## Conventions Python
 
 - **Python 3.12+**, mypy strict (`--strict`). Pas de `Any` sans commentaire justifié. Pas de `# type: ignore` sans explication.
