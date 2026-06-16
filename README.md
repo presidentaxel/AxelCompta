@@ -33,6 +33,7 @@ relire, amender et valider avant d'écrire la première ligne de code produit.
 | [12 — Roadmap & TODO](docs/12-roadmap-todo.md) | Phases 0→5, TODO maître détaillée, critères de sortie, règles de pilotage | Le plan d'exécution |
 | [13 — Intégrations plateformes](docs/13-integrations-plateformes.md) | Pattern DataProvider, Rollee (fleet mode), réconciliation settlements, TVA transport 10%, templates Uber/Bolt | Avant tout code d'ingestion ou de catégorisation VTC |
 | [14 — Onboarding / Offboarding](docs/14-onboarding-offboarding.md) | Cycle de vie d'un tenant : collecte des données, import en masse, connexion providers, reprise historique, export et purge | Avant le pilote client (phase 4) et à la signature de tout nouveau client |
+| [15 — Observabilité](docs/15-observabilite.md) | Métriques métier (KPIs taux catégorisation, coût LLM, balance, FEC), métriques techniques (mémoire ML, file de jobs, Bridge/Rollee), logs structurés JSON, alerting, dashboards Grafana | Avant le premier déploiement staging |
 | [ADR 001-006](docs/adr/) | Architecture Decision Records : monolithe, file de jobs, hébergement, signature, OCR, PDF liasses | À lire avant de remettre en question une décision d'architecture |
 | [Référence Revolut](docs/references/DESIGN-revolut.md) | Analyse du design system marketing Revolut (source : getdesign.md) — inspiration pour la rigueur de tokenisation | Contexte de conception de DESIGN.md |
 
