@@ -82,16 +82,42 @@ Loyer mensuel : 6122 Crédit-bail mobilier D / 512 C (TVA selon véhicule)
 Levée d'option en fin de contrat → immobilisation à la valeur d'option.
 ```
 
-### 3.5 Recettes plateformes (Uber, Bolt…)
+### 3.5 Recettes plateformes (Uber, Bolt…) — via Rollee
+
+Le virement bancaire brut (ex. `+848,00 € UBER BV`) est complété par le settlement
+Rollee de la même semaine (courses brutes, commission, TVA commission, net). La
+réconciliation de ces deux sources produit l'écriture complète. Sans Rollee, une
+écriture simplifiée est générée en attendant (doc 13 §6).
+
+**TVA sur recettes — configurable par dossier (`tva_recettes_regime`) :**
+- `assujetti_taux_reduit` : transport de personnes = TVA **10%** (taux réduit)
+- `franchise` : pas de TVA collectée (montant brut = montant HT)
+
+**TVA sur commissions — configurable par plateforme dans le pack (`packs/vtc/platforms.yaml`) :**
+- Uber France SAS : TVA 20% française (déductible normalement)
+- Bolt Operations OÜ (Estonie, UE) : autoliquidation art. 283-2 CGI
+
 ```text
-Virement net reçu = courses brutes − commission.
-512    Banque                    D net
-622x   Commissions plateforme    D commission (justifiée par le relevé plateforme)
-706    Prestations de services   C brut
-44571  TVA collectée             C (selon régime du dossier)
+Exemple : settlement Uber, dossier SASU IS assujetti TVA 10%, Uber France (TVA commission 20%)
+  Rollee : gross 1 040,00 € TTC | commission 192,00 € TTC | net 848,00 €
+
+  Recettes HT   = 1 040,00 / 1,10 = 945,45 €
+  TVA collectée = 1 040,00 − 945,45 = 94,55 €
+  Commission HT = 192,00 / 1,20 = 160,00 €
+  TVA commission = 192,00 − 160,00 = 32,00 €
+
+  512    Banque                         D   848,00
+  622x   Commissions plateforme (HT)    D   160,00
+  44566  TVA déductible commission 20%  D    32,00
+  706    Prestations de services (HT)   C   945,45
+  44571  TVA collectée 10%              C    94,55
+                                        ─────────────
+                                        1 040,00 = 1 040,00 ✓
 ```
-→ nécessite l'ingestion des relevés de plateformes (CSV) pour ventiler le brut —
-cas d'usage direct des profils d'import (doc 04 §3).
+
+Le template est un fichier de données dans `packs/vtc/` paramétré par la
+configuration du dossier et de la plateforme — jamais de `if plateforme == "uber"`
+dans le code. Voir doc 13 §5 pour tous les cas (franchise TVA, autoliquidation).
 
 ### 3.6 Usage personnel confirmé (issue d'une alerte)
 ```text

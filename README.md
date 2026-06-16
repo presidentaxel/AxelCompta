@@ -31,6 +31,9 @@ relire, amender et valider avant d'écrire la première ligne de code produit.
 | [10 — Sécurité & RGPD](docs/10-securite-rgpd.md) | Modèle de menace, chiffrement, pseudonymisation avant LLM, cycle de vie des données, incident | Avant le pilote |
 | [11 — UX/UI](docs/11-ux-ui.md) | Principes UX, UI adaptative (1 vs 200 dossiers, statut du dossier), les 3 écrans clés | Avant les maquettes — lire DESIGN.md en parallèle |
 | [12 — Roadmap & TODO](docs/12-roadmap-todo.md) | Phases 0→5, TODO maître détaillée, critères de sortie, règles de pilotage | Le plan d'exécution |
+| [13 — Intégrations plateformes](docs/13-integrations-plateformes.md) | Pattern DataProvider, Rollee (fleet mode), réconciliation settlements, TVA transport 10%, templates Uber/Bolt | Avant tout code d'ingestion ou de catégorisation VTC |
+| [14 — Onboarding / Offboarding](docs/14-onboarding-offboarding.md) | Cycle de vie d'un tenant : collecte des données, import en masse, connexion providers, reprise historique, export et purge | Avant le pilote client (phase 4) et à la signature de tout nouveau client |
+| [ADR 001-006](docs/adr/) | Architecture Decision Records : monolithe, file de jobs, hébergement, signature, OCR, PDF liasses | À lire avant de remettre en question une décision d'architecture |
 | [Référence Revolut](docs/references/DESIGN-revolut.md) | Analyse du design system marketing Revolut (source : getdesign.md) — inspiration pour la rigueur de tokenisation | Contexte de conception de DESIGN.md |
 
 ## Les 7 décisions structurantes déjà prises (à confirmer)

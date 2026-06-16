@@ -57,8 +57,9 @@ Calibrés pour une équipe de 1-2 devs visant une fiabilité « comptable » :
 axelcompta/
 ├── core/            # Types partagés, Result, erreurs, monnaie (int centimes), dates
 ├── tenants/         # Tenants (mode portefeuille ou mono), dossiers, statuts/régimes
-├── packs/           # Packs métier : taxonomies, règles système, templates (données versionnées)
-├── ingestion/       # Bridge API, imports fichiers (CSV/XLSX/ODS/OFX), profils d'import
+├── packs/           # Packs métier : taxonomies, règles système, templates, config plateformes
+├── ingestion/       # Orchestration de l'ingestion ; sous-modules :
+│   └── providers/   #   DataProvider ABC + implémentations (Bridge, Rollee, FileImport)
 ├── documents/       # Justificatifs : stockage, OCR, Factur-X, matching transactions
 ├── categorize/      # Pipeline hybride : règles → ML → LLM → revue humaine
 ├── anomaly/         # Détection d'abus / anomalies, scoring, alertes
@@ -69,6 +70,8 @@ axelcompta/
 ├── api/             # Routes FastAPI, auth, permissions (aucune logique métier)
 └── ml/              # Entraînement, évaluation, registry de modèles (hors runtime API)
 ```
+
+**Pattern DataProvider (ingestion/providers/) :** toute source de données d'entrée implémente l'interface `DataProvider`. La configuration du tenant détermine quels providers sont actifs — le code métier ne connaît pas le provider. Providers V1 : `BridgeProvider` (transactions bancaires), `RolleeProvider` (settlements plateformes gig), `FileImportProvider` (CSV/XLSX/ODS). Détails : doc 13.
 
 **Règles de dépendance** (vérifiées par import-linter en CI) :
 

@@ -1,0 +1,213 @@
+# 14 — Onboarding et offboarding des tenants
+
+> Statut : brouillon à valider — Dernière mise à jour : 2026-06-16
+
+## 1. Onboarding d'un nouveau client (tenant)
+
+### 1.1 Vue d'ensemble
+
+```
+Étape 0 — Collecte des données client
+Étape 1 — Création du tenant
+Étape 2 — Import en masse des dossiers
+Étape 3 — Connexion des providers (Bridge + Rollee)
+Étape 4 — Reprise d'historique
+Étape 5 — Période de vérification sur un dossier pilote
+Étape 6 — Bascule complète (go live)
+```
+
+Le go live n'est déclenché qu'après la validation de l'étape 5. On ne bascule jamais les 200 dossiers d'un coup sans avoir validé sur 1 ou 2 en premier.
+
+### 1.2 Étape 0 — Données à collecter avant de toucher au code
+
+Données à obtenir du client **avant** de créer quoi que ce soit :
+
+**Pour le tenant :**
+- Raison sociale du client gestionnaire, SIREN, contact technique et comptable
+- Mode d'usage : portefeuille (N dossiers) ou mono-entreprise
+- Pack métier : VTC (pour le pilote), autre secteur à venir
+- Providers souhaités : Bridge ? Rollee ? (les deux pour le pilote)
+- Compte Rollee fleet existant ? Compte Bridge existant ? IDs à récupérer.
+- Mode de relance consentements : auto (emails/SMS directs aux chauffeurs) ou manuel (le gestionnaire gère)
+
+**Pour chaque dossier (en masse via CSV) :**
+
+| Colonne | Obligatoire | Exemple | Notes |
+|---------|-------------|---------|-------|
+| siren | Oui | 821456789 | 9 chiffres |
+| raison_sociale | Oui | DUPONT VTC SASU | |
+| forme_juridique | Oui | SASU | SASU, EURL, EI |
+| regime_imposition | Oui | IS | IS, IR |
+| option_ir_debut | Si IR | 2023 | Année du 1er exercice en option IR |
+| regime_tva | Oui | reel_normal | reel_normal, reel_simplifie, franchise |
+| tva_recettes_regime | Oui | assujetti_taux_reduit | assujetti_taux_reduit, franchise |
+| date_debut_exercice | Oui | 2025-01-01 | ISO 8601 |
+| date_fin_exercice | Oui | 2025-12-31 | |
+| rollee_driver_account_id | Si Rollee | drv_xxx | Fourni par Rollee ou à créer |
+| bridge_item_id | Si Bridge | item_xxx | Fourni après connexion Bridge |
+| nom_dirigeant | Oui | Jean Dupont | Pour les documents et le profil de pseudonymisation |
+| email_dirigeant | Oui | jean@example.com | Pour les liens de signature et relances consentements |
+| tel_dirigeant | Optionnel | +33612345678 | Pour SMS de relance consentements |
+
+Ce CSV est validé par le système avant toute création (rapport d'erreurs ligne par ligne). La création en base n'a lieu qu'après validation complète sans erreur bloquante.
+
+### 1.3 Étape 1 — Création du tenant
+
+Via l'interface admin AxeLCompta (non accessible aux clients) :
+- Création du tenant avec sa configuration (mode, pack, providers activés)
+- Création des utilisateurs B2B du client (admin_tenant, comptable…) avec MFA forcé
+- Génération des credentials d'API si le client utilise l'API directement
+
+### 1.4 Étape 2 — Import en masse des dossiers
+
+Upload du CSV validé → le système crée les 200 dossiers en une seule opération :
+- Chaque dossier est créé avec sa configuration individuelle (jamais d'héritage implicite)
+- Rapport de création : N dossiers créés, M erreurs (avec détail par ligne)
+- Les dossiers en erreur ne bloquent pas les autres
+- Rollback possible si > 20% d'erreurs (seuil configurable)
+
+### 1.5 Étape 3 — Connexion des providers
+
+**Rollee (mode fleet) :**
+- Vérifier que le compte fleet Rollee du client est actif et que les `driver_account_id` existent
+- Importer depuis Rollee la liste des comptes fleet pour valider que tous les dossiers ont un compte associé
+- Rapport des dossiers sans compte Rollee associé (à connecter manuellement ou par invitation)
+- Pour les chauffeurs sans compte : envoyer une invitation Rollee Connect (email avec lien de connexion)
+
+**Bridge :**
+- Vérifier les consentements pour les `item_id` fournis
+- Pour les dossiers sans item_id : générer un lien Bridge Connect à envoyer au chauffeur
+- État des connexions : connexion valide / consentement expiré / en attente
+
+### 1.6 Étape 4 — Reprise d'historique
+
+L'historique de l'outil précédent (EBP, Sage, Cegid, Excel du comptable) est importé au format **FEC** — c'est le format pivot d'import historique, car tous les outils comptables français peuvent l'exporter.
+
+```
+Outil précédent → export FEC → validation format DGFiP → import AxeLCompta → golden test de cohérence
+```
+
+Vérifications après import :
+- Balance équilibrée sur chaque exercice importé
+- Soldes 512 cohérents avec les relevés bancaires de référence
+- Aucun compte inconnu dans le PCG embarqué (mapping à définir avec le client)
+- FEC re-exporté depuis AxeLCompta → identique (à la présentation près) au FEC d'import
+
+Si l'outil précédent ne peut pas exporter de FEC (rare mais possible sur Excel "maison") : import via profil d'import personnalisé (doc 04 §3).
+
+**Reprise Rollee :** une fois les comptes connectés, Rollee peut remonter l'historique disponible (généralement 12-24 mois selon la plateforme). Pour les exercices antérieurs, utiliser les relevés CSV exportés depuis l'espace chauffeur des plateformes.
+
+### 1.7 Étape 5 — Validation sur dossier pilote
+
+Avant go live :
+1. Choisir 1 dossier représentatif (SASU IS, actif, bon historique Rollee + Bridge).
+2. Rejouer un mois complet : import Bridge + Rollee → catégorisation → validation humaine → FEC.
+3. Comparer le FEC produit par AxeLCompta avec les écritures de l'outil précédent sur le même mois.
+4. Valider avec le service comptable du client que les écritures sont correctes.
+5. Seulement si validé → go live sur les autres dossiers.
+
+### 1.8 Étape 6 — Go live progressif
+
+Ne pas basculer 200 dossiers le même jour. Ordre recommandé :
+1. Semaine 1 : 5 dossiers (diversité de formes et régimes)
+2. Semaine 2 : 20 dossiers
+3. Semaine 3-4 : reste du portefeuille
+
+À chaque palier : vérification que les KPIs de catégorisation (doc 01 §6) sont atteints avant de continuer.
+
+---
+
+## 2. Gestion du cycle de vie des consentements (DSP2 + Rollee)
+
+### 2.1 Les deux types de consentement
+
+| Type | Provider | Durée | Conséquence d'expiration |
+|------|----------|-------|--------------------------|
+| Consentement DSP2 (accès bancaire) | Bridge | 90 jours | Plus de flux bancaire entrant → transactions manquantes |
+| Token d'accès plateformes | Rollee | Variable selon plateforme | Plus de données Rollee → settlements non réconciliés |
+
+### 2.2 Dashboard des consentements
+
+Le tableau de bord du gestionnaire affiche en permanence :
+- Nombre de consentements valides / expirant dans 14 jours / expirés
+- Liste des dossiers concernés avec la date d'expiration
+- Statut : actif / à renouveler / expiré / jamais connecté
+
+Ce panneau est un **écran de premier rang**, pas caché dans les paramètres.
+
+### 2.3 Modes de relance (configurables par tenant)
+
+**Mode auto :** AxeLCompta envoie directement au chauffeur (email ou SMS selon le canal configuré) :
+- J-14 : "Votre connexion expire dans 2 semaines, cliquez ici pour renouveler"
+- J-7 : relance
+- J-0 : "Connexion expirée, vos données ne sont plus synchronisées"
+- Relances automatiques tous les 3 jours après expiration
+
+**Mode manuel :** le gestionnaire reçoit les alertes dans son dashboard et choisit quand/comment contacter ses chauffeurs. Aucune communication n'est envoyée directement au chauffeur par AxeLCompta.
+
+**Configuration par dossier :** un dossier peut être en mode auto pendant que la flotte est en mode manuel (cas : chauffeur qui préfère être contacté directement).
+
+### 2.4 Transactions manquantes pendant un trou de consentement
+
+Si un consentement a expiré pendant N jours, une fois renouvelé :
+- Bridge/Rollee remontent automatiquement l'historique des transactions de la période manquante (dans les limites de leur API — généralement 90 jours)
+- AxeLCompta réimporte et tente la réconciliation rétroactive
+- Si des settlements Rollee arrivent sans transaction Bridge associée (et vice-versa) : file de revue manuelle
+
+---
+
+## 3. Offboarding — départ d'un client
+
+### 3.1 Export complet des données (réversibilité légale)
+
+Le client peut demander à tout moment l'export de toutes ses données. Format de sortie :
+
+| Données | Format | Notes |
+|---------|--------|-------|
+| Écritures comptables | FEC par dossier par exercice | Standard légal — importable dans tout outil comptable français |
+| Balance, grand livre | CSV | Données comptables lisibles |
+| Liasses fiscales | PDF (CERFA) | Pour archivage et dépôt |
+| Justificatifs | ZIP par dossier | Fichiers originaux sans modification |
+| Profils d'import | JSON | Pour reconfigurer un autre outil |
+| Journal d'audit | CSV | Qui a fait quoi, quand |
+
+L'export est déclenché depuis l'interface admin AxeLCompta, généré de façon asynchrone (job) et mis à disposition en téléchargement pendant 30 jours.
+
+### 3.2 Délais et procédure
+
+1. Le client notifie la résiliation (email ou interface).
+2. AxeLCompta génère l'export complet sous 5 jours ouvrés.
+3. Le client dispose de 30 jours pour télécharger.
+4. Après confirmation de récupération (ou après 30 jours) : **purge complète** — suppression de toutes les données du tenant en base, des fichiers S3, et des logs nominatifs.
+5. Confirmation écrite de la purge (traçabilité RGPD).
+
+### 3.3 Ce que le FEC permet au client
+
+Un client qui part avec ses FEC peut :
+- Les importer dans EBP, Sage, Cegid, Pennylane, etc.
+- Les fournir à son expert-comptable pour reprendre la main
+- Les archiver pour les 10 ans légaux (format légalement reconnu)
+
+C'est la garantie de non-enfermement propriétaire. **Le FEC est le format de sortie pivot — le même que le format d'entrée historique** (doc 02 §4).
+
+### 3.4 Cas particulier : départ en cours d'exercice
+
+Si le client part en cours d'exercice fiscal :
+- L'exercice en cours est exporté avec un statut `non_clos` dans le FEC
+- Les écritures validées sont complètes ; les propositions non validées sont signalées
+- Le client (ou son EC) devra terminer la clôture dans l'outil destination
+- AxeLCompta génère un rapport de passation documentant l'état à la date de départ
+
+---
+
+## 4. Onboarding d'un deuxième client (pack métier différent)
+
+Le deuxième client n'est pas dans le secteur VTC. Il a un autre secteur (ex. restauration, BTP). Procédure :
+
+1. **Créer le pack métier** : taxonomie de catégories, règles système, templates d'écritures, config plateformes si besoin. C'est un ensemble de fichiers de données dans `packs/{secteur}/`, pas du code.
+2. **Configurer le tenant** avec `pack: {secteur}`.
+3. **Suivre les étapes 1-6** du §1 ci-dessus — elles sont identiques quel que soit le secteur.
+
+La durée de création d'un nouveau pack est proportionnelle à la complexité métier, pas à la complexité technique. Le moteur ne change pas.
+
+Si le nouveau client utilise Bridge mais pas Rollee (secteur sans plateforme gig) : configurer `platforms: none`. La réconciliation de settlements ne s'active pas, et aucun code n'est exécuté inutilement.

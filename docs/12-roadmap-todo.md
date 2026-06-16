@@ -33,12 +33,14 @@ la phase suivante avec des invariants non tenus.
 
 ### 0.1 Décisions et juridique
 - [ ] Relecture/amendement de toute cette documentation par Louis + associé.
-- [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur**.
+- [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
 - [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
 - [ ] Contrat Bridge : pricing, volumes, statut, sandbox obtenue.
+- [ ] Contrat Rollee : conditions fleet mode, volumes, API sandbox, pricing.
 - [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign.
 - [ ] Décision hébergement prod (ADR-003) après premier échange sécurité banque.
+- [ ] **Écrire les ADR 001-006** (docs/adr/) — templates disponibles, à valider.
 
 ### 0.2 Les données (chemin critique — démarrer immédiatement)
 - [ ] Récupérer un échantillon des 10 ans d'historique.
@@ -75,24 +77,29 @@ décisions ADR 001-005 actées, docs validées.
 
 ### 1.2 Ingestion
 - [ ] Archivage brut immuable (hash, horodatage) de tout ce qui entre.
-- [ ] Moteur de profils d'import + parseurs CSV/XLSX/ODS → `RawRow` canonique.
-- [ ] Normalisation (`NormalizedTransaction`), nettoyage de libellés versionné + tests.
+- [ ] **Interface `DataProvider` (ABC)** dans `ingestion/providers/base.py` + types `NormalizedTransaction`, `PlatformSettlement` (doc 13 §2).
+- [ ] **`BridgeProvider`** : items/comptes/transactions, polling + webhooks, santé des connexions, monitoring expiration consentements DSP2.
+- [ ] **`RolleeProvider`** : connexion fleet mode, endpoints income/trips/wallet, webhooks `wallet.payout_received`, polling daily fallback, monitoring expiration tokens (doc 13 §3).
+- [ ] **`FileImportProvider`** : moteur de profils d'import + parseurs CSV/XLSX/ODS → `RawRow` canonique.
+- [ ] **Réconciliation `PlatformSettlement` ↔ `NormalizedTransaction`** : algorithme de matching par montant+date+libellé, états (en attente / réconcilié / revue manuelle), alertes trou (doc 13 §4).
+- [ ] **Dashboard consentements** : panneau premier rang listant consentements valides/expirant/expirés pour Bridge et Rollee. Mode relance configurable par tenant (auto ou manuel, doc 14 §2.3).
+- [ ] Normalisation des libellés versionné + tests.
 - [ ] Déduplication/idempotence + rapport d'import avec prévisualisation.
 - [ ] Quarantaine + UI de correction.
-- [ ] Connecteur Bridge : items/comptes/transactions, polling + webhooks, santé des connexions.
-- [ ] Fixtures : un corpus de fichiers par banque rencontrée (vivant, doc 09 §2.2).
+- [ ] Fixtures : un corpus de fichiers par banque rencontrée + corpus de payloads Rollee (vivant, doc 09 §2.2).
 
 ### 1.3 Cœur comptable (`ledger`)
 - [ ] Plan de comptes PCG embarqué versionné + comptes par dossier + axe analytique.
-- [ ] Écritures append-only, partie double, séquences par journal, périodes + verrous (invariants I1-I7 + triggers de protection).
+- [ ] Écritures append-only, partie double, séquences par journal, périodes + verrous (invariants I1-I8 + triggers de protection).
 - [ ] Mécanique générique « template + paramètres dossier → écritures équilibrées » (le moteur ne connaît aucun secteur).
-- [ ] Templates du pack VTC : carburant, péage, entretien, recettes plateformes, commissions, banale charge TTC/HT/TVA.
+- [ ] **Templates pack VTC** (fichiers de données `packs/vtc/`) : carburant (TVA récupération selon véhicule), péage, entretien, LOA (part non déductible), usage personnel (455/108 selon statut), banale charge TTC/HT/TVA.
+- [ ] **Templates recettes plateformes** : settlement Rollee → 706 + 44571 (10% ou franchise) + 622x + 44566 (TVA commission selon entité Uber/Bolt — doc 13 §5). Config plateformes dans `packs/vtc/platforms.yaml`.
 - [ ] Immobilisations : fiche, plan d'amortissement linéaire, prorata, cession + tests de propriétés (Σ dotations = base).
 - [ ] LOA : loyers, part non déductible, suivi hors-bilan, levée d'option.
-- [ ] Paramétrage TVA par dossier (réel simplifié + réel normal opérationnels, franchise avec surveillance des seuils) + table de règles fiscales par millésime.
+- [ ] Paramétrage TVA par dossier : `tva_recettes_regime` (assujetti_taux_reduit | franchise), régime déclaration (réel simplifié/normal), surveillance des seuils franchise. Table de règles fiscales versionnée par millésime.
 - [ ] Rapprochement bancaire.
-- [ ] Premiers dossiers de référence synthétiques (SASU à l'IS, EURL option IR) qui traversent tout → golden tests.
-- [ ] **Relecture des templates par un expert-comptable** (prestation, doc 09 §8).
+- [ ] Dossiers de référence synthétiques → golden tests : SASU IS + Rollee settlements, EURL option IR, dossier franchise TVA, dossier traversant fin d'option IR.
+- [ ] **Relecture des templates par un expert-comptable** (prestation, doc 09 §8) — obligatoire avant V1.
 
 ### 1.4 Front (en parallèle)
 - [ ] Design system de base (tokens, composants, Storybook).
