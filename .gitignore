@@ -1,0 +1,247 @@
+# =============================================================================
+# AxeLCompta — .gitignore
+# Stack : Python 3.12 / FastAPI + TypeScript / Next.js
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Secrets et variables d'environnement — JAMAIS en git
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.test.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+.secrets/
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.egg-link
+MANIFEST
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff / Pyright
+.ruff_cache/
+.pyright/
+
+# Pytest
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Hypothesis
+.hypothesis/
+
+# Profiling
+*.prof
+*.lprof
+
+# Jupyter (si utilisé pour ML / exploration)
+.ipynb_checkpoints/
+*.ipynb
+
+# -----------------------------------------------------------------------------
+# Node.js / TypeScript / Next.js
+# -----------------------------------------------------------------------------
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Next.js
+.next/
+out/
+build/
+
+# Production
+dist/
+
+# Caches
+.npm
+.eslintcache
+.tsbuildinfo
+*.tsbuildinfo
+.turbo/
+
+# Storybook
+storybook-static/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# -----------------------------------------------------------------------------
+# ML / Données
+# -----------------------------------------------------------------------------
+# Modèles entraînés (artefacts S3, pas en git)
+models/
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# Datasets
+data/raw/
+data/processed/
+data/external/
+*.csv.gz
+*.parquet
+*.arrow
+
+# MLflow / expériences
+mlruns/
+mlartifacts/
+
+# -----------------------------------------------------------------------------
+# Base de données locale
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+pgdata/
+
+# Alembic (les migrations sont versionnées, pas les données)
+# Note : alembic/versions/ DOIT être en git
+
+# -----------------------------------------------------------------------------
+# Docker
+# -----------------------------------------------------------------------------
+.docker/
+docker-compose.override.yml
+
+# -----------------------------------------------------------------------------
+# Stockage objet local (MinIO dev)
+# -----------------------------------------------------------------------------
+minio-data/
+.minio/
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# -----------------------------------------------------------------------------
+# Éditeurs et IDEs
+# -----------------------------------------------------------------------------
+# VS Code (garder .vscode/settings.json si partagé, ignorer le reste)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# JetBrains (PyCharm, WebStorm…)
+.idea/
+*.iml
+
+# Cursor (répertoire de cache local)
+.cursor/cache/
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+.\#*
+
+# -----------------------------------------------------------------------------
+# Système d'exploitation
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*
+
+# -----------------------------------------------------------------------------
+# Fichiers temporaires et outputs locaux
+# -----------------------------------------------------------------------------
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# Exports et générés localement (les vrais exports vont en S3)
+exports/
+output/
+generated/
+
+# Archives de test
+*.zip
+*.tar.gz
+!docs/references/*.gz      # exceptions explicites si besoin
+
+# -----------------------------------------------------------------------------
+# CI / CD
+# -----------------------------------------------------------------------------
+.act/                      # act (GitHub Actions local runner)
+
+# -----------------------------------------------------------------------------
+# Certificats de dev local (TLS)
+# -----------------------------------------------------------------------------
+*.crt
+*.csr
+localhost.pem
+localhost-key.pem
+
+# -----------------------------------------------------------------------------
+# Annotations et cache Storybook Chromatic
+# -----------------------------------------------------------------------------
+.chromatic/
