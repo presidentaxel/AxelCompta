@@ -20,6 +20,12 @@ Ce que le script détecte automatiquement (colonnes bleutées, à VÉRIFIER) :
 Ce qu'il NE fait PAS : lire le contenu des PDF (pas d'OCR ici). Les colonnes
 jaunes sont à remplir à la main après ouverture du document via le lien.
 
+Liens : formules =HYPERLIEN()/=HYPERLINK() (plus portables entre Excel et
+LibreOffice Calc que l'attribut hyperlink OOXML). Dans LibreOffice Calc, un
+simple clic peut ne rien faire selon la config : utiliser Ctrl+clic. La
+colonne "Chemin dossier (texte)" donne en plus le chemin brut, copiable-
+collable dans un gestionnaire de fichiers si le lien ne s'ouvre toujours pas.
+
 Usage:
     python generer_tableau_suivi.py --racine "/chemin/vers/Dossier Chauffeurs" \
         --sortie sortie/suivi_statuts_fiscaux.xlsx
@@ -50,14 +56,21 @@ BLEU_DETECTE = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="
 JAUNE_A_REMPLIR = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
 GRIS_HEADER = PatternFill(start_color="404040", end_color="404040", fill_type="solid")
 BLANC_GRAS = Font(bold=True, color="FFFFFF")
-LIEN_FONT = Font(color="0563C1", underline="single")
 
 
 def to_file_uri(p: Path) -> str:
-    try:
-        return "file://" + quote(str(p))
-    except Exception:
-        return ""
+    return "file://" + quote(str(p))
+
+
+def formule_hyperlien(path, texte: str) -> str:
+    """=HYPERLINK() : plus portable entre Excel/LibreOffice que l'attribut
+    hyperlink OOXML seul. Les guillemets internes sont doublés (échappement
+    des formules xlsx)."""
+    if not path:
+        return None
+    uri = to_file_uri(path).replace('"', '""')
+    texte_echappe = texte.replace('"', '""')
+    return f'=HYPERLINK("{uri}","{texte_echappe}")'
 
 
 def classifier_fichier(nom: str) -> set:
@@ -131,14 +144,12 @@ def analyser_dossier(chemin_chauffeur: Path):
             siret = m.group(1)
             break
 
+    statut_apparent = "Actif (probable, aucun indice de clôture)"
     if statut_hits:
-        # priorité : résilié > repris > clôturé
         for libelle in STATUT_APPARENT_MOTS:
             if libelle in statut_hits:
                 statut_apparent = libelle
                 break
-    else:
-        statut_apparent = "Actif (probable, aucun indice de clôture)"
 
     return {
         "matches": matches,
@@ -149,18 +160,33 @@ def analyser_dossier(chemin_chauffeur: Path):
     }
 
 
-def poser_lien(ws, cell_ref, path: Path, texte: str):
-    cell = ws[cell_ref]
-    if not path:
-        cell.value = "—"
-        return
-    uri = to_file_uri(path)
-    cell.value = texte
-    try:
-        cell.hyperlink = uri
-        cell.font = LIEN_FONT
-    except Exception:
-        pass  # chemin trop long ou caractère invalide pour un hyperlien OOXML — on garde juste le texte
+# Colonnes : (clé, en-tête, largeur, type)
+# type "lien" -> valeur posée via formule =HYPERLINK(); "detecte" -> fond bleu ;
+# "remplir" -> fond jaune, valeur vide (+ liste déroulante éventuelle).
+COLONNES = [
+    ("nom", "Nom dossier", 28, "texte"),
+    ("lien_dossier", "Lien dossier (Ctrl+clic)", 22, "lien"),
+    ("chemin_dossier", "Chemin dossier (copier-coller si le lien ne marche pas)", 45, "texte"),
+    ("statut_apparent", "Statut apparent (détecté)", 26, "detecte"),
+    ("siret", "SIRET (détecté)", 16, "texte"),
+    ("forme_detectee", "Forme juridique (détectée)", 26, "detecte"),
+    ("lien_statuts", "Statuts/Kbis (lien, Ctrl+clic)", 26, "lien"),
+    ("tva_detectee", "Indice régime TVA (détecté)", 32, "detecte"),
+    ("lien_tva", "Doc TVA (lien, Ctrl+clic)", 26, "lien"),
+    ("lien_fec", "FEC (lien, Ctrl+clic)", 26, "lien"),
+    ("lien_gl", "Grand livre / Balance (lien, Ctrl+clic)", 26, "lien"),
+    ("sep", "--- À REMPLIR ---", 4, "texte"),
+    ("forme_validee", "Forme juridique (validée)", 20, "remplir_liste:SASU,EURL,Autre,Inconnu"),
+    ("regime_valide", "Régime imposition (validé)", 20, "remplir_liste:IS,Option IR,Inconnu"),
+    ("date_option_ir", "Date début option IR (si applicable)", 22, "remplir"),
+    ("tva_achats_validee", "Régime TVA achats (validé)", 22,
+     "remplir_liste:Réel normal,Réel simplifié (historique),Franchise,Inconnu"),
+    ("tva_recettes_validee", "Régime TVA recettes (validé)", 22,
+     "remplir_liste:Assujetti taux réduit 10%,Franchise,Inconnu"),
+    ("statut_valide", "Statut dossier (validé)", 22, "remplir_liste:Actif,Clôturé,Résilié,Inconnu"),
+    ("verifie_par", "Vérifié par / le", 18, "remplir"),
+    ("notes", "Notes", 30, "remplir"),
+]
 
 
 def main():
@@ -180,85 +206,69 @@ def main():
     ws = wb.active
     ws.title = "Suivi statuts fiscaux"
 
-    entetes = [
-        "Nom dossier", "Lien dossier", "Statut apparent (détecté)",
-        "SIRET (détecté)", "Forme juridique (détectée)", "Statuts/Kbis (lien)",
-        "Indice régime TVA (détecté)", "Doc TVA (lien)", "FEC (lien)",
-        "Grand livre / Balance (lien)",
-        "--- À REMPLIR ---",
-        "Forme juridique (validée)", "Régime imposition (validé)",
-        "Date début option IR (si applicable)", "Régime TVA achats (validé)",
-        "Régime TVA recettes (validé)", "Statut dossier (validé)",
-        "Vérifié par / le", "Notes",
-    ]
-    ws.append(entetes)
-    for col_idx in range(1, len(entetes) + 1):
+    col_index = {cle: i + 1 for i, (cle, *_reste) in enumerate(COLONNES)}
+    ws.append([entete for _cle, entete, _larg, _type in COLONNES])
+    for col_idx in range(1, len(COLONNES) + 1):
         c = ws.cell(row=1, column=col_idx)
         c.fill = GRIS_HEADER
         c.font = BLANC_GRAS
         c.alignment = Alignment(wrap_text=True, vertical="center")
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:{get_column_letter(len(entetes))}1"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(COLONNES))}1"
 
     for i, d in enumerate(dossiers, start=2):
         info = analyser_dossier(d)
         m = info["matches"]
 
-        ws.cell(row=i, column=1, value=d.name)
-        poser_lien(ws, f"B{i}", d, "Ouvrir le dossier")
-        ws.cell(row=i, column=3, value=info["statut_apparent"])
-        ws.cell(row=i, column=4, value=info["siret"])
-        ws.cell(row=i, column=5, value=info["forme_detectee"]).fill = BLEU_DETECTE
-
-        statuts_ou_kbis = (m["statuts"] + m["kbis"])
-        poser_lien(ws, f"F{i}", statuts_ou_kbis[0] if statuts_ou_kbis else None,
-                   statuts_ou_kbis[0].name if statuts_ou_kbis else "—")
-
-        ws.cell(row=i, column=7, value=info["tva_detectee"]).fill = BLEU_DETECTE
+        statuts_ou_kbis = m["statuts"] + m["kbis"]
         docs_tva = m["franchise"] + m["acompte_tva"] + m["tva"]
-        poser_lien(ws, f"H{i}", docs_tva[0] if docs_tva else None,
-                   docs_tva[0].name if docs_tva else "—")
-
-        poser_lien(ws, f"I{i}", m["fec"][0] if m["fec"] else None,
-                   m["fec"][0].name if m["fec"] else "—")
-
         gl_bal = m["grand_livre"] + m["balance"]
-        poser_lien(ws, f"J{i}", gl_bal[0] if gl_bal else None,
-                   gl_bal[0].name if gl_bal else "—")
 
-        for col_idx in range(12, len(entetes) + 1):
-            ws.cell(row=i, column=col_idx).fill = JAUNE_A_REMPLIR
+        valeurs = {
+            "nom": d.name,
+            "lien_dossier": formule_hyperlien(d, "Ouvrir le dossier") or "—",
+            "chemin_dossier": str(d),
+            "statut_apparent": info["statut_apparent"],
+            "siret": info["siret"],
+            "forme_detectee": info["forme_detectee"],
+            "lien_statuts": formule_hyperlien(statuts_ou_kbis[0], statuts_ou_kbis[0].name) if statuts_ou_kbis else "—",
+            "tva_detectee": info["tva_detectee"],
+            "lien_tva": formule_hyperlien(docs_tva[0], docs_tva[0].name) if docs_tva else "—",
+            "lien_fec": formule_hyperlien(m["fec"][0], m["fec"][0].name) if m["fec"] else "—",
+            "lien_gl": formule_hyperlien(gl_bal[0], gl_bal[0].name) if gl_bal else "—",
+        }
+
+        for cle, valeur in valeurs.items():
+            ws.cell(row=i, column=col_index[cle], value=valeur)
+
+        for cle, _entete, _larg, type_ in COLONNES:
+            if type_ == "detecte":
+                ws.cell(row=i, column=col_index[cle]).fill = BLEU_DETECTE
+            elif type_.startswith("remplir"):
+                ws.cell(row=i, column=col_index[cle]).fill = JAUNE_A_REMPLIR
 
         if i % 500 == 0:
             print(f"  {i - 1} dossiers traités...")
 
-    largeurs = [28, 16, 26, 16, 26, 26, 32, 26, 26, 26, 4, 20, 20, 22, 22, 22, 18, 30]
-    for idx, larg in enumerate(largeurs, start=1):
-        ws.column_dimensions[get_column_letter(idx)].width = larg
-
-    # Listes déroulantes sur les colonnes "À remplir"
-    dv_forme = DataValidation(type="list", formula1='"SASU,EURL,Autre,Inconnu"', allow_blank=True)
-    dv_regime = DataValidation(type="list", formula1='"IS,Option IR,Inconnu"', allow_blank=True)
-    dv_tva_achats = DataValidation(type="list", formula1='"Réel normal,Réel simplifié (historique),Franchise,Inconnu"', allow_blank=True)
-    dv_tva_recettes = DataValidation(type="list", formula1='"Assujetti taux réduit 10%,Franchise,Inconnu"', allow_blank=True)
-    dv_statut = DataValidation(type="list", formula1='"Actif,Clôturé,Résilié,Inconnu"', allow_blank=True)
-
-    for dv in (dv_forme, dv_regime, dv_tva_achats, dv_tva_recettes, dv_statut):
-        ws.add_data_validation(dv)
+    for cle, _entete, largeur, _type in COLONNES:
+        ws.column_dimensions[get_column_letter(col_index[cle])].width = largeur
 
     n = len(dossiers) + 1
-    dv_forme.add(f"L2:L{n}")
-    dv_regime.add(f"M2:M{n}")
-    dv_tva_achats.add(f"O2:O{n}")
-    dv_tva_recettes.add(f"P2:P{n}")
-    dv_statut.add(f"Q2:Q{n}")
+    for cle, _entete, _larg, type_ in COLONNES:
+        if type_.startswith("remplir_liste:"):
+            options = type_.split(":", 1)[1]
+            dv = DataValidation(type="list", formula1=f'"{options}"', allow_blank=True)
+            ws.add_data_validation(dv)
+            lettre = get_column_letter(col_index[cle])
+            dv.add(f"{lettre}2:{lettre}{n}")
 
     sortie = Path(args.sortie)
     sortie.parent.mkdir(parents=True, exist_ok=True)
     wb.save(sortie)
     print(f"\n{len(dossiers)} dossiers écrits dans {sortie}")
     print("Colonnes bleues = détecté automatiquement (à vérifier), colonnes jaunes = à remplir.")
-    print("Les liens 'file://' ne fonctionnent que si le disque est monté au même chemin.")
+    print("Liens en formule =HYPERLINK() : dans LibreOffice Calc, Ctrl+clic pour ouvrir.")
+    print("Colonne 'Chemin dossier' = secours en texte brut si le lien ne s'ouvre pas.")
 
 
 if __name__ == "__main__":
