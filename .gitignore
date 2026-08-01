@@ -123,6 +123,13 @@ data/external/
 *.parquet
 *.arrow
 
+# Audit du dataset historique (données clients réelles — voir _AUDIT_DONNEES/README.md)
+_AUDIT_DONNEES/*.csv
+_AUDIT_DONNEES/sortie/
+_AUDIT_DONNEES/modeles/
+_AUDIT_DONNEES/rapport_audit_dataset.md
+!_AUDIT_DONNEES/rapport_audit_dataset_TEMPLATE.md
+
 # MLflow / expériences
 mlruns/
 mlartifacts/
