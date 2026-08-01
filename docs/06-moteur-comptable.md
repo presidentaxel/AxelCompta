@@ -1,6 +1,6 @@
 # 06 — Moteur comptable (`ledger` + `closing` + `filings`)
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
+> Statut : brouillon à valider — Dernière mise à jour : 2026-08-01
 
 Le module le plus critique du système. C'est lui qui doit être « incassable » :
 déterministe, pur, couvert à 100 % par les tests, vérifié par invariants.
@@ -164,7 +164,7 @@ Checklist automatisée, chaque étape produisant des écritures OD traçables :
 | Liasse EDI | EDIFACT/TDFC | Temps 2-3 de la stratégie télédéclaration (doc 02 §5) — produit depuis la liasse pivot. |
 | Dépôt comptes annuels | Dossier Guichet Unique INPI | PDF + données structurées. |
 | Exports comptables | CSV/XLSX (balance, grand livre, journaux) | Pour l'expert-comptable du client. |
-| Déclarations TVA | CA3/CA12 pré-remplies | PDF + pivot (même logique que la liasse). |
+| Déclarations TVA | CA3 pré-remplie (cible) ; CA12 en lecture d'historique seulement (doc 02 §7bis — régime simplifié supprimé au 01/01/2027) | PDF + pivot (même logique que la liasse). |
 
 ## 7. Multi-statuts : matrice de paramétrage (le cœur de la versatilité)
 
@@ -190,7 +190,7 @@ jamais les autres.
 | Dépôt comptes INPI | Oui | Oui | Non | Non | La coop pour elle-même |
 | Rémunération dirigeant | 641 (président SASU) / 455+rému gérant | idem selon forme | Prélèvements 108 | N/A | Salaire |
 | Usage personnel détecté | 455 CCA | 455 CCA | 108 prélèvements | Signalé (pas d'écriture) | Refacturation interne |
-| TVA | Régime TVA configuré par dossier — **réel (simplifié ou normal) opérationnel V1** (les chauffeurs du pilote sont normalement tous au réel), franchise supportée aussi | idem | idem | Franchise par défaut, bascule si seuils | Portée par la coop |
+| TVA | Régime TVA configuré par dossier — **réel normal opérationnel V1 et seule trajectoire pour les nouveaux dossiers** (les chauffeurs du pilote sont normalement tous au réel), franchise supportée aussi ; réel simplifié en lecture d'historique seulement (doc 02 §7bis, supprimé au 01/01/2027) | idem | idem | Franchise par défaut, bascule si seuils | Portée par la coop |
 
 Principes d'implémentation :
 
@@ -201,9 +201,13 @@ Principes d'implémentation :
   successifs — sans migration ni refonte, juste des données et des templates en plus.
 - Le régime TVA est un axe **orthogonal** au statut (une SASU peut être en
   franchise) : deux paramètres distincts dans la configuration du dossier.
-  V1 : réel simplifié et réel normal opérationnels (CA12/CA3) — c'est le cas
-  général du pilote — et franchise supportée (pas de TVA sur les écritures,
-  surveillance des seuils de bascule).
+  V1 : **réel normal (CA3)** opérationnel et seule trajectoire pour tout
+  nouveau dossier — c'est le cas général du pilote — et franchise supportée
+  (pas de TVA sur les écritures, surveillance des seuils de bascule). Le réel
+  simplifié (CA12/acomptes) n'est traité qu'en **lecture d'historique** pour
+  les exercices antérieurs au 01/01/2027 : le régime disparaît légalement à
+  cette date, bascule automatique vers le réel normal (doc 02 §7bis) — inutile
+  d'y construire une trajectoire cible.
 - **L'option IR est bornée à 5 exercices** (art. 239 bis AB CGI) : le dossier porte
   la date du premier exercice couvert par l'option, le moteur compte les exercices
   restants, **alerte à l'approche du terme** (N-1 et N) et prépare la bascule

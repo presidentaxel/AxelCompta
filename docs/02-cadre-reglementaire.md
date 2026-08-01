@@ -1,6 +1,6 @@
 # 02 — Cadre réglementaire et juridique
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
+> Statut : brouillon à valider — Dernière mise à jour : 2026-08-01
 
 ## 1. Pourquoi ce document existe
 
@@ -153,6 +153,29 @@ toutes les entreprises, émission pour les grandes et ETI ; **1er septembre 2027
   l'OCR devenant le fallback pour tickets et documents non structurés.
 - Devenir PA nous-mêmes : **non-objectif** (coût d'immatriculation disproportionné).
   S'intégrer aux PA du marché suffit.
+
+## 7bis. Suppression du régime réel simplifié de TVA (réforme au 1er janvier 2027)
+
+- **Calendrier** : à compter du 1er janvier 2027, le **régime réel simplifié de
+  TVA (RSI) est supprimé**. Les entreprises concernées basculent automatiquement
+  vers le **régime réel normal** — aucune démarche requise de leur part.
+- **Contexte** : avec la généralisation de la facturation électronique et de
+  l'e-reporting (§7 ci-dessus), un système fondé sur des acomptes forfaitaires
+  n'a plus de sens pour l'administration, qui veut collecter la TVA au fil de
+  l'eau.
+- **Conséquence déclarative** : fin des deux acomptes semestriels et de la
+  régularisation annuelle CA12 ; passage à une **déclaration mensuelle (CA3)**
+  par défaut, ou trimestrielle sur option. Le régime simplifié agricole n'est
+  pas concerné par cette suppression.
+- **Conséquence produit — décision** : le calendrier de cette réforme tombe en
+  plein milieu de notre Phase 1 (doc 12, 2026-08 → 2027-02) — le régime
+  simplifié sera obsolète **avant même le pilote client** (Phase 4, 2027-05).
+  On ne construit donc pas le réel simplifié/CA12 comme cible V1 : le **réel
+  normal (CA3 mensuelle) devient la seule trajectoire TVA construite pour de
+  nouveaux dossiers**. Le réel simplifié reste supporté uniquement en **lecture
+  de l'historique** (dossiers repris avec des exercices antérieurs à 2027) —
+  jamais comme régime dans lequel on fait entrer un dossier après le
+  basculement. Voir doc 06 §6-7 pour la traduction dans le moteur.
 
 ## 8. RGPD appliqué au projet
 
