@@ -33,6 +33,10 @@ la phase suivante avec des invariants non tenus.
 
 ### 0.1 Décisions et juridique
 - [ ] Relecture/amendement de toute cette documentation par Louis + associé.
+      **Louis : relu (2026-09-02).** Reste l'associé — la case ne se coche
+      qu'une fois les deux faits, condition explicite du README avant
+      d'écrire du code produit. Prochaine étape (démo doc 17) : go donné,
+      démarrage différé — Louis donnera le top départ.
 - [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
 - [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
