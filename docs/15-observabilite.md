@@ -33,7 +33,7 @@ Ces métriques prouvent que le produit fonctionne. Chacune a un seuil cible et d
 | `ledger.balance_error` | **0** toujours | > 0 | **Alerte critique immédiate** — invariant I1 |
 | `fec.validation_error` | **0** | > 0 | **Alerte critique** — FEC non conforme |
 | `transaction_to_entry.p95` | < 48 h | > 72 h | Pipeline trop lent ou file bouchée |
-| `settlement.unreconciled_rate` | < 5 % | > 10 % | Problème Rollee ou Bridge |
+| `settlement.unreconciled_rate` | < 5 % | > 10 % | Problème Rollee ou Digifactory |
 | `consent.expiry_rate` | < 5 % des dossiers | > 10 % | Campagne de renouvellement urgente |
 
 Ces métriques sont exposées comme compteurs/gauges Prometheus depuis le backend et affichées dans Grafana.
@@ -65,11 +65,11 @@ ml.model.version{model_name}                          # version du champion en p
 
 **Seuils mémoire :** si `worker.memory_mb` dépasse 1 Go en prod, envisager un worker ML dédié séparé du worker principal. À mesurer sur les premières semaines de pilote.
 
-### 3.3 Providers externes (Bridge, Rollee, LLM)
+### 3.3 Providers externes (Digifactory, Rollee, LLM)
 
 ```
-provider.bridge.latency_ms                            # latence API Bridge
-provider.bridge.error.count{error_type}               # erreurs (401 = consentement expiré)
+provider.digifactory.latency_ms                       # latence API Digifactory (canal actif — doc 16)
+provider.digifactory.error.count{error_type}           # erreurs (401 = auth invalide/token révoqué, doc 16 §7 ; sinon consentement expiré)
 provider.rollee.latency_ms
 provider.rollee.error.count{error_type}
 llm.call.count{provider, model}                       # volume d'appels LLM
@@ -162,7 +162,7 @@ Un lint custom (ruff rule ou pre-commit hook) détecte les appels de log contena
 | Niveau | Exemples | Canal | Délai de réponse |
 |--------|----------|-------|-----------------|
 | **Critical** | Invariant comptable violé, FEC non conforme, fuite PII détectée | Sentry + SMS | < 1 h |
-| **Error** | Panne Bridge/Rollee > 15 min, job échoué 3 fois, import rejeté | Sentry + email | < 4 h |
+| **Error** | Panne Digifactory/Rollee > 15 min, job échoué 3 fois, import rejeté | Sentry + email | < 4 h |
 | **Warning** | Taux LLM > 15 %, consentement expiré, balance check échoué (job quotidien) | Email digest | < 24 h |
 | **Info** | KPIs hebdomadaires, rapport d'import, clôture terminée | Dashboard | Passif |
 

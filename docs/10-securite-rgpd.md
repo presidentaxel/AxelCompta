@@ -10,7 +10,7 @@ Actifs à protéger, par ordre de criticité :
 1. **Transactions bancaires nominatives** (10 ans d'historique + flux quotidien).
 2. **Justificatifs** (peuvent contenir adresses, plaques, données santé par accident).
 3. **Intégrité du grand livre** (une altération silencieuse est pire qu'une fuite).
-4. Identifiants Bridge, clés LLM, clé privée Partenaire EDI (à terme).
+4. Token Digifactory (accès Bridge indirect — doc 16), clés LLM, clé privée Partenaire EDI (à terme).
 5. Liens de signature (un lien volé = signature usurpée).
 
 Menaces principales : compromission d'un compte utilisateur B2B, fuite via les
@@ -22,7 +22,7 @@ appels LLM, injection via fichiers importés, exfiltration base, erreur interne
 | Domaine | Mesure |
 |---------|--------|
 | Chiffrement transit | TLS 1.2+ partout, HSTS, mTLS interne si multi-machines. |
-| Chiffrement repos | Disques chiffrés (managé OVH/DO) + chiffrement applicatif (AES-GCM, clés en KMS/Vault) des champs ultra-sensibles : tokens Bridge, IBAN complets. |
+| Chiffrement repos | Disques chiffrés (managé OVH/DO) + chiffrement applicatif (AES-GCM, clés en KMS/Vault) des champs ultra-sensibles : token Digifactory, IBAN complets. |
 | Secrets | Jamais en git (gitleaks en CI), injectés par l'environnement, rotation documentée, accès journalisé. |
 | Auth B2B | MFA obligatoire, sessions courtes, verrouillage après échecs, journal de connexions visible par l'admin tenant. |
 | Liens signataires | URL à jeton unique, expiration ≤ 14 jours, invalidation à usage, re-vérification par code email (OTP) avant affichage des documents. |
@@ -46,6 +46,12 @@ appels LLM, injection via fichiers importés, exfiltration base, erreur interne
 Procédures à implémenter : export des données d'un tenant (réversibilité
 contractuelle), purge complète d'un tenant, réponse à une demande d'accès d'une
 personne concernée (via le client, doc 02 §8).
+
+**Point ouvert — chaîne de sous-traitance à 3 (canal bancaire actuel) :**
+chauffeur → Bridge → Digifactory → nous. Le consentement DSP2 signé par le
+chauffeur couvre-t-il la retransmission à Digifactory ? Question Art. 28 à
+trois parties, non traitée à ce jour, à instruire en phase 0 (doc 02 §3,
+doc 16 §6).
 
 ## 4. Pseudonymisation avant LLM (module dédié, critique)
 

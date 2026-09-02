@@ -8,7 +8,7 @@ Pour un dossier VTC, les données arrivent de deux sources orthogonales qui doiv
 
 | Source | Ce qu'elle fournit | Type interne |
 |--------|-------------------|--------------|
-| **Bridge** (API bancaire) | Les mouvements du compte bancaire du chauffeur : virements entrants (Uber, Bolt...), débits (carburant, péages...) | `NormalizedTransaction` |
+| **Digifactory** (agrégateur Bridge, API bancaire — doc 16) | Les mouvements du compte bancaire du chauffeur : virements entrants (Uber, Bolt...), débits (carburant, péages...) | `NormalizedTransaction` |
 | **Rollee** (API plateformes) | Le détail des courses et revenus sur chaque plateforme : brut, commission, TVA, net versé | `PlatformSettlement` |
 
 Un virement bancaire `+847,32 € - UBER BV AMSTERDAM` ne permet pas, seul, de générer les écritures correctes (ventilation 706 / 622 / 44571 / 44566). Il faut le croiser avec le relevé Rollee de la même semaine, qui décompose ce montant.
@@ -25,7 +25,7 @@ Le module `ingestion/` expose une interface abstraite `DataProvider`. Chaque sou
 ingestion/
 ├── providers/
 │   ├── base.py              # ABC DataProvider + types partagés
-│   ├── bridge.py            # BridgeProvider (transactions bancaires)
+│   ├── digifactory.py       # DigifactoryProvider (transactions bancaires, agrège Bridge — doc 16)
 │   ├── rollee.py            # RolleeProvider (données plateformes gig)
 │   └── file_import.py       # FileImportProvider (CSV/XLSX/ODS/OFX)
 ├── reconciliation.py        # Matching PlatformSettlement ↔ NormalizedTransaction
@@ -73,22 +73,22 @@ class DataProvider(ABC):
 # Dans la config dossier (table dossier_config)
 {
   "providers": {
-    "bank": "bridge",           # bridge | file_import
+    "bank": "digifactory",      # digifactory | bridge | file_import
     "platforms": "rollee",      # rollee | file_import | none
   },
   "rollee": {
     "fleet_account_id": "fleet_abc123",
     "driver_account_id": "drv_xyz789"
   },
-  "bridge": {
-    "item_id": "item_00042"
+  "digifactory": {
+    "contact_nr": "12345"
   }
 }
 ```
 
-Le provider `bridge` alimente les transactions bancaires. Le provider `rollee` alimente les settlements de plateformes. Les deux coexistent sur le même dossier. Un dossier sans Rollee (client futur hors VTC) passe sur `platforms: none` ou `file_import`.
+Le provider `digifactory` alimente les transactions bancaires (canal actif pour le pilote — doc 16). Un provider `bridge` direct suivra le même contrat quand le sandbox sera testé (doc 16 §8). Le provider `rollee` alimente les settlements de plateformes. Les deux coexistent sur le même dossier. Un dossier sans Rollee (client futur hors VTC) passe sur `platforms: none` ou `file_import`.
 
-**Règle impérative :** le code de `categorize/`, `ledger/`, `anomaly/` ne doit jamais importer `rollee.py` ni `bridge.py`. Il reçoit des `NormalizedTransaction` et des `PlatformSettlement` — point.
+**Règle impérative :** le code de `categorize/`, `ledger/`, `anomaly/` ne doit jamais importer `rollee.py` ni `digifactory.py` (ni `bridge.py` le jour où il existera). Il reçoit des `NormalizedTransaction` et des `PlatformSettlement` — point.
 
 ## 3. Rollee — intégration concrète
 
@@ -106,7 +106,7 @@ Le provider `bridge` alimente les transactions bancaires. Le provider `rollee` a
 | `GET /accounts` | Liste des comptes chauffeur rattachés à la flotte | Vérification que tous les dossiers ont un compte Rollee |
 | `GET /accounts/{id}/income` | Revenus par période : brut, commission, net, par plateforme | Base des écritures 706 + 622 |
 | `GET /accounts/{id}/trips` | Courses individuelles avec montants | Granularité pour audit ; agrégées pour comptabilité |
-| `GET /accounts/{id}/wallet` | Virements reçus (date, montant, plateforme) | Clé de réconciliation avec Bridge |
+| `GET /accounts/{id}/wallet` | Virements reçus (date, montant, plateforme) | Clé de réconciliation avec Digifactory (Bridge) |
 | `GET /accounts/{id}/performance` | Statistiques activité | Profil comportemental du dossier (doc 07 §3.3) |
 
 ### 3.3 Flux de connexion d'un chauffeur (mode fleet)
@@ -173,7 +173,7 @@ Le délai ±3j/+5j couvre les décalages de virement inter-banques. La toléranc
 ```
 rollee_reçu → en_attente_banque → réconcilié → écritures_générées → validé
                      ↑                  ↑
-              bridge_reçu_avant   bridge_reçu_après
+           digifactory_reçu_avant   digifactory_reçu_après
 ```
 
 Un settlement peut rester en `en_attente_banque` plusieurs jours (le virement Uber peut prendre 3 à 5 jours ouvrés). C'est normal — ce n'est pas une alerte tant que la fenêtre n'est pas dépassée.
@@ -212,7 +212,7 @@ Dossier en SASU IS, assujetti TVA au réel (taux recettes = 10%), entité Uber F
 Données Rollee :
   gross_earnings : 1 040,00 € TTC
   commission     :   192,00 € TTC (Uber France, TVA 20% incluse)
-  net_payout     :   848,00 €  ← doit matcher le virement Bridge
+  net_payout     :   848,00 €  ← doit matcher le virement bancaire (Digifactory)
 
 Calculs :
   Recettes HT     = 1 040,00 / 1,10 = 945,45 €
@@ -260,7 +260,7 @@ Chaque variante est un template de données dans `packs/vtc/`, pas une branche d
 
 Pour un client futur sans Rollee, ou en attendant que le chauffeur connecte son compte :
 
-1. La transaction bancaire `+848,00 € UBER BV` arrive via Bridge.
+1. La transaction bancaire `+848,00 € UBER BV` arrive via Digifactory.
 2. Sans PlatformSettlement associé, le pipeline de catégorisation la traite comme une recette globale.
 3. Écriture simplifiée : `512 D 848,00 / 706 C 848,00` (montant brut, sans ventilation commission).
 4. Statut : `catégorisation_partielle` — un flag indique que la ventilation TVA complète est manquante.

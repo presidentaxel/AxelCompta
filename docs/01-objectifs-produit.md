@@ -5,7 +5,7 @@
 ## 1. Vision
 
 **AxeLCompta** est une plateforme B2B de production comptable automatisée. Elle ingère
-des flux bancaires (API Bridge, fichiers), des justificatifs (tickets, factures), les
+des flux bancaires (Digifactory/Bridge, fichiers), des justificatifs (tickets, factures), les
 catégorise via un pipeline hybride (règles → ML → LLM), produit les livres comptables,
 les liasses fiscales et les dépôts légaux, puis fait circuler les documents pour
 relecture et signature électronique.
@@ -40,7 +40,7 @@ modes ne doit jamais nécessiter de refonte pour activer l'autre.
 
 | # | Capacité | Description |
 |---|----------|-------------|
-| C1 | **Ingestion bancaire** | Connexion API Bridge (DSP2/AIS) pour récupérer comptes et transactions en continu. |
+| C1 | **Ingestion bancaire** | Connexion bancaire via Digifactory (agrégateur Bridge, DSP2/AIS), canal actif pour le pilote (doc 16) ; connexion Bridge directe en piste parallèle non bloquante (sandbox, doc 16 §8). |
 | C2 | **Ingestion fichiers** | Import CSV, Excel (xlsx/xls), ODS, OFX, QIF — pour les tests, la reprise d'historique et les clients sans API. |
 | C3 | **Ingestion justificatifs** | OCR + Vision sur tickets, factures, contrats (LOA, achat véhicule). Le justificatif est un *plus*, jamais un bloqueur : une transaction sans justificatif est traitée quand même, avec un statut « justificatif manquant ». |
 | C4 | **Catégorisation hybride** | Règles déterministes codées en dur (faible variance) → modèle ML (entraîné sur 10 ans d'historique) → arbitrage LLM (Claude/Gemini/OpenAI) uniquement sur les cas ambigus, avec données pseudonymisées. |
@@ -122,7 +122,7 @@ rang, pas une option :
 |--------|--------|------------|
 | Frontière juridique de l'activité (ordonnance de 1945) | Existentiel | Positionnement éditeur strict + validation humaine obligatoire dans le workflow (doc 02). |
 | Qualité des données d'entraînement (10 ans d'historique) | Élevé | Audit du dataset avant tout entraînement, nettoyage documenté (doc 07). |
-| Dépendance Bridge (pricing, API) | Moyen | Couche d'abstraction `BankProvider`, formats fichiers comme fallback permanent. |
+| Dépendance Digifactory (fournisseur unique côté banque pour le pilote) | Moyen | Couche d'abstraction `DataProvider`, piste Bridge directe en parallèle (doc 16 §8), formats fichiers comme fallback permanent. |
 | Habilitation Partenaire EDI longue à obtenir | Moyen | Stratégie en 3 temps : manuel → partenaire EDI tiers → habilitation propre (doc 02 §5). |
 | 1-2 devs seulement | Élevé | Périmètre V1 strict, qualité de code et tests non négociables (docs 08-09), pas de microservices. |
 | Réforme facturation électronique 09/2026 | Moyen | Veille active ; en réception nous consommons du Factur-X, opportunité plus que menace (doc 02 §7). |
@@ -131,7 +131,7 @@ rang, pas une option :
 
 ```mermaid
 flowchart LR
-    A[Comptes bancaires / Bridge API] --> N[Normalisation]
+    A[Comptes bancaires / Digifactory (Bridge)] --> N[Normalisation]
     B[CSV / Excel / ODS] --> N
     C[Tickets & factures<br/>OCR + Vision] --> M[Matching justificatifs]
     N --> P[Pipeline de catégorisation<br/>Règles → ML → LLM]
@@ -150,7 +150,7 @@ flowchart LR
 - [x] ~~Statuts juridiques~~ → confirmé : mix SASU/EURL à l'IS + quelques-unes avec option IR (bornée 5 exercices, doc 06 §7). Reste à collecter la **liste exacte statut par chauffeur** à l'onboarding — chaque dossier est paramétré individuellement.
 - [x] ~~Régime TVA~~ → confirmé : les chauffeurs du pilote sont normalement tous au **réel** ; la franchise doit être supportée aussi. Les deux dans la V1, réel testé en priorité.
 - [ ] Qui valide en dernier ressort chaque dossier : le service compta du client gestionnaire, ou un cabinet comptable partenaire ?
-- [ ] Le client a-t-il déjà un contrat Bridge ou faut-il le souscrire (et qui paie) ?
+- [ ] Le client a-t-il déjà un contrat Bridge ou faut-il le souscrire (et qui paie) ? — pour le pilote, l'accès passe par Digifactory (doc 16) ; cette question ne concerne que la piste Bridge directe (doc 16 §8).
 - [ ] Les 10 ans de données : sous quel format, quelle qualité, quel droit d'usage RGPD pour l'entraînement ?
 - [ ] Quel prestataire de signature électronique le client accepte-t-il (Yousign, Docusign, autre) ?
 - [ ] SLA attendu par le client, et exigences de son service sécurité (questionnaire fournisseur probable).

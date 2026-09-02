@@ -1,7 +1,8 @@
 # ADR-005 — Moteur OCR pour les justificatifs
 
-**Date :** 2026-06-16
-**Statut :** en attente de benchmark — décision à prendre en phase 0 (spike OCR)
+**Date :** 2026-06-16  
+**Mis à jour :** 2026-06-25  
+**Statut :** DÉCIDÉ
 **Décideurs :** Louis Vedovato
 
 ## Contexte
@@ -31,8 +32,29 @@ Le spike phase 0 consiste à tester les 3 moteurs sur 30 tickets réels représe
 
 Google Vision API est exclu par principe (données hors périmètre) sauf si aucune solution self-hosted n'atteint le seuil.
 
-## Action requise
+## Résultat du spike (2026-06-25)
 
-- [ ] Constituer le corpus de 30 tickets réels anonymisés
-- [ ] Benchmark Tesseract vs PaddleOCR sur ce corpus
-- [ ] Documenter les résultats et mettre à jour cet ADR avec la décision finale
+Corpus testé : 18 factures VTC représentatives (assurance, télécom, LOA FlexiFleet,
+tickets carburant scan, factures Uber, factures greffe, entretien garage).
+
+| Méthode | Couverture | Extraction montant_ttc |
+|---------|-----------|----------------------|
+| pdfplumber natif | 67 % | 100 % sur texto |
+| Tesseract 5 (fra+eng, dpi=200) | 33 % (scans) | ~90 % |
+| **Total pipeline** | **100 %** | **94 %** |
+
+**Décision : Tesseract 5 retenu** pour l'étage OCR. Il atteint le seuil de 94 % sur
+`montant_ttc` sur le corpus pilote. PaddleOCR non benchmarké — Tesseract est suffisant
+pour le V1 ; PaddleOCR pourra être évalué si la précision plafonne sur des tickets
+très dégradés (froissés, photos de mauvaise qualité).
+
+**Pipeline définitif :**
+1. pdfplumber → texte natif si ≥ 100 chars
+2. Tesseract 5 (`fra+eng`, psm=6) → sur les scans/images
+3. Claude Vision → fallback sur tickets illisibles (manuscrit, photo très mauvaise)
+
+## Actions réalisées
+
+- [x] Constituer le corpus de 18 factures réels (`_AUDIT_DONNEES/donnees_test_factures/`)
+- [x] Benchmark Tesseract sur ce corpus (script 11)
+- [x] Décision documentée ici

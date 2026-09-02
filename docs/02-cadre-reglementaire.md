@@ -68,6 +68,14 @@ veulent une). À garder pour la phase 2, ce n'est pas bloquant pour la V1.
   AISP au sens de la DSP2). En passant par Bridge, AxeL n'a **pas besoin d'agrément
   AISP propre** : Bridge porte l'agrément, nous consommons son API. À vérifier au
   contrat : nous sommes « agent » ou simple client technique.
+- **Pour le pilote (septembre 2026), l'accès ne passe pas par un contrat Bridge
+  direct** : Digifactory, déjà client Bridge, agrège les données par contact et
+  nous expose sa propre API (doc 16). Nous ne sommes donc pas partie au contrat
+  Bridge sur cette période. Un accès Bridge direct (application séparée,
+  sandbox) est une piste parallèle non bloquante testée plus tard (doc 16 §8).
+  Ceci ajoute une **chaîne de sous-traitance à trois** (chauffeur → Bridge →
+  Digifactory → nous) dont la couverture RGPD par le consentement DSP2 n'est
+  pas confirmée — point ouvert, doc 10 §3, doc 16 §6.
 - Le **consentement** du titulaire du compte (le gérant du dossier ou sa société) est requis
   et renouvelable (180 jours sous DSP2). Le parcours de consentement est géré par
   Bridge Connect, mais nous devons tracer qui a consenti, quand, pour quels comptes.
@@ -211,6 +219,7 @@ Voir doc 10 pour le volet technique. Points juridiques :
 - [x] Positionnement éditeur §2.3 — validé.
 - [ ] Rédiger CGU/CGV + DPA (sous-traitance RGPD art. 28).
 - [ ] AIPD pour le module de détection d'anomalies.
-- [ ] Contrat Bridge : clarifier le statut (client technique vs agent) et les volumes.
+- [ ] Contrat Bridge : clarifier le statut (client technique vs agent) et les volumes — pertinent pour la piste directe (doc 16 §8), pas pour le canal Digifactory du pilote.
+- [ ] Chaîne de sous-traitance RGPD à 3 (chauffeur → Bridge → Digifactory → nous) : le consentement DSP2 couvre-t-il la retransmission à Digifactory ? (doc 10 §3, doc 16 §6)
 - [ ] Vérifier le droit d'usage des 10 ans de données historiques pour l'entraînement.
 - [ ] Registre des traitements + désignation DPO (externe possible).

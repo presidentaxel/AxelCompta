@@ -39,6 +39,11 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
+try:
+    import pdfplumber
+except ImportError:
+    sys.exit("pdfplumber requis : pip install pdfplumber")
+
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
@@ -46,6 +51,35 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 FEC_RE = re.compile(r"FEC\d*\.(csv|txt)$", re.IGNORECASE)
 SIRET_IN_FEC_RE = re.compile(r"(\d{9,14})FEC")
+FORME_KBIS_RE = re.compile(r"Forme juridique\s+([^\n]+)", re.IGNORECASE)
+CATEGORIE_AVIS_RE = re.compile(r"Cat[ée]gorie juridique\s+([^\n]+)", re.IGNORECASE)
+SIREN_AVIS_RE = re.compile(r"Identifiant SIREN\s+([\d ]{9,15})", re.IGNORECASE)
+
+
+def lire_premiere_page(path: Path) -> str:
+    """Texte natif de la 1re page d'un PDF — vide si le PDF est scanné (pas
+    de couche texte) ou illisible. Pas d'OCR ici (voir ADR-005 pour le
+    pipeline complet si besoin plus tard)."""
+    try:
+        with pdfplumber.open(path) as pdf:
+            return pdf.pages[0].extract_text() or ""
+    except Exception:
+        return ""
+
+
+def deduire_forme_depuis_texte(texte: str) -> str | None:
+    """Classe le texte extrait (Forme juridique du Kbis, ou Catégorie
+    juridique de l'avis de situation INSEE) dans les catégories du produit
+    (doc 06 §7). Retourne None si le texte ne contient aucun motif reconnu."""
+    t = texte.lower()
+    unique = "associé unique" in t or "associée unique" in t or "à associé unique" in t
+    if "responsabilité limitée" in t:
+        return "EURL" if unique else "SARL"
+    if "actions simplifiée" in t:
+        return "SASU" if unique else "SAS (pluripersonnelle, hors scope V1)"
+    if "entrepreneur individuel" in t:
+        return "Entrepreneur individuel"
+    return None
 STATUT_APPARENT_MOTS = {
     "résilié / fin de contrat": ["fin contrat", "fin ct", "resilie", "résilié", "annule", "annulé"],
     "repris (ancien dossier)": ["reprise"],
@@ -80,6 +114,8 @@ def classifier_fichier(nom: str) -> set:
         tags.add("statuts")
     if "kbis" in low or "k-bis" in low:
         tags.add("kbis")
+    if "avis" in low and "situation" in low:
+        tags.add("avis_situation")
     if "franchise" in low:
         tags.add("franchise")
     if "acompte" in low and "tva" in low:
@@ -101,7 +137,7 @@ def classifier_fichier(nom: str) -> set:
 
 def analyser_dossier(chemin_chauffeur: Path):
     matches = {k: [] for k in (
-        "statuts", "kbis", "tva", "franchise", "acompte_tva",
+        "statuts", "kbis", "avis_situation", "tva", "franchise", "acompte_tva",
         "grand_livre", "balance", "fec", "mention_sasu", "mention_eurl",
     )}
     statut_hits = []
@@ -119,14 +155,38 @@ def analyser_dossier(chemin_chauffeur: Path):
                 if len(matches[t]) < 3:
                     matches[t].append(full)
 
-    if matches["mention_sasu"] and matches["mention_eurl"]:
-        forme_detectee = "Ambigu (SASU + EURL mentionnés)"
-    elif matches["mention_sasu"]:
-        forme_detectee = "SASU (détecté)"
-    elif matches["mention_eurl"]:
-        forme_detectee = "EURL (détecté)"
-    else:
-        forme_detectee = "Non détecté"
+    forme_detectee = None
+    source_forme = ""
+
+    if matches["kbis"]:
+        texte = lire_premiere_page(matches["kbis"][0])
+        m = FORME_KBIS_RE.search(texte)
+        forme_lue = deduire_forme_depuis_texte(m.group(1)) if m else None
+        if forme_lue:
+            forme_detectee = forme_lue
+            source_forme = f"Lu dans {matches['kbis'][0].name}"
+
+    if forme_detectee is None and matches["avis_situation"]:
+        texte = lire_premiere_page(matches["avis_situation"][0])
+        m = CATEGORIE_AVIS_RE.search(texte)
+        forme_lue = deduire_forme_depuis_texte(m.group(1)) if m else None
+        if forme_lue:
+            forme_detectee = forme_lue
+            source_forme = f"Lu dans {matches['avis_situation'][0].name}"
+
+    if forme_detectee is None:
+        if matches["mention_sasu"] and matches["mention_eurl"]:
+            forme_detectee = "Ambigu (SASU + EURL mentionnés dans des noms de fichiers)"
+            source_forme = "Nom de fichier (ambigu)"
+        elif matches["mention_sasu"]:
+            forme_detectee = "SASU (détecté par nom de fichier)"
+            source_forme = "Nom de fichier"
+        elif matches["mention_eurl"]:
+            forme_detectee = "EURL (détecté par nom de fichier)"
+            source_forme = "Nom de fichier"
+        else:
+            forme_detectee = "Non détecté"
+            source_forme = "Aucun Kbis/avis de situation/nom de fichier exploitable"
 
     if matches["franchise"]:
         tva_detectee = "Franchise (mention trouvée)"
@@ -138,11 +198,17 @@ def analyser_dossier(chemin_chauffeur: Path):
         tva_detectee = "Aucun doc TVA trouvé"
 
     siret = ""
-    for f in matches["fec"]:
-        m = SIRET_IN_FEC_RE.search(f.name)
+    if matches["avis_situation"]:
+        texte = lire_premiere_page(matches["avis_situation"][0])
+        m = SIREN_AVIS_RE.search(texte)
         if m:
-            siret = m.group(1)
-            break
+            siret = m.group(1).replace(" ", "")
+    if not siret:
+        for f in matches["fec"]:
+            m = SIRET_IN_FEC_RE.search(f.name)
+            if m:
+                siret = m.group(1)
+                break
 
     statut_apparent = "Actif (probable, aucun indice de clôture)"
     if statut_hits:
@@ -154,6 +220,7 @@ def analyser_dossier(chemin_chauffeur: Path):
     return {
         "matches": matches,
         "forme_detectee": forme_detectee,
+        "source_forme": source_forme,
         "tva_detectee": tva_detectee,
         "siret": siret,
         "statut_apparent": statut_apparent,
@@ -169,14 +236,17 @@ COLONNES = [
     ("chemin_dossier", "Chemin dossier (copier-coller si le lien ne marche pas)", 45, "texte"),
     ("statut_apparent", "Statut apparent (détecté)", 26, "detecte"),
     ("siret", "SIRET (détecté)", 16, "texte"),
-    ("forme_detectee", "Forme juridique (détectée)", 26, "detecte"),
+    ("forme_detectee", "Forme juridique (lue automatiquement dans Kbis/avis de situation si possible)", 30, "detecte"),
+    ("source_forme", "Source de la détection", 30, "detecte"),
     ("lien_statuts", "Statuts/Kbis (lien, Ctrl+clic)", 26, "lien"),
+    ("lien_avis", "Avis de situation INSEE (lien, Ctrl+clic)", 26, "lien"),
     ("tva_detectee", "Indice régime TVA (détecté)", 32, "detecte"),
     ("lien_tva", "Doc TVA (lien, Ctrl+clic)", 26, "lien"),
     ("lien_fec", "FEC (lien, Ctrl+clic)", 26, "lien"),
     ("lien_gl", "Grand livre / Balance (lien, Ctrl+clic)", 26, "lien"),
     ("sep", "--- À REMPLIR ---", 4, "texte"),
-    ("forme_validee", "Forme juridique (validée)", 20, "remplir_liste:SASU,EURL,Autre,Inconnu"),
+    ("forme_validee", "Forme juridique (validée)", 20,
+     "remplir_liste:SASU,EURL,SAS,SARL,Entrepreneur individuel,Autre,Inconnu"),
     ("regime_valide", "Régime imposition (validé)", 20, "remplir_liste:IS,Option IR,Inconnu"),
     ("date_option_ir", "Date début option IR (si applicable)", 22, "remplir"),
     ("tva_achats_validee", "Régime TVA achats (validé)", 22,
@@ -231,7 +301,9 @@ def main():
             "statut_apparent": info["statut_apparent"],
             "siret": info["siret"],
             "forme_detectee": info["forme_detectee"],
+            "source_forme": info["source_forme"],
             "lien_statuts": formule_hyperlien(statuts_ou_kbis[0], statuts_ou_kbis[0].name) if statuts_ou_kbis else "—",
+            "lien_avis": formule_hyperlien(m["avis_situation"][0], m["avis_situation"][0].name) if m["avis_situation"] else "—",
             "tva_detectee": info["tva_detectee"],
             "lien_tva": formule_hyperlien(docs_tva[0], docs_tva[0].name) if docs_tva else "—",
             "lien_fec": formule_hyperlien(m["fec"][0], m["fec"][0].name) if m["fec"] else "—",

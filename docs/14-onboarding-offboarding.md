@@ -26,8 +26,8 @@ Données à obtenir du client **avant** de créer quoi que ce soit :
 - Raison sociale du client gestionnaire, SIREN, contact technique et comptable
 - Mode d'usage : portefeuille (N dossiers) ou mono-entreprise
 - Pack métier : VTC (pour le pilote), autre secteur à venir
-- Providers souhaités : Bridge ? Rollee ? (les deux pour le pilote)
-- Compte Rollee fleet existant ? Compte Bridge existant ? IDs à récupérer.
+- Providers souhaités : Digifactory (banque, via Bridge — doc 16) ? Rollee ? (les deux pour le pilote)
+- Compte Rollee fleet existant ? Contact Digifactory existant (`nr`) ? IDs à récupérer.
 - Mode de relance consentements : auto (emails/SMS directs aux chauffeurs) ou manuel (le gestionnaire gère)
 
 **Pour chaque dossier (en masse via CSV) :**
@@ -44,7 +44,8 @@ Données à obtenir du client **avant** de créer quoi que ce soit :
 | date_debut_exercice | Oui | 2025-01-01 | ISO 8601 |
 | date_fin_exercice | Oui | 2025-12-31 | |
 | rollee_driver_account_id | Si Rollee | drv_xxx | Fourni par Rollee ou à créer |
-| bridge_item_id | Si Bridge | item_xxx | Fourni après connexion Bridge |
+| digifactory_contact_nr | Si Digifactory (V1 pilote) | 12345 | Identifiant pivot bancaire pour le canal actif — doc 16 |
+| bridge_item_id | Si Bridge direct | item_xxx | Réservé au futur provider Bridge direct (sandbox, non utilisé en V1 pilote — doc 16 §8) |
 | nom_dirigeant | Oui | Jean Dupont | Pour les documents et le profil de pseudonymisation |
 | email_dirigeant | Oui | jean@example.com | Pour les liens de signature et relances consentements |
 | tel_dirigeant | Optionnel | +33612345678 | Pour SMS de relance consentements |
@@ -74,9 +75,9 @@ Upload du CSV validé → le système crée les 200 dossiers en une seule opéra
 - Rapport des dossiers sans compte Rollee associé (à connecter manuellement ou par invitation)
 - Pour les chauffeurs sans compte : envoyer une invitation Rollee Connect (email avec lien de connexion)
 
-**Bridge :**
-- Vérifier les consentements pour les `item_id` fournis
-- Pour les dossiers sans item_id : générer un lien Bridge Connect à envoyer au chauffeur
+**Digifactory (canal bancaire actif — doc 16) :**
+- Vérifier les consentements pour les `digifactory_contact_nr` fournis via l'état `paused`/`data_access`/`last_refresh_status` de `/accounts/{nr}`
+- Pour les dossiers sans `nr` : **point ouvert** — pas confirmé si l'ouverture d'une nouvelle connexion Bridge Connect pour un chauffeur passe par Digifactory ou reste hors de notre contrôle (doc 16 §6)
 - État des connexions : connexion valide / consentement expiré / en attente
 
 ### 1.6 Étape 4 — Reprise d'historique
@@ -100,8 +101,8 @@ Si l'outil précédent ne peut pas exporter de FEC (rare mais possible sur Excel
 ### 1.7 Étape 5 — Validation sur dossier pilote
 
 Avant go live :
-1. Choisir 1 dossier représentatif (SASU IS, actif, bon historique Rollee + Bridge).
-2. Rejouer un mois complet : import Bridge + Rollee → catégorisation → validation humaine → FEC.
+1. Choisir 1 dossier représentatif (SASU IS, actif, bon historique Rollee + Digifactory).
+2. Rejouer un mois complet : import Digifactory + Rollee → catégorisation → validation humaine → FEC.
 3. Comparer le FEC produit par AxeLCompta avec les écritures de l'outil précédent sur le même mois.
 4. Valider avec le service comptable du client que les écritures sont correctes.
 5. Seulement si validé → go live sur les autres dossiers.
@@ -123,7 +124,7 @@ Ne pas basculer 200 dossiers le même jour. Ordre recommandé :
 
 | Type | Provider | Durée | Conséquence d'expiration |
 |------|----------|-------|--------------------------|
-| Consentement DSP2 (accès bancaire) | Bridge | 90 jours | Plus de flux bancaire entrant → transactions manquantes |
+| Consentement DSP2 (accès bancaire) | Digifactory (relaie Bridge) | 90 jours — date d'expiration non confirmée exposée par Digifactory (doc 16 §6) | Plus de flux bancaire entrant → transactions manquantes |
 | Token d'accès plateformes | Rollee | Variable selon plateforme | Plus de données Rollee → settlements non réconciliés |
 
 ### 2.2 Dashboard des consentements
@@ -150,9 +151,9 @@ Ce panneau est un **écran de premier rang**, pas caché dans les paramètres.
 ### 2.4 Transactions manquantes pendant un trou de consentement
 
 Si un consentement a expiré pendant N jours, une fois renouvelé :
-- Bridge/Rollee remontent automatiquement l'historique des transactions de la période manquante (dans les limites de leur API — généralement 90 jours)
+- Digifactory/Rollee remontent automatiquement l'historique des transactions de la période manquante (dans les limites de leur API — profondeur exacte côté Digifactory non confirmée, doc 16 §6)
 - AxeLCompta réimporte et tente la réconciliation rétroactive
-- Si des settlements Rollee arrivent sans transaction Bridge associée (et vice-versa) : file de revue manuelle
+- Si des settlements Rollee arrivent sans transaction Digifactory associée (et vice-versa) : file de revue manuelle
 
 ---
 
@@ -210,4 +211,4 @@ Le deuxième client n'est pas dans le secteur VTC. Il a un autre secteur (ex. re
 
 La durée de création d'un nouveau pack est proportionnelle à la complexité métier, pas à la complexité technique. Le moteur ne change pas.
 
-Si le nouveau client utilise Bridge mais pas Rollee (secteur sans plateforme gig) : configurer `platforms: none`. La réconciliation de settlements ne s'active pas, et aucun code n'est exécuté inutilement.
+Si le nouveau client utilise Digifactory/Bridge mais pas Rollee (secteur sans plateforme gig) : configurer `platforms: none`. La réconciliation de settlements ne s'active pas, et aucun code n'est exécuté inutilement.

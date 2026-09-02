@@ -4,37 +4,55 @@
 
 ## 1. Principes
 
-1. **Conserver le brut, toujours.** Chaque payload Bridge, chaque fichier importé,
-   chaque image de ticket est archivé tel quel (hash SHA-256, horodatage, source)
-   avant toute transformation. On peut rejouer n'importe quel import.
+1. **Conserver le brut, toujours.** Chaque payload Digifactory (Bridge), chaque
+   fichier importé, chaque image de ticket est archivé tel quel (hash SHA-256,
+   horodatage, source) avant toute transformation. On peut rejouer n'importe
+   quel import.
 2. **Idempotence.** Rejouer un import ne crée jamais de doublons. Clé de
    déduplication : `(compte, date, montant, hash(libellé brut), index_intra_jour)` +
-   l'ID transaction Bridge quand il existe.
+   l'ID transaction Digifactory quand il existe.
 3. **Le justificatif est optionnel par conception.** Une transaction sans ticket est
    traitée et comptabilisée ; elle porte un statut `piece_manquante` qui alimente la
    liste de relance, jamais un blocage.
 4. **Quarantaine plutôt que rejet silencieux.** Toute ligne non parsable part en
    quarantaine avec sa raison, visible dans l'UI, corrigeable, réinjectable.
 
-## 2. Connecteur Bridge (API bancaire)
+## 2. Connecteur bancaire : Digifactory (agrégateur Bridge)
 
-- **Rôle** : Bridge est notre AISP (agrégation DSP2). Nous consommons Items
-  (connexions bancaires), Accounts, Transactions ; le consentement utilisateur passe
-  par Bridge Connect.
-- **Abstraction** : interface `BankProvider` (méthodes `list_accounts`,
-  `fetch_transactions(since)`, `refresh_status`). Bridge est la première
-  implémentation, pas la seule possible (changement de fournisseur, ou banque
-  cliente fournissant ses propres flux un jour).
-- **Synchronisation** : webhooks Bridge si disponibles + polling de rattrapage
-  planifié (les webhooks se perdent ; le polling est la source de vérité).
-- **Gestion des états** : un compte connecté peut tomber en
-  `consent_expired` (180 jours DSP2), `bank_error`, `action_required` (SCA).
-  → tableau de bord de santé des connexions par dossier + alertes au client
-  (c'est lui qui fait relancer le gérant du dossier concerné).
-- **Historique limité** : Bridge ne remonte que quelques mois d'historique à la
-  première connexion. La reprise des données anciennes passe par les imports
-  fichiers (§3) — d'où leur statut de fonctionnalité de premier rang, pas de mode
-  test.
+> **Pour septembre 2026, le seul canal actif est Digifactory** — pas d'appel
+> Bridge direct en parallèle ce mois-ci. Bridge reste la source de données de
+> base ; Digifactory n'est qu'un tampon qui agrège les mêmes données par
+> contact. Détail complet : doc 16.
+
+- **Rôle** : Bridge est l'AISP (agrégation DSP2) sous-jacent, mais nous n'y
+  accédons pas en direct — Digifactory, déjà client Bridge, nous expose une
+  API dédiée (`/contacts`, `/accounts/{nr}`, `/transactions/{nr}`,
+  `/categories`). Le consentement utilisateur passe par Bridge Connect côté
+  Digifactory (qui gère précisément cette relation reste un point ouvert, doc
+  16 §6).
+- **Abstraction** : interface `DataProvider` (doc 13 §2), implémentée par
+  `DigifactoryProvider` (méthodes `fetch_transactions(since)`, `health`).
+  Digifactory est la première implémentation active, pas la seule prévue : un
+  `BridgeProvider` direct est testé en sandbox après le pilote Digifactory
+  (doc 16 §8), sans rien changer à cette interface.
+- **Synchronisation** : **pull uniquement**, à notre initiative — pas de
+  webhook côté Digifactory. Sync incrémental sur le paramètre `since`
+  (filtre `updated_at`), en persistant le `updated_at` max observé par contact
+  (doc 16 §3.1). `from`/`to` réservés aux rattrapages ponctuels.
+- **Gestion des états** : la combinaison `paused` + `data_access` +
+  `last_refresh_status` (exposée par `/accounts/{nr}`) distingue un chauffeur
+  inactif d'une connexion cassée. → tableau de bord de santé des connexions
+  par dossier + alertes au client (c'est lui qui fait relancer le gérant du
+  dossier concerné). La date d'expiration du consentement DSP2 n'est pas
+  confirmée exposée par Digifactory — sans elle, relance anticipée J-14
+  impossible (doc 14 §2.3, doc 16 §6).
+- **Historique limité** : profondeur conservée côté Digifactory non confirmée
+  (doc 16 §6). La reprise des données anciennes passe par les imports
+  fichiers (§3) — d'où leur statut de fonctionnalité de premier rang, pas de
+  mode test.
+- **Statut actuel : token en échec (401)**, développement mené contre des
+  fixtures en attendant le déblocage (doc 16 §7) — ne pas bloquer le
+  développement du provider là-dessus.
 
 ## 3. Imports fichiers (CSV, Excel, ODS, OFX, QIF)
 
@@ -126,7 +144,7 @@ intégrations tierces.
 
 ## 5. Normalisation : la sortie unique du module
 
-Quel que soit le canal (Bridge, CSV, Excel...), le module émet le même objet :
+Quel que soit le canal (Digifactory, CSV, Excel...), le module émet le même objet :
 
 ```python
 class NormalizedTransaction(BaseModel):
@@ -139,8 +157,8 @@ class NormalizedTransaction(BaseModel):
     devise: Literal["EUR"]           # V1 : EUR uniquement, élargir plus tard
     libelle_brut: str                # jamais modifié
     libelle_nettoye: str             # casse, espaces, codes banque retirés
-    source: Literal["bridge", "import_fichier"]
-    source_ref: str                  # ID Bridge ou (fichier, ligne)
+    source: Literal["digifactory", "import_fichier"]  # "bridge" viendra avec le provider direct (doc 16 §8)
+    source_ref: str                  # ID transaction Digifactory ou (fichier, ligne)
     hash_dedup: str
     statut_piece: Literal["matchee", "manquante", "non_requise"]
 ```

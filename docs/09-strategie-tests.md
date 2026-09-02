@@ -83,8 +83,11 @@ commit.
   upgrade/downgrade.
 - Concurrence : deux validations simultanées sur le même dossier → numérotation
   séquentielle sans trou ni doublon (test avec vraies transactions parallèles).
-- Bridge : mock du serveur HTTP (respx/VCR) avec payloads réels enregistrés ;
-  scénarios de pagination, webhook perdu, consentement expiré, doublon de webhook.
+- Digifactory (canal actif — doc 16) : mock du serveur HTTP (respx/VCR), développé
+  contre des fixtures en attendant un token fonctionnel (doc 16 §7), remplacées par
+  des payloads réels capturés dès le déblocage ; scénarios de `since` incrémental,
+  transaction mise à jour rétroactivement, transaction supprimée, connexion en
+  échec, réponse vide (doc 16 §9.7).
 - **Tests d'isolation multi-tenant** : une suite dédiée tente systématiquement
   d'accéder aux données d'un tenant B avec une session du tenant A, sur chaque
   endpoint (générée depuis l'OpenAPI). Zéro fuite tolérée.
@@ -116,7 +119,7 @@ Voir doc 07 §4 et §7. S'ajoutent à la CI applicative :
 - Charge réaliste : 200 dossiers × 250 transactions/mois ≈ 50 000 transactions/mois
   — c'est *petit* ; le test vise les pics : reprise d'historique 10 ans d'un coup
   (~3 M de lignes), clôtures groupées au 31/12, import de 500 justificatifs.
-- Chaos léger : couper le LLM, couper Bridge, tuer un worker en plein batch →
+- Chaos léger : couper le LLM, couper Digifactory, tuer un worker en plein batch →
   vérifier reprise propre et zéro corruption (les jobs sont idempotents, on le
   prouve).
 - **Restauration de sauvegarde : testée trimestriellement, chronométrée,

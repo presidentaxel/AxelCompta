@@ -59,7 +59,7 @@ axelcompta/
 ├── tenants/         # Tenants (mode portefeuille ou mono), dossiers, statuts/régimes
 ├── packs/           # Packs métier : taxonomies, règles système, templates, config plateformes
 ├── ingestion/       # Orchestration de l'ingestion ; sous-modules :
-│   └── providers/   #   DataProvider ABC + implémentations (Bridge, Rollee, FileImport)
+│   └── providers/   #   DataProvider ABC + implémentations (Digifactory, Rollee, FileImport ; Bridge direct en piste parallèle — doc 16 §8)
 ├── documents/       # Justificatifs : stockage, OCR, Factur-X, matching transactions
 ├── categorize/      # Pipeline hybride : règles → ML → LLM → revue humaine
 ├── anomaly/         # Détection d'abus / anomalies, scoring, alertes
@@ -71,7 +71,7 @@ axelcompta/
 └── ml/              # Entraînement, évaluation, registry de modèles (hors runtime API)
 ```
 
-**Pattern DataProvider (ingestion/providers/) :** toute source de données d'entrée implémente l'interface `DataProvider`. La configuration du tenant détermine quels providers sont actifs — le code métier ne connaît pas le provider. Providers V1 : `BridgeProvider` (transactions bancaires), `RolleeProvider` (settlements plateformes gig), `FileImportProvider` (CSV/XLSX/ODS). Détails : doc 13.
+**Pattern DataProvider (ingestion/providers/) :** toute source de données d'entrée implémente l'interface `DataProvider`. La configuration du tenant détermine quels providers sont actifs — le code métier ne connaît pas le provider. Providers V1 : `DigifactoryProvider` (transactions bancaires, agrège Bridge par contact — doc 16), `RolleeProvider` (settlements plateformes gig), `FileImportProvider` (CSV/XLSX/ODS). Un `BridgeProvider` direct est une piste parallèle non bloquante, à tester en sandbox après le pilote Digifactory (doc 16 §8) — pas de développement actif tant que Digifactory couvre le besoin. Détails : doc 13.
 
 **Règles de dépendance** (vérifiées par import-linter en CI) :
 
@@ -147,7 +147,7 @@ Points structurants :
 
 ```mermaid
 sequenceDiagram
-    participant B as Bridge / Import fichier
+    participant B as Digifactory (Bridge) / Import fichier
     participant I as ingestion
     participant C as categorize
     participant A as anomaly
@@ -176,7 +176,7 @@ Chaque frontière du système a un contrat Pydantic versionné :
 
 | Frontière | Contrat | Notes |
 |-----------|---------|-------|
-| Bridge → ingestion | `BridgeTransaction` | Payload brut archivé en JSONB avant mapping. |
+| Digifactory → ingestion | `DigifactoryTransaction` | Payload brut archivé en JSONB avant mapping (doc 16). Même contrat prévu pour un futur `BridgeProvider` direct (doc 16 §8). |
 | Fichier → ingestion | `ImportProfile` + `RawRow` | Profil de mapping par client (colonnes, formats de date, séparateurs). |
 | ingestion → categorize | `NormalizedTransaction` | Libellé nettoyé, montant signé en centimes, devise, dates, compteur de doublons. |
 | categorize → workflow | `CategorizationProposal` | Catégorie, compte PCG cible, confiance ∈ [0,1], source, explication. |

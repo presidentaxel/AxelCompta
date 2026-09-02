@@ -36,7 +36,8 @@ la phase suivante avec des invariants non tenus.
 - [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
 - [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
-- [ ] Contrat Bridge : pricing, volumes, statut, sandbox obtenue.
+- [ ] Token Digifactory fonctionnel — bloquant actuel (401, doc 16 §7). Canal exclusif pour septembre 2026.
+- [ ] Contrat Bridge direct : pricing, volumes, statut, sandbox — piste parallèle non bloquante, testée après le pilote Digifactory (doc 16 §8).
 - [ ] Contrat Rollee : conditions fleet mode, volumes, API sandbox, pricing.
 - [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign.
 - [ ] Décision hébergement prod (ADR-003) après premier échange sécurité banque.
@@ -51,14 +52,16 @@ la phase suivante avec des invariants non tenus.
 - [ ] 500 lignes relues à la main = premier jeu de test gelé.
 
 ### 0.3 Spike techniques (timeboxés, 2-3 jours chacun)
-- [ ] Spike Bridge sandbox : connexion, récupération transactions, webhooks.
+- [ ] Spike Digifactory : premier appel réussi (bloqué par 401 à ce jour — doc 16 §7), vérifier présence du SIREN sur `/contacts`, mesurer le poids réel par contact avant chargement des 200 dossiers. Développer contre fixtures en attendant le déblocage.
+- [ ] Spike Bridge sandbox direct : connexion, récupération transactions, webhooks — piste parallèle non bloquante, après stabilisation du canal Digifactory (doc 16 §8).
 - [ ] Spike baseline ML : TF-IDF + régression logistique **et** embeddings de phrases (`sentence-transformers` multilingue léger) sur le même échantillon → comparer les deux sur le même jeu de test gelé, décider lequel devient le challenger V1 (doc 07 §3.2). Produire en même temps la liste des classes rares et leur politique (doc 07 §3.4).
 - [ ] Spike OCR : 30 tickets réels dans Tesseract vs PaddleOCR vs Vision LLM (ADR-005).
 - [ ] Spike FEC : générer un FEC minimal et le passer dans « Test Compta Demat ».
 - [ ] Maquettes Figma des 3 écrans clés (doc 11 §3) + retours de 2 utilisateurs cibles.
 
-**Critère de sortie Phase 0** : dataset audité, baseline ML mesurée, Bridge testé,
-décisions ADR 001-005 actées, docs validées.
+**Critère de sortie Phase 0** : dataset audité, baseline ML mesurée, Digifactory
+testé (ou développement mené contre fixtures si le token reste bloqué — doc 16
+§7), décisions ADR 001-005 actées, docs validées.
 
 ---
 
@@ -78,11 +81,12 @@ décisions ADR 001-005 actées, docs validées.
 ### 1.2 Ingestion
 - [ ] Archivage brut immuable (hash, horodatage) de tout ce qui entre.
 - [ ] **Interface `DataProvider` (ABC)** dans `ingestion/providers/base.py` + types `NormalizedTransaction`, `PlatformSettlement` (doc 13 §2).
-- [ ] **`BridgeProvider`** : items/comptes/transactions, polling + webhooks, santé des connexions, monitoring expiration consentements DSP2.
+- [ ] **`DigifactoryProvider`** (canal actif pour le pilote, doc 16) : contacts/comptes/transactions, sync incrémental sur `since` (pull, pas de webhook), santé des connexions (`paused`/`data_access`/`last_refresh_status`), table de correspondance `contact_nr → dossier_id`, fixtures couvrant les cas doc 16 §9.7.
+- [ ] **`BridgeProvider`** direct : piste parallèle non bloquante (sandbox, doc 16 §8), à développer après le pilote Digifactory — items/comptes/transactions, polling + webhooks, santé des connexions, monitoring expiration consentements DSP2.
 - [ ] **`RolleeProvider`** : connexion fleet mode, endpoints income/trips/wallet, webhooks `wallet.payout_received`, polling daily fallback, monitoring expiration tokens (doc 13 §3).
 - [ ] **`FileImportProvider`** : moteur de profils d'import + parseurs CSV/XLSX/ODS → `RawRow` canonique.
 - [ ] **Réconciliation `PlatformSettlement` ↔ `NormalizedTransaction`** : algorithme de matching par montant+date+libellé, états (en attente / réconcilié / revue manuelle), alertes trou (doc 13 §4).
-- [ ] **Dashboard consentements** : panneau premier rang listant consentements valides/expirant/expirés pour Bridge et Rollee. Mode relance configurable par tenant (auto ou manuel, doc 14 §2.3).
+- [ ] **Dashboard consentements** : panneau premier rang listant consentements valides/expirant/expirés pour Digifactory (accès bancaire) et Rollee. Mode relance configurable par tenant (auto ou manuel, doc 14 §2.3) — date d'expiration DSP2 non confirmée exposée côté Digifactory, relance anticipée J-14 potentiellement impossible (doc 16 §6).
 - [ ] Normalisation des libellés versionné + tests.
 - [ ] Déduplication/idempotence + rapport d'import avec prévisualisation.
 - [ ] Quarantaine + UI de correction.
@@ -180,7 +184,7 @@ de bout en bout, liasse conforme, FEC accepté, signature réelle effectuée sur
 - [ ] Adaptation ML au pilote (sur-pondération, doc 07 §3.3) + règles tenant.
 - [ ] A/B testing : seuils d'auto-validation, présentation des explications (cadrage initial).
 - [ ] Charge : reprise 10 ans (~3 M lignes), clôtures groupées (doc 09 §7).
-- [ ] Chaos : pannes LLM/Bridge/worker → reprise propre prouvée.
+- [ ] Chaos : pannes LLM/Digifactory/worker → reprise propre prouvée.
 - [ ] Test d'intrusion externe + corrections.
 - [ ] Runbook incident + exercice sur table (doc 10 §6).
 - [ ] Restauration de sauvegarde chronométrée.

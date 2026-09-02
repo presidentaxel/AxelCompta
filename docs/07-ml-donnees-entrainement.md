@@ -60,23 +60,24 @@ C'est l'actif le plus précieux du projet — et le chantier le plus sous-estim�
 
 ### 3.2 Modèles, dans l'ordre
 
+> **Spike Phase 0 terminé — décision prise (ADR-007).** Résumé : TF-IDF + PCG
+> préfixe = 94.4 %, sentence-transformers = 82.8 %, CamemBERT fine-tuné = 92.0 %.
+> Le TF-IDF gagne. Les étapes 2, 3, 4 ci-dessous restent la marche à suivre si
+> les exigences de précision augmentent à l'avenir.
+
 1. **Baseline obligatoire** : régression logistique sur TF-IDF. Simple, rapide,
    explicable. C'est la barre à battre — et elle est souvent dure à battre sur du
-   libellé bancaire.
-2. **À benchmarker en Phase 0 en même temps que la baseline** : embeddings de
-   phrases pré-entraînés, modèle léger multilingue (`sentence-transformers` /
-   `paraphrase-multilingual-MiniLM-L12-v2` ou équivalent). Sur des libellés
-   bancaires courts et bruités (troncatures, codes internes type `CB****1234`,
-   abréviations variables), les embeddings figés surclassent régulièrement TF-IDF
-   sans coût d'inférence notable (~20 ms/batch sur CPU). Le spike Phase 0 compare
-   les deux sur le même jeu de test — si le gain n'est pas prouvé, on garde la
-   LogReg ; s'il l'est, c'est le point de départ naturel pour le challenger V1.
+   libellé bancaire. **→ C'est le modèle V1 retenu (ADR-007).**
+2. **À benchmarker si la baseline plafonne** : embeddings de phrases pré-entraînés,
+   modèle léger multilingue (`sentence-transformers` /
+   `paraphrase-multilingual-MiniLM-L12-v2` ou équivalent). Spike réalisé en Phase 0 :
+   82.8 % — inférieur à TF-IDF sur libellés VTC courts et tronqués. Éliminé.
 3. **Challenger V1** : LightGBM/XGBoost sur features mixtes (embeddings figés +
-   features numériques/catégorielles §3.1). À construire si l'étape 2 prouve un
-   gain sur la baseline pure texte.
+   features numériques/catégorielles §3.1). À construire si le dataset dépasse
+   ~200 k exemples annotés et que la baseline TF-IDF sature.
 4. **Fine-tuning CamemBERT ou modèle multilingue** : seulement si les embeddings
-   figés plafonnent et que le gain justifie la complexité opérationnelle. Ce n'est
-   pas la voie par défaut.
+   figés plafonnent et que le gain justifie la complexité opérationnelle. Spike
+   réalisé en Phase 0 : 92.0 % — inférieur à TF-IDF. Éliminé pour le V1.
 
 **Calibration systématique** (isotonic sur le set de validation) : les seuils
 d'auto-validation du pipeline n'ont de sens que si les probabilités sont honnêtes.
