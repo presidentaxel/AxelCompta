@@ -17,10 +17,30 @@ même dossier a des habitudes de libellé répétitives (même carte, mêmes
 enseignes) qui donneraient une exactitude gonflée si mélangées entre train
 et test (doc 07 §"splits par dossier ET période").
 
+**Transactions composites exclues de l'entraînement** (voir
+construire_taxonomie.py §2) : quand un même piece_ref porte plusieurs
+catégories (ex. commission + recette d'un même settlement plateforme), les
+lignes qui en sortent partagent le même libellé bancaire pour des catégories
+différentes — un signal contradictoire pour un modèle texte -> catégorie.
+Les garder fausserait l'entraînement pour un gain nul : cette distinction-là
+(commission vs recette) est de toute façon déjà déterministe par le
+template comptable (doc 06 §3.5, doc 13 §5.3), pas quelque chose à apprendre
+du libellé.
+
+**Feature montant ajoutée** (doc 07 §3.1 : "Montant (log-bucketé) + signe").
+Contrairement au token compte-PCG d'ADR-007 (pas disponible à l'inférence
+sur une transaction brute, voir rapport_audit_dataset.md §6), le montant
+EST disponible dès la réception d'une transaction bancaire réelle — feature
+légitime, pas de fuite. Objectif : aider les catégories où le libellé seul
+est trop générique pour trancher (`remuneration_dirigeant` en particulier :
+"000001 VIR EUROPEEN" ne dit rien, mais un virement récurrent de plusieurs
+milliers d'euros est un signal fort).
+
 Usage:
     python entrainer_modele_baseline.py
 """
 import csv
+import math
 import random
 from collections import Counter
 from pathlib import Path
@@ -37,13 +57,30 @@ SORTIE_RAPPORT = Path("resultats/rapport_baseline_ml.txt")
 
 # Catégories hors périmètre ML : pas des transactions bancaires (générées à
 # la clôture) ou pas des catégories de dépense (mouvements de capital), ou
-# buckets techniques du mapping (pas des catégories métier).
+# bucket technique du mapping (compte pas encore mappé).
 EXCLUES = {
     "dotations_amortissements", "operation_capital_hors_perimetre",
-    "multi_categorie_a_ventiler", "non_categorise_a_verifier",
+    "non_categorise_a_verifier",
 }
 SEED = 20260902
 MIN_EXEMPLES_PAR_CLASSE = 15  # sous ce seuil, pas assez pour split train/test
+
+
+def bucket_montant(montant_str: str) -> str:
+    """Log-bucket signé : '[M+2]' = positif, dizaine de milliers de log10."""
+    try:
+        m = float(montant_str)
+    except (ValueError, TypeError):
+        return "[M?]"
+    if m == 0:
+        return "[M0]"
+    signe = "+" if m > 0 else "-"
+    bucket = int(math.log10(abs(m))) if abs(m) >= 1 else 0
+    return f"[M{signe}{bucket}]"
+
+
+def texte_avec_montant(row: dict) -> str:
+    return f"{row['libelle_bancaire']} {bucket_montant(row['montant'])}"
 
 
 def main() -> None:
@@ -52,6 +89,8 @@ def main() -> None:
     with ENTREE.open(newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             if row["categorie"] in EXCLUES or not row["libelle_bancaire"].strip():
+                continue
+            if row.get("type_transaction") == "composite":
                 continue
             rows.append(row)
 
@@ -69,13 +108,15 @@ def main() -> None:
     train = [r for r in rows if r["dossier_id"] not in dossiers_test]
     test = [r for r in rows if r["dossier_id"] in dossiers_test]
 
-    X_train = [r["libelle_bancaire"] for r in train]
+    X_train = [texte_avec_montant(r) for r in train]
     y_train = [r["categorie"] for r in train]
-    X_test = [r["libelle_bancaire"] for r in test]
+    X_test = [texte_avec_montant(r) for r in test]
     y_test = [r["categorie"] for r in test]
 
     # n-grammes de caractères : les libellés sont courts, tronqués et bruités
     # ("CARTE X8651 03/04 RE") — les mots entiers seuls perdent trop de signal.
+    # Le token [M+3] (bucket de montant) reste intact grâce à char_wb (word
+    # boundaries) : il n'est jamais fusionné avec le texte du libellé.
     pipeline = Pipeline([
         ("tfidf", TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), min_df=2)),
         ("clf", LogisticRegression(max_iter=1000, class_weight="balanced")),
@@ -89,8 +130,9 @@ def main() -> None:
     joblib.dump(pipeline, SORTIE_MODELE)
 
     with SORTIE_RAPPORT.open("w", encoding="utf-8") as f:
-        f.write("Baseline TF-IDF (char 2-4-grammes) + LogReg\n")
+        f.write("Baseline TF-IDF (char 2-4-grammes, libellé + bucket montant) + LogReg\n")
         f.write("Labels = mapping compte PCG -> catégorie, PAS relecture humaine.\n")
+        f.write("Transactions composites (piece_ref multi-catégorie) exclues de l'entraînement.\n")
         f.write(f"Dossiers train : {len(dossiers) - n_test} | dossiers test : {n_test}\n")
         f.write(f"Exemples train : {len(train)} | exemples test : {len(test)}\n")
         f.write(f"Classes retenues (>= {MIN_EXEMPLES_PAR_CLASSE} ex.) : {len(classes_retenues)}\n")

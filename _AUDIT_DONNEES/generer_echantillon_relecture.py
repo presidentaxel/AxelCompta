@@ -3,10 +3,14 @@
 
 Échantillonnage stratifié : proportionnel par catégorie, avec un plancher
 par catégorie pour que les classes rares et les buckets à risque
-(repas_et_receptions, non_categorise_a_verifier, multi_categorie_a_ventiler)
-soient représentés — ce sont eux qui ont le plus besoin d'un œil humain.
-Dispersé sur plusieurs dossiers pour ne pas biaiser sur les habitudes de
-saisie d'un seul comptable.
+(repas_et_receptions, non_categorise_a_verifier, et les transactions
+composites — colonne `type_transaction`) soient représentés — ce sont eux
+qui ont le plus besoin d'un œil humain. Dispersé sur plusieurs dossiers pour
+ne pas biaiser sur les habitudes de saisie d'un seul comptable.
+
+Exclut dotations_amortissements et operation_capital_hors_perimetre : ce ne
+sont jamais de vraies transactions bancaires (écritures de clôture ou
+mouvements de capital), rien à valider côté "libellé bancaire -> catégorie".
 
 **La colonne `categorie_proposee` est le brouillon algorithmique (compte PCG
 + règles), PAS une vérité terrain.** La colonne `categorie_validee` est à
@@ -27,6 +31,7 @@ SORTIE = Path("resultats/echantillon_500_a_relire.csv")
 TAILLE_CIBLE = 500
 PLANCHER_PAR_CATEGORIE = 8
 SEED = 20260902  # figé pour reproductibilité
+EXCLUES = {"dotations_amortissements", "operation_capital_hors_perimetre"}
 
 
 def main() -> None:
@@ -34,6 +39,8 @@ def main() -> None:
     par_categorie = defaultdict(list)
     with ENTREE.open(newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
+            if row["categorie"] in EXCLUES:
+                continue
             par_categorie[row["categorie"]].append(row)
 
     total = sum(len(v) for v in par_categorie.values())
@@ -59,14 +66,14 @@ def main() -> None:
         w = csv.writer(f)
         w.writerow([
             "dossier_id", "date", "libelle_bancaire", "montant",
-            "compte_pcg_nature", "categorie_proposee", "categorie_validee",
-            "commentaire",
+            "compte_pcg_nature", "type_transaction", "categorie_proposee",
+            "categorie_validee", "commentaire",
         ])
         for r in echantillon:
             w.writerow([
                 r["dossier_id"], r["date"], r["libelle_bancaire"],
-                r["montant"], r["compte_pcg_nature"], r["categorie"],
-                "", "",
+                r["montant"], r["compte_pcg_nature"], r.get("type_transaction", ""),
+                r["categorie"], "", "",
             ])
 
     n_dossiers = len({r["dossier_id"] for r in echantillon})

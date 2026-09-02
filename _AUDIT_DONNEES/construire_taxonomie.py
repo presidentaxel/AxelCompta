@@ -11,9 +11,11 @@ compte PCG -> catégorie métier. Ce script :
 2. Applique une table de mapping préfixe(compte PCG normalisé) -> catégorie,
    construite à partir d'un échantillon réel de libellés par compte (voir
    rapport_audit_dataset.md pour le détail comte par compte).
-3. Produit resultats/fec_ml_taxonomie.csv : une ligne par transaction
-   (dossier_id, piece_ref, date, libelle_bancaire, montant, compte_pcg_nature,
-   categorie, confiance_mapping).
+3. Produit resultats/fec_ml_taxonomie.csv : une ligne par JAMBE nature (pas
+   par transaction — une transaction composite comme un settlement
+   plateforme en produit plusieurs, voir §2 du code) : dossier_id, piece_ref,
+   date, libelle_bancaire, montant, compte_pcg_nature, categorie,
+   type_transaction (simple|composite).
 
 **Statut du mapping : brouillon dérivé des comptes PCG + échantillons de
 libellés, PAS validé par un expert-comptable.** Voir rapport_audit_dataset.md
@@ -202,76 +204,95 @@ def main() -> int:
         for row in csv.DictReader(f):
             transactions[(row["dossier_id"], row["piece_ref"])].append(row)
 
+    # 2. Une ligne de sortie PAR JAMBE "nature" (pas par transaction).
+    #
+    # Constat en creusant les cas "multi-catégorie" : ce ne sont presque
+    # jamais des dépenses réellement ambiguës. Deux cas dominent :
+    #  - 68% des cas (1982/2921) : le couple commissions_plateformes +
+    #    recettes_plateformes — le settlement Rollee/plateforme a toujours
+    #    une jambe commission (622x) ET une jambe recette (706x) sur le
+    #    même piece_ref, exactement le schéma du template doc 06 §3.5. Ce
+    #    n'est pas une ambiguïté à trancher, c'est une écriture composite
+    #    normale — chaque jambe a sa propre catégorie et son propre montant.
+    #  - Le reste vient surtout d'écritures "Multiples Comptes ou Produits"
+    #    : un lot de règlements/prélèvements groupés sous un même piece_ref
+    #    comptable (pas une vraie transaction bancaire unique), avec des
+    #    jambes de nature complètement différentes (péage + rémunération +
+    #    honoraires + carburant vus dans un seul cas réel). Forcer une seule
+    #    catégorie sur le lot était faux ; ventiler jambe par jambe restitue
+    #    l'information réelle.
+    #
+    # Colonne `type_transaction` : "simple" (1 seule jambe nature) vs
+    # "composite" (plusieurs) — utile en aval : le couple
+    # commissions/recettes partage le MÊME libellé bancaire pour deux
+    # catégories différentes, ce qui casserait un entraînement ML texte->
+    # catégorie si on ne le filtre pas (voir entrainer_modele_baseline.py).
     stats_categorie = Counter()
     stats_comptes_inconnus = Counter()
-    n_multi_categorie = 0
+    n_composite = 0
     lignes_sortie = []
 
     for (dossier_id, piece_ref), rows in transactions.items():
         libelles = [r["libelle_brut"] for r in rows]
         date = rows[0]["date"]
-        montant_bancaire = None
-        categories_trouvees = set()
-        compte_nature_retenu = None
+        libelle = meilleur_libelle(libelles)
+        jambes_nature = []  # (compte_norm, categorie, montant)
 
         for r in rows:
             compte_norm = normaliser_compte(r["compte_pcg"])
             if est_financier(compte_norm):
-                if compte_norm.startswith("512") or compte_norm.startswith("531"):
-                    montant_bancaire = r["montant"]
                 continue
             cat = categorie_pour_compte(compte_norm)
-            categories_trouvees.add(cat)
-            if cat != CATEGORIE_INCONNUE:
-                compte_nature_retenu = compte_norm
-            else:
+            if cat == CATEGORIE_INCONNUE:
                 stats_comptes_inconnus[r["compte_pcg"]] += 1
+            jambes_nature.append((compte_norm, cat, r["montant"]))
 
-        categories_trouvees.discard(CATEGORIE_INCONNUE) or None
-        if len(categories_trouvees) == 0:
-            categorie = CATEGORIE_INCONNUE
-        elif len(categories_trouvees) == 1:
-            categorie = next(iter(categories_trouvees))
-        else:
-            # plusieurs jambes "nature" différentes sur la même transaction
-            # (ex : ventilation carburant + péage sur un même paiement CB) :
-            # on ne force pas une seule catégorie, on le signale.
-            categorie = "multi_categorie_a_ventiler"
-            n_multi_categorie += 1
+        if not jambes_nature:
+            continue  # transaction 100% financière (ex. juste 512<->531), rien à catégoriser
 
-        stats_categorie[categorie] += 1
-        lignes_sortie.append({
-            "dossier_id": dossier_id,
-            "piece_ref": piece_ref,
-            "date": date,
-            "libelle_bancaire": meilleur_libelle(libelles),
-            "montant": montant_bancaire or "",
-            "compte_pcg_nature": compte_nature_retenu or "",
-            "categorie": categorie,
-        })
+        categories_distinctes = {cat for _, cat, _ in jambes_nature}
+        type_transaction = "composite" if len(categories_distinctes) > 1 else "simple"
+        if type_transaction == "composite":
+            n_composite += 1
+
+        for i, (compte_norm, cat, montant) in enumerate(jambes_nature):
+            stats_categorie[cat] += 1
+            lignes_sortie.append({
+                "dossier_id": dossier_id,
+                "piece_ref": f"{piece_ref}#{i}" if len(jambes_nature) > 1 else piece_ref,
+                "date": date,
+                "libelle_bancaire": libelle,
+                "montant": montant,
+                "compte_pcg_nature": compte_norm,
+                "categorie": cat,
+                "type_transaction": type_transaction,
+            })
 
     with sortie.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=[
             "dossier_id", "piece_ref", "date", "libelle_bancaire", "montant",
-            "compte_pcg_nature", "categorie",
+            "compte_pcg_nature", "categorie", "type_transaction",
         ])
         w.writeheader()
         w.writerows(lignes_sortie)
 
     total = sum(stats_categorie.values())
     with open(args.rapport, "w", encoding="utf-8") as f:
-        f.write(f"Total transactions : {total}\n\n")
+        f.write(f"Total lignes (une par jambe nature) : {total}\n")
+        f.write(f"Dont issues d'une transaction composite (>1 catégorie sur le même piece_ref) : "
+                f"{sum(1 for l in lignes_sortie if l['type_transaction'] == 'composite')}\n\n")
         f.write("Répartition par catégorie :\n")
         for cat, n in stats_categorie.most_common():
             f.write(f"  {cat:40s} {n:7d}  ({n/total*100:5.1f}%)\n")
-        f.write(f"\nTransactions multi-catégorie (à ventiler) : {n_multi_categorie}\n")
+        f.write(f"\nTransactions composites (piece_ref avec >1 catégorie) : {n_composite}\n")
         f.write("\nComptes non mappés (top 30, à ajouter au mapping ou à trancher) :\n")
         for compte, n in stats_comptes_inconnus.most_common(30):
             f.write(f"  {compte:20s} {n:6d}\n")
 
-    print(f"{len(lignes_sortie)} transactions écrites -> {sortie}")
-    n_connu = total - stats_categorie[CATEGORIE_INCONNUE] - stats_categorie.get("multi_categorie_a_ventiler", 0)
+    print(f"{len(lignes_sortie)} lignes écrites (une par jambe nature) -> {sortie}")
+    n_connu = total - stats_categorie[CATEGORIE_INCONNUE]
     print(f"Catégorisées : {n_connu}/{total} ({n_connu/total*100:.1f}%)")
+    print(f"Transactions composites : {n_composite}")
     print(f"Rapport détaillé -> {args.rapport}")
     return 0
 
