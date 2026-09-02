@@ -127,8 +127,12 @@ data/external/
 _AUDIT_DONNEES/*.csv
 _AUDIT_DONNEES/sortie/
 _AUDIT_DONNEES/modeles/
+_AUDIT_DONNEES/resultats/
 _AUDIT_DONNEES/rapport_audit_dataset.md
 !_AUDIT_DONNEES/rapport_audit_dataset_TEMPLATE.md
+# packs_vtc/ n'est PAS ignoré : mapping et règles sont des données produit
+# versionnées (aucune transaction client réelle dedans), contrairement à
+# resultats/ qui contient le dataset labellisé et l'échantillon de relecture.
 
 # MLflow / expériences
 mlruns/
