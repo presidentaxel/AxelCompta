@@ -38,8 +38,10 @@ from pathlib import Path
 # bancaire brut (c'est la jambe qui vient du relevé).
 # -----------------------------------------------------------------------------
 PREFIXES_FINANCIERS = (
-    "512", "531", "511", "401", "411", "4551", "421", "164", "168", "404", "425",
+    "512", "531", "511", "401", "411", "455", "421", "164", "168", "404", "425",
     "445",  # TVA (déductible/collectée/à décaisser) — jamais une catégorie
+    "580",  # virements internes (ex. SumUp -> banque) — pas une dépense
+    "471",  # compte d'attente/régularisation — trop générique pour trancher
 )
 
 # -----------------------------------------------------------------------------
@@ -58,7 +60,7 @@ PREFIXES_FINANCIERS = (
 #   626x       -> SFR, Bouygues, Free Mobile                 => telecommunications
 #   627x/6278  -> "cotis" carte, commissions bancaires, CIC  => frais_bancaires
 #   606x (hors 6061) -> Vistaprint, Boulanger, Fnac, Amazon  => fournitures_administratives
-#   6257/62560 -> Carrefour, Auchan, McDonalds, KFC, pizza   => frais_bouche_a_verifier (RISQUE perso)
+#   6257/62560 -> Carrefour, Auchan, McDonalds, KFC, pizza   => repas_et_receptions (RISQUE perso)
 #   6712       -> WEB AMENDE.GOUV                            => amendes
 #   611x       -> "CHAUFF sous-traitance"                    => sous_traitance_chauffeurs
 #   641x       -> "VIR EUROPEEN" récurrents                  => remuneration_dirigeant
@@ -84,7 +86,7 @@ MAPPING_PREFIXES = [
     ("6227", "honoraires_comptable_juridique"),
     ("626", "telecommunications"),
     ("627", "frais_bancaires"),
-    ("6257", "frais_bouche_a_verifier"),
+    ("6257", "repas_et_receptions"),
     ("6060", "fournitures_administratives"),
     ("6063", "fournitures_administratives"),
     ("6064", "fournitures_administratives"),
@@ -101,7 +103,7 @@ MAPPING_PREFIXES = [
     ("6951", "dotations_amortissements"),
     ("706", "recettes_plateformes"),
     ("741", "subventions"),
-    ("6256", "frais_bouche_a_verifier"),
+    ("6256", "repas_et_receptions"),
     ("606", "fournitures_administratives"),   # filet, compte générique non subdivisé
     ("658", "fournitures_administratives"),   # filet, idem
     ("661", "interets_emprunts"),
@@ -112,6 +114,34 @@ MAPPING_PREFIXES = [
     ("101", "operation_capital_hors_perimetre"),
     ("1100", "operation_capital_hors_perimetre"),
     ("1190", "operation_capital_hors_perimetre"),
+    ("120", "operation_capital_hors_perimetre"),   # résultat de l'exercice
+    ("129", "operation_capital_hors_perimetre"),   # report à nouveau déficitaire
+    ("271", "operation_capital_hors_perimetre"),   # titres de participation
+
+    # Deuxième passe (réduction du bucket non_categorise_a_verifier) :
+    ("618", "abonnements_logiciels"),        # Microsoft, Apple
+    ("651", "abonnements_logiciels"),        # Spotify
+    ("431", "charges_sociales_impots"),      # URSSAF
+    ("437", "charges_sociales_impots"),      # autres organismes sociaux (SSI...)
+    ("448", "charges_sociales_impots"),      # provisions taxe apprentissage/formation
+    ("646", "charges_sociales_impots"),      # cotisations sociales personnelles dirigeant
+    ("631", "charges_sociales_impots"),      # taxe d'apprentissage
+    ("633", "charges_sociales_impots"),      # formation continue
+    ("467", "recettes_plateformes"),         # ⚠️ compte d'attente Uber observé, à confirmer — pas garanti systématique sur tous les dossiers
+    ("418", "recettes_plateformes"),         # factures à établir Uber
+    ("457", "dividendes_associes"),
+    ("613", "loyers_locations"),             # local pro
+    ("647", "assurance_personnelle_sante"),  # pharmacie
+    ("612", "loa_credit_bail_vehicule"),     # ex. Toyota France Financement
+    ("623", "fournitures_administratives"),  # pub/impression, plus large que 6231
+    ("602", "fournitures_administratives"),
+    ("775", "immobilisation_vehicule"),      # cession véhicule
+    ("275", "immobilisation_vehicule"),      # dépôts/cautionnements LOA
+    ("201", "honoraires_comptable_juridique"),  # frais de formalités (Entrepreneur.fr)
+    ("641", "remuneration_dirigeant"),       # fallback plus large que 6411
+    ("604", "sous_traitance_chauffeurs"),
+    ("671", "amendes_infractions"),          # fallback plus large que 6712
+    ("758", "ecarts_reglement_arrondis"),
 ]
 
 # Comptes explicitement laissés "à vérifier" faute de preuve suffisante dans

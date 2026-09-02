@@ -117,6 +117,15 @@ Détails d'entraînement dans doc 07. Ici, le contrat d'intégration :
 
 ## 5. Étage 4 — Revue humaine
 
+- **« Humaine » = l'utilisateur professionnel côté client (gestionnaire, son
+  service compta, son expert-comptable), jamais quelqu'un chez AxeL.** Ce
+  n'est pas une nuance UX, c'est la conséquence directe du positionnement
+  légal (doc 02 §2.3) : AxeL n'impute pas, ne surveille pas, ne tranche pas
+  *en son nom* — sinon on retombe dans le monopole de l'expertise comptable.
+  Si un item de la file de revue est qualifié par une source déléguée par le
+  gestionnaire (ex. le chauffeur lui-même, pour dire ce qu'était une dépense
+  ambiguë), le mécanisme reste à spécifier — canal d'escalade envisagé mais
+  pas encore couvert par ce document (2026-09-02).
 - File de travail priorisée : alertes d'abus > catégories à enjeu > gros montants >
   reste. Temps de décision visé < 10 s par item (UI, doc 11).
 - **Chaque correction humaine est de l'or** : stockée comme label

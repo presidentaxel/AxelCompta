@@ -7,7 +7,7 @@ regex,categorie,confiance,source
 "\buber\b|\bbolt\b|heetch|freenow|stichting custodian",recettes_plateformes,haute,libellés réels échantillon recettes — distinguer virement reçu (recette) de commission (charge) par le sens du montant
 "amende\.?gouv|\bantai\b",amendes_infractions,haute,libellés réels échantillon amendes
 "expert.?comptable|greffe|infogreffe|avocat|conseil juridique",honoraires_comptable_juridique,moyenne,libellés réels échantillon honoraires
-"carrefour|auchan|franprix|mcdonald|\bquick\b|pizza|\bkfc\b|leclerc(?!.*\bgo\b)",frais_bouche_a_verifier,moyenne,"⚠️ usage personnel probable — signalé pour revue humaine, pas d'auto-validation"
+"carrefour|auchan|franprix|mcdonald|\bquick\b|pizza|\bkfc\b|leclerc(?!.*\bgo\b)",repas_et_receptions,moyenne,"⚠️ usage personnel probable — signalé pour revue humaine, pas d'auto-validation"
 "\bzara\b|kiabi|primark|s[ée]phora|\bfnac\b|\bh&m\b|shein|\bnike\b|adidas|decathlon",usage_personnel_suspect,moyenne,"⚠️ trouvé mélangé dans fournitures_administratives — signalé pour revue humaine, pas d'auto-validation"
 urssaf,charges_sociales_impots,haute,libellés réels échantillon URSSAF
 dgfip,charges_sociales_impots,moyenne,"peut aussi être une subvention (compte 741) — trancher par le compte PCG, pas le libellé seul"

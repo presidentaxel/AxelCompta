@@ -3,7 +3,7 @@
 
 Échantillonnage stratifié : proportionnel par catégorie, avec un plancher
 par catégorie pour que les classes rares et les buckets à risque
-(frais_bouche_a_verifier, non_categorise_a_verifier, multi_categorie_a_ventiler)
+(repas_et_receptions, non_categorise_a_verifier, multi_categorie_a_ventiler)
 soient représentés — ce sont eux qui ont le plus besoin d'un œil humain.
 Dispersé sur plusieurs dossiers pour ne pas biaiser sur les habitudes de
 saisie d'un seul comptable.
