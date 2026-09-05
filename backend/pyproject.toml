@@ -38,8 +38,15 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "C90"]
+# PLR0915 = too-many-statements : proxy le plus proche disponible nativement
+# dans ruff pour la règle doc 08 §1 « fonctions ≤ 60 lignes » (des lignes, pas
+# des statements — c'est pourquoi tests/test_code_quality.py fait aussi une
+# vérification exacte au nombre de lignes, en plus de ce garde-fou).
+select = ["E", "F", "I", "UP", "B", "C90", "PLR0915"]
 mccabe.max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-statements = 60
 
 # --- Frontières entre modules : reproduit les règles de dépendance du doc 03 §3 ---
 # et de backend/README.md. Un contrat cassé = CI rouge (doc 08 §4).
@@ -101,3 +108,7 @@ forbidden_modules = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# importlib (plutôt que le mode "prepend" par défaut) : permet des noms de
+# fichiers de test identiques dans des dossiers différents (tests/ miroir de
+# axelcompta/, doc 08 §3) sans nécessiter de __init__.py dans chaque dossier.
+addopts = "--import-mode=importlib"

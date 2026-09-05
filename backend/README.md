@@ -15,14 +15,23 @@ défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-mono
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest -q                # importe tous les modules
-.venv/bin/mypy axelcompta          # strict, doit rester à 0 issue
+.venv/bin/pytest -q                # importe tous les modules + 2 règles de qualité (doc 08)
+.venv/bin/mypy axelcompta tests    # strict, doit rester à 0 issue
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 .venv/bin/lint-imports              # frontières de dépendance (doc 03 §3)
 ```
 
 Les quatre passent à 0 erreur sur ce squelette (dernière vérification :
 2026-09-05).
+
+## Tests : un dossier miroir par module (doc 08 §3)
+
+`tests/<module>/` reproduit exactement `axelcompta/<module>/` — c'est une
+règle vérifiée, pas seulement une convention : `tests/test_code_quality.py`
+fait échouer `pytest` si un module de `axelcompta/` n'a pas son dossier de
+tests miroir avec au moins un `test_*.py`, ou si une fonction dépasse 60
+lignes (doc 08 §1 règle 4). Ajouter un module = ajouter son dossier de tests
+dans le même commit.
 
 ## Deux niveaux de lecture dans cet arbre
 

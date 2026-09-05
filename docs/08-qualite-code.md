@@ -68,6 +68,18 @@ pas le temps réel. Voici la transposition, règle par règle :
   le même commit + mention de l'invariant concerné dans le message.
 - `CODEOWNERS` : les modules critiques exigent l'autre dev en relecteur.
 
+### Règles vérifiées automatiquement (pas seulement écrites ici)
+- **Fonctions ≤ 60 lignes** (règle 4 ci-dessus) : vérifié exactement (comptage
+  de lignes par l'AST, pas une approximation) par
+  `backend/tests/test_code_quality.py::test_aucune_fonction_ne_depasse_60_lignes`,
+  qui tourne à chaque `pytest` (étape 5 ci-dessous). Doublé par le seuil ruff
+  `PLR0915` (max-statements, backend/pyproject.toml) en garde-fou supplémentaire —
+  un proxy par nombre d'instructions, pas de lignes, donc pas suffisant seul.
+- **Chaque module a ses tests** : `test_chaque_module_a_ses_tests` (même
+  fichier) vérifie que chaque package sous `backend/axelcompta/` a un dossier
+  miroir sous `backend/tests/` avec au moins un fichier `test_*.py` — un module
+  ajouté sans test fait échouer la CI, pas seulement la revue humaine.
+
 ### Documentation dans le code
 - Chaque module : `README.md` court (rôle, frontières, invariants).
 - Chaque décision structurante : ADR dans `docs/adr/` (modèle 1 page).
