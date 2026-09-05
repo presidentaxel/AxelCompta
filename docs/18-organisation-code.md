@@ -54,6 +54,7 @@ graph TD
     ingestion --> tenants
     categorize["categorize"] --> core
     categorize --> packs
+    categorize --> ingestion
     categorize --> documents
     anomaly["anomaly"] --> core
     anomaly --> categorize
@@ -96,7 +97,10 @@ ingestion/providers  →  categorize  →  ledger  →  closing  →  filings
 
 ## Statut d'implémentation actuel
 
-Aucun fichier de code (`.py`) n'existe encore dans `backend/` ou
-`frontend/` — uniquement les `README.md` de chaque module. Prochaine étape :
-top départ de Louis (doc 12 §0.1), puis semaine 0 du doc 17
-(`core/` minimal + squelette bout-en-bout avec fixtures).
+Louis a donné le top départ pour un squelette d'interfaces (2026-09-05) :
+chaque module actif ou réduit pour la démo a désormais des signatures
+(dataclasses, ABC) qui s'importent et passent mypy strict/ruff/import-linter
+— voir [backend/README.md](../backend/README.md) pour reproduire les
+vérifications. **Rien ne tourne encore** : pas de DB, pas d'appel réseau,
+pas de calcul. Prochaine étape : implémenter la semaine 0 du doc 17
+(squelette bout-en-bout avec fixtures, jusqu'au PDF « Hello World »).

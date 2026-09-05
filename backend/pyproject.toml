@@ -1,0 +1,103 @@
+[project]
+name = "axelcompta"
+version = "0.0.1"
+description = "Moteur comptable AxeLCompta — squelette (aucune logique métier implémentée)."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic>=2.9",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.11",
+    "ruff>=0.6",
+    "import-linter>=2.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["axelcompta*"]
+
+# --- Typage : mypy strict sur tout le code, sans exception par module (doc 08 §3) ---
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+
+# --- Lint + format : ruff (doc 08 §3) ---
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C90"]
+mccabe.max-complexity = 10
+
+# --- Frontières entre modules : reproduit les règles de dépendance du doc 03 §3 ---
+# et de backend/README.md. Un contrat cassé = CI rouge (doc 08 §4).
+[tool.importlinter]
+root_package = "axelcompta"
+
+[[tool.importlinter.contracts]]
+name = "ledger ne dépend que de core"
+type = "forbidden"
+source_modules = ["axelcompta.ledger"]
+forbidden_modules = [
+    "axelcompta.tenants",
+    "axelcompta.packs",
+    "axelcompta.ingestion",
+    "axelcompta.documents",
+    "axelcompta.categorize",
+    "axelcompta.anomaly",
+    "axelcompta.closing",
+    "axelcompta.filings",
+    "axelcompta.workflow",
+    "axelcompta.api",
+    "axelcompta.ml",
+]
+
+[[tool.importlinter.contracts]]
+name = "categorize ne parle jamais directement à ledger (doit passer par workflow)"
+type = "forbidden"
+source_modules = ["axelcompta.categorize"]
+forbidden_modules = ["axelcompta.ledger", "axelcompta.closing", "axelcompta.filings"]
+
+[[tool.importlinter.contracts]]
+name = "personne n'importe ml au runtime (artefact chargé, jamais importé)"
+type = "forbidden"
+source_modules = [
+    "axelcompta.core",
+    "axelcompta.tenants",
+    "axelcompta.packs",
+    "axelcompta.ingestion",
+    "axelcompta.documents",
+    "axelcompta.categorize",
+    "axelcompta.anomaly",
+    "axelcompta.ledger",
+    "axelcompta.closing",
+    "axelcompta.filings",
+    "axelcompta.workflow",
+    "axelcompta.api",
+]
+forbidden_modules = ["axelcompta.ml"]
+
+[[tool.importlinter.contracts]]
+name = "api n'importe que les façades publiques (pas les internes des modules)"
+type = "forbidden"
+source_modules = ["axelcompta.api"]
+forbidden_modules = [
+    "axelcompta.ledger.models",
+    "axelcompta.categorize.models",
+    "axelcompta.closing.models",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

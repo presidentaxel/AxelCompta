@@ -3,11 +3,26 @@
 Monolithe modulaire Python (FastAPI / SQLAlchemy / Postgres), découpage complet
 défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
 
-> **Statut au 2026-09-05 : arborescence et documentation uniquement, aucun
-> code produit.** Conforme au garde-fou du [README racine](../README.md) et
-> du [doc 12 §0.1](../docs/12-roadmap-todo.md) — la relecture doc (associé)
-> et le top départ de Louis restent à venir avant la première ligne de code.
-> Chaque sous-dossier n'a pour l'instant qu'un `README.md`.
+> **Statut au 2026-09-05 : squelette d'interfaces, aucune logique métier.**
+> Louis a donné le top départ pour cette étape (doc 12 §0.1 reste sinon la
+> référence — relecture associé encore en attente). Chaque module a des
+> signatures (classes, dataclasses, ABC) qui s'importent et passent mypy
+> strict/ruff/import-linter, mais aucune méthode n'est implémentée : rien ne
+> tourne encore (pas de DB, pas d'appel réseau, pas de calcul).
+
+## Reproduire les vérifications
+
+```bash
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest -q                # importe tous les modules
+.venv/bin/mypy axelcompta          # strict, doit rester à 0 issue
+.venv/bin/ruff check . && .venv/bin/ruff format --check .
+.venv/bin/lint-imports              # frontières de dépendance (doc 03 §3)
+```
+
+Les quatre passent à 0 erreur sur ce squelette (dernière vérification :
+2026-09-05).
 
 ## Deux niveaux de lecture dans cet arbre
 

@@ -5,7 +5,8 @@ LLM arbitre → revue humaine. Produit des `ProposedEntry` — seul `workflow`
 peut les transformer en écritures réelles via `ledger`, après validation
 (règle de dépendance CI, doc 03 §3).
 
-**Dépendances :** `core`, `packs`, `documents` (matching pièce, V1 seulement).
+**Dépendances :** `core`, `packs`, `ingestion` (types `NormalizedTransaction` en
+entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
 **N'a pas le droit d'écrire dans `ledger` directement.**
 
 ## Les 4 étages (V1, doc 05 §1)
