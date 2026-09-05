@@ -144,6 +144,11 @@ dépendance.
   la relecture humaine, **pas une conformité légale** — le dépôt réel du
   2065 est obligatoirement télétransmis par EDI/EFI (doc 02, statut
   Partenaire EDI), jamais par PDF.
+- `backend/axelcompta/demo_dossier_reel.py` (2026-09-05, doc 17 §7bis) :
+  composition root sœur de `demo.py`, tourne sur un vrai dossier complet
+  (543 transactions réelles, résultat négatif) plutôt qu'un exemple à 2-3
+  lignes — a fait remonter un vrai bug de mapping compte-par-catégorie
+  (`recettes_plateformes`), corrigé dans `packs/vtc_demo.py`.
 
 Détail et commandes : [backend/README.md](../backend/README.md).
 

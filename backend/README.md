@@ -45,6 +45,23 @@ Vérifié : le bilan s'équilibre (trésorerie = résultat + TVA à payer), la
 somme des soldes de tous les comptes vaut exactement 0, et "728,15"
 apparaît bien dans la vraie case du vrai PDF officiel (relu visuellement).
 
+## Faire tourner la démo sur un vrai dossier complet (doc 17 §2, §7bis)
+
+Le run ci-dessus tourne sur 3 transactions (golden test). Pour voir la
+chaîne tenir sur un vrai dossier — 543 transactions réelles, exercice 2024
+complet, résultat négatif (déficit) :
+
+```bash
+.venv/bin/python -m axelcompta.demo_dossier_reel
+# → backend/_demo_output/liasse_dossier_reel.pdf
+# → backend/_demo_output/cerfa_2065_dossier_reel.pdf (case Déficit remplie)
+```
+
+Nécessite le CSV audit (`_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv`,
+gitignored — présent sur ce poste, pas forcément sur un clone frais). Voir
+doc 17 §7bis pour le détail, dont un vrai bug de mapping compte-par-catégorie
+trouvé en construisant ce test (corrigé, pas juste noté).
+
 ## Postgres + Alembic
 
 ```bash
@@ -83,7 +100,7 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/pytest -q -m integration
 ```
 
-Tout passe à 0 erreur (dernière vérification : 2026-09-05, 90 tests rapides
+Tout passe à 0 erreur (dernière vérification : 2026-09-05, 96 tests rapides
 + 3 d'intégration, y compris contre un conteneur Postgres fraîchement
 recréé).
 

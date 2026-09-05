@@ -23,7 +23,29 @@ def test_une_regle_matche_bien_un_libelle_carburant() -> None:
 def test_charge_un_compte_par_categorie() -> None:
     comptes = charger_compte_par_categorie()
     assert comptes["carburant"].startswith("6")
-    assert comptes["recettes_plateformes"].startswith(("4", "7"))
+
+
+def test_recettes_plateformes_est_corrigee_vers_un_vrai_compte_de_produit() -> None:
+    # Bug trouvé en testant sur un vrai dossier complet : le mapping brut
+    # donne 418 (créance temporaire, hors compte de résultat) en premier —
+    # ça exclurait silencieusement le revenu principal d'un chauffeur du CA.
+    comptes = charger_compte_par_categorie()
+    assert comptes["recettes_plateformes"] == "706"
+    assert nature_depuis_compte(comptes["recettes_plateformes"]) == "produit"
+
+
+def test_honoraires_et_charges_sociales_sont_corriges_vers_des_comptes_de_charge() -> None:
+    comptes = charger_compte_par_categorie()
+    assert nature_depuis_compte(comptes["honoraires_comptable_juridique"]) == "charge"
+    assert nature_depuis_compte(comptes["charges_sociales_impots"]) == "charge"
+
+
+def test_immobilisation_vehicule_reste_non_corrigee_expres() -> None:
+    # Le premier choix (218, hors compte de résultat) est correct pour un
+    # achat de véhicule (le cas courant) ; la seule alternative 6/7 (775) ne
+    # s'applique qu'à la revente — la forcer casserait le cas normal.
+    comptes = charger_compte_par_categorie()
+    assert nature_depuis_compte(comptes["immobilisation_vehicule"]) == "autre"
 
 
 def test_nature_depuis_compte() -> None:

@@ -3,6 +3,16 @@
 pas de rapprochement bancaire, pas de dotations aux amortissements, pas de
 cadrage TVA de clôture, pas de réintégrations fiscales (doc 06 §5, la
 checklist complète, V1 seulement).
+
+**Limite trouvée en testant sur un vrai dossier complet** (doc 17 §2,
+reformulé 2026-09-05) : `TRESORERIE == RESULTAT + TVA_A_PAYER` ne tient que
+si *toutes* les transactions du grand livre touchent un compte classe 6/7
+(charge/produit). Dès qu'une transaction touche un compte hors compte de
+résultat (immobilisation, capital — `nature_depuis_compte` renvoie
+`"autre"`), la trésorerie s'écarte du résultat d'exactement ce montant,
+puisqu'on ne modélise pas de poste de bilan séparé pour ces comptes (pas de
+ligne « immobilisations », pas de ligne « capital »). Assumé pour la démo,
+pas un bug — voir tests/test_demo_dossier_reel.py pour un cas concret.
 """
 
 from __future__ import annotations

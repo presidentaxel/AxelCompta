@@ -24,6 +24,17 @@ bouchons un par un par du réel. On ne finit jamais un module en profondeur
 avant que la couture vers le suivant existe — l'intégration est le risque
 principal sur un mois, pas la justesse d'un module isolé.
 
+> **Reformulé par Louis (2026-09-05), pour éviter de se reposer la question
+> à chaque étape :** le but de la démo, c'est de pouvoir dire **« on peut le
+> faire »** — que la chaîne se comporte comme en production, bout en bout.
+> **Pas obligatoire** : gérer tous les cas limites, ni que chaque écriture
+> soit parfaitement juste au centime (les estimations/simplifications sont
+> acceptées, doc 17 §3 le dit déjà). **Obligatoire en revanche** : que le
+> résultat **ressemble à un produit**, pas à un jouet — donc testé sur un
+> dossier assez complet (volume, variété de catégories) pour être crédible,
+> pas juste un exemple à 2-3 lignes. Voir §7bis pour le test sur données
+> réelles qui répond à ce point.
+
 ## 3. Coupes de scope assumées
 
 Un seul profil dossier, codé en dur, tout le reste dérive de là :
@@ -180,6 +191,41 @@ la transaction bancaire `+848,00 € UBER BV`, générant :
 Balance équilibrée, écriture visible dans le grand livre du dossier,
 apparaît dans la liasse générée. Si ce cas précis tourne sur un dossier de
 démo (réel ou fixture calée), le concept est considéré validé.
+
+## 7bis. Test sur un dossier réel complet — « ressembler à un produit »
+
+> **Fait (2026-09-05)** — `backend/axelcompta/demo_dossier_reel.py`. Complète
+> le golden test §7 (3 lignes, chiffres connus d'avance) par un test sur un
+> vrai dossier entier, pour la raison donnée au §2 : le golden test prouve
+> que le calcul est juste sur un cas connu, celui-ci prouve que le pipeline
+> **tient à l'échelle** sur des données qu'on ne contrôle pas.
+
+Rejoue une année complète d'un vrai dossier du CSV audit
+(`DOS_98279ecabf05`, exercice 2024, 543 transactions reconstruites, 20
+catégories réelles) via `FileImportProvider` → `categorize` (règles + ML) →
+`workflow/auto_accept` → clôture → liasse + CERFA 2065. Aucun settlement
+Rollee historique, donc pas de ventilation TVA plateforme ici — uniquement
+le chemin « reste des transactions ».
+
+Résultat obtenu : CA 29 209,51 €, charges 30 979,92 €, résultat **négatif**
+-1 770,41 € — la case Déficit du vrai formulaire 2065 se remplit
+correctement (jamais exercée par le golden test §7, qui est toujours
+bénéficiaire).
+
+**Un vrai bug trouvé en construisant ce test**, pas un cas limite anecdotique :
+le mapping compte-par-catégorie plaçait `recettes_plateformes` (le revenu
+principal d'un chauffeur) sur un compte hors compte de résultat (418, une
+créance temporaire) — sur le golden test à 3 lignes ça ne se voyait pas
+(cette catégorie n'y apparaît pas), sur un vrai dossier ça aurait renvoyé un
+chiffre d'affaires à zéro. Corrigé dans `packs/vtc_demo.py`
+(`CORRECTIONS_COMPTE_PAR_CATEGORIE`). C'est exactement pour ça que ce test
+existe : les jeux de données jouets cachent ce genre d'écart.
+
+**Limite assumée, pas corrigée** : sur ce dossier réel, `TRESORERIE ≠
+RESULTAT + TVA_A_PAYER` (contrairement au golden test §7) — des mouvements
+hors compte de résultat existent (achat de véhicule, capital) que le bilan
+simplifié ne suit pas séparément (doc 06 §5, V1 seulement). Documenté dans
+`closing/bilan_simplifie.py`, pas laissé comme un mystère.
 
 ## 8. Risques et mitigations
 

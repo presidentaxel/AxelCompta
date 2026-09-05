@@ -39,17 +39,36 @@ def charger_regles(chemin: Path | None = None) -> tuple[RegleCategorisation, ...
         )
 
 
+# Corrections explicites au "premier compte listé" — trouvées en testant sur
+# un vrai dossier complet (doc 17 §2, reformulé 2026-09-05) : le premier
+# compte du mapping n'est pas classe 6/7 alors qu'une alternative correcte
+# existe, ce qui exclut silencieusement la catégorie du compte de résultat.
+# `recettes_plateformes` est le cas le plus grave : c'est le revenu principal
+# d'un chauffeur, exclu du CA s'il tombe sur 418 (créance temporaire) au lieu
+# de 706 (produit réel). `immobilisation_vehicule` n'est PAS corrigée ici :
+# son premier choix (218, hors compte de résultat) est correct pour l'achat
+# d'un véhicule (le cas courant) — la seule alternative 6/7 (775, produit de
+# cession) ne s'applique qu'à la revente ; la forcer casserait le cas normal.
+CORRECTIONS_COMPTE_PAR_CATEGORIE = {
+    "recettes_plateformes": "706",  # produit réel, pas 418 (créance temporaire)
+    "honoraires_comptable_juridique": "6226",  # charge réelle, pas 201 (immobilisation)
+    "charges_sociales_impots": "645",  # charge réelle, pas 431 (compte de tiers URSSAF)
+}
+
+
 def charger_compte_par_categorie(chemin: Path | None = None) -> dict[str, str]:
     """Premier compte listé par catégorie dans le mapping — choix déterministe,
     **pas un jugement comptable validé** (le mapping est un brouillon
     d'audit, doc 12 §0.2 : « à densifier avec le comptable avant
     production »). Plusieurs comptes PCG peuvent correspondre à une même
-    catégorie ; on ne tranche pas ici lequel est le bon, on prend le premier
-    pour que la démo tourne.
+    catégorie ; on ne tranche pas ici lequel est le bon en général, sauf les
+    quelques corrections explicites ci-dessus quand le premier choix casse
+    silencieusement le compte de résultat.
     """
     chemin = chemin or CHEMIN_MAPPING_PAR_DEFAUT
     comptes: dict[str, str] = {}
     with chemin.open(newline="", encoding="utf-8") as fichier:
         for ligne in csv.DictReader(fichier):
             comptes.setdefault(ligne["categorie"], ligne["prefixe_compte_pcg_normalise"])
+    comptes.update(CORRECTIONS_COMPTE_PAR_CATEGORIE)
     return comptes
