@@ -25,8 +25,9 @@ par un expert-comptable* de ces artefacts pour la V1.
 
 - **Démo (doc 17 §4bis, semaine 2, fait)** : `charger_regles()` (12 règles),
   `charger_compte_par_categorie()` (premier compte listé par catégorie —
-  choix déterministe, **pas un jugement comptable validé**), et
-  `nature_depuis_compte()` (charge/produit par convention PCG classe 6/7).
+  choix déterministe, **pas un jugement comptable validé**). `nature_depuis_compte()`
+  est ré-exportée ici pour compat mais vit maintenant dans
+  `core/pcg.py` (semaine 3) : ce n'est pas une règle spécifique au pack VTC.
 - **V1 (doc 12, phase 1.1 + 0.2)** : taxonomie complète et mapping
   compte-par-catégorie validés avec le comptable du client (aujourd'hui un
   brouillon d'audit, premier compte listé pris arbitrairement).

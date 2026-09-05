@@ -5,20 +5,22 @@ dont tous les autres ont le droit de dépendre.
 
 **Dépendances :** aucune (module racine).
 
-## Contenu prévu
+## Fichiers
 
-- `Money` — montants en centimes (int), jamais de `float` pour de l'argent
-  (invariant absolu, doc 06 §1).
-- `Result` / erreurs typées — pas d'exceptions non gérées sur les chemins
-  métier.
-- Identifiants typés (dossier, écriture, transaction…) — pas de `str`/`int`
-  nu qui se mélange entre entités.
-- Dates/temps (fuseaux, exercices comptables).
+- `money.py` — `Money` (centimes int) + addition minimale (`__add__`,
+  `zero`, `somme`), refuse les devises différentes.
+- `errors.py` — `DomaineError`, `InvariantViole`.
+- `ids.py` — identifiants typés (`DossierId`, `EcritureId`, `TransactionId`...).
+- `db.py` — bootstrap SQLAlchemy (métadonnées partagées, moteur).
+- `pcg.py` — `nature_depuis_compte()` (**fait, semaine 3**) : convention PCG
+  générique classe 6 = charge / classe 7 = produit. Volontairement ici et
+  pas dans `packs/` : ce n'est pas une règle spécifique au pack VTC.
 
 ## Statuts
 
-- **Démo (doc 17, semaine 0)** : `Money` + ids typés, strict minimum pour
-  faire tourner le squelette bout-en-bout.
+- **Démo (doc 17, semaines 0-3)** : `Money`, ids typés, `pcg.py` — le
+  strict nécessaire pour faire tourner le pipeline bout-en-bout et calculer
+  un compte de résultat/bilan simplifiés.
 - **V1 (doc 12, phase 1.1)** : `core/` complet avec tests de propriétés
   (property-based testing) sur `Money` et les erreurs.
 

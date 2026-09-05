@@ -93,9 +93,9 @@ ventilation TVA nécessaires :
 ```
 Chemin settlement (Rollee) :
   ingestion/providers → ingestion/reconciliation → ingestion/ecritures_settlement → ledger → closing → filings
-   (fixtures golden      (reconcilier() : montant       (ventilation TVA          (512/706+   (bouchon :  (PDF
-    test doc 17 §7)        ±1cts, fenêtre date,           réelle, doc 13 §5.3,      TVA)        solde par   bouchon,
-                           libellé, doc 13 §4.2)          Uber/Bolt)                            compte)     reportlab)
+   (fixtures golden      (reconcilier() : montant       (ventilation TVA          (512/706+   (compte de   (liasse
+    test doc 17 §7)        ±1cts, fenêtre date,           réelle, doc 13 §5.3,      TVA)        résultat +   simplifiée,
+                           libellé, doc 13 §4.2)          Uber/Bolt)                            bilan)       reportlab)
 
 Chemin « reste des transactions » (carburant, péage...) — categorize inséré
 au lieu d'ecritures_settlement, pas de ventilation TVA :
@@ -112,7 +112,7 @@ dépendance.
 
 ## Statut d'implémentation actuel
 
-**Semaines 0 à 2 du doc 17 faites (2026-09-05)** :
+**Semaines 0 à 3 du doc 17 faites (2026-09-05)** :
 - Semaine 0 : `python -m axelcompta.demo` produit un vrai PDF, en mémoire
   (`InMemoryLedgerService`, pas de DB requise). Postgres + Alembic sont
   montés (`docker-compose.yml`, `migrations/`) et vérifiés contre un vrai
@@ -130,9 +130,14 @@ dépendance.
   `tfidf_logreg_v1.joblib` chargé comme artefact) catégorise le reste des
   transactions ; `workflow/auto_accept.py` les transforme en écriture sans
   revue humaine (stand-in assumé, pas l'architecture cible).
+- Semaine 3 : `ClotureSimplifieeService` (`closing/bilan_simplifie.py`)
+  remplace le bouchon — compte de résultat + bilan qui s'équilibrent
+  réellement (trésorerie = résultat + TVA à payer, vérifié en test).
+  `PdfLiasseSimplifieeRenderer` (`filings/liasse_simplifiee.py`) remplace le
+  dump brut de comptes par une présentation compte de résultat/bilan/case
+  2065 — toujours pas conforme CERFA/DGFiP, écrit noir sur blanc dans le PDF.
 
 Détail et commandes : [backend/README.md](../backend/README.md).
 
-Prochaine étape : semaine 3 du doc 17 (vraie clôture — balance → compte de
-résultat/bilan — et liasse réduite, au lieu du solde brut par compte actuel
-de `closing/bouchon.py` et du PDF debug de `filings/pdf_bouchon.py`).
+Prochaine étape : semaine 4 du doc 17 (tampon + démo — faire tourner sur
+2-3 dossiers, front minimal qui montre les étapes du pipeline).

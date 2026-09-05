@@ -9,16 +9,19 @@ pivot de liasse (`LiassePivot`) avant rendu par `filings/`.
 
 - `models.py` — `LiassePivot`.
 - `service.py` — `ClosingService`, façade abstraite.
-- `bouchon.py` — `BouchonClosingService` (doc 17 semaine 0, fait) : solde brut
-  par compte à partir du grand livre, aucune distinction bilan/compte de
-  résultat.
+- `bilan_simplifie.py` — `ClotureSimplifieeService` (**fait, semaine 3**) :
+  balance → compte de résultat (produits/charges via `core.pcg`) → bilan
+  (trésorerie, résultat, TVA à payer) → `LiassePivot` avec une case-clé 2065
+  (résultat fiscal, aucune réintégration — hors scope démo).
 
 ## Statuts
 
-- **Démo (doc 17 semaine 0, fait)** : `BouchonClosingService` tourne contre
-  `InMemoryLedgerService`. **Semaine 3 (à faire)** : vraie balance → compte de
-  résultat / bilan simplifié, `LiassePivot` réduit au strict nécessaire pour
-  le récit de démo.
+- **Démo (doc 17 semaine 3, fait)** : `ClotureSimplifieeService` produit un
+  compte de résultat et un bilan simplifiés qui s'équilibrent réellement
+  (trésorerie = résultat + TVA à payer, vérifié en test). Pas de
+  rapprochement bancaire, pas de dotations, pas de cadrage TVA de clôture,
+  pas de réintégrations fiscales — la checklist complète (doc 06 §5) reste
+  V1.
 - **V1 (doc 12, phase 3)** : clôture complète, tous les états requis.
 
 ## Doc de référence

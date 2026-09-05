@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from axelcompta.core.pcg import nature_depuis_compte as nature_depuis_compte
+
 # backend/axelcompta/packs/vtc_demo.py -> racine du repo
 RACINE_PACKS_VTC = Path(__file__).resolve().parents[3] / "_AUDIT_DONNEES" / "packs_vtc"
 CHEMIN_REGLES_PAR_DEFAUT = RACINE_PACKS_VTC / "regles_regex.csv"
@@ -51,13 +53,3 @@ def charger_compte_par_categorie(chemin: Path | None = None) -> dict[str, str]:
         for ligne in csv.DictReader(fichier):
             comptes.setdefault(ligne["categorie"], ligne["prefixe_compte_pcg_normalise"])
     return comptes
-
-
-def nature_depuis_compte(compte: str) -> str:
-    """Convention PCG (doc 06 §2) : classe 6 = charge, classe 7 = produit.
-    Tout le reste (immobilisations, capital...) est hors scope démo."""
-    if compte.startswith("6"):
-        return "charge"
-    if compte.startswith("7"):
-        return "produit"
-    return "autre"

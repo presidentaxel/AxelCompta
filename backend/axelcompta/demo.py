@@ -1,11 +1,12 @@
-"""Composition root de la démo doc 17 (semaines 0-2).
+"""Composition root de la démo doc 17 (semaines 0-3).
 
 Pas un module d'architecture (absent du découpage doc 03 §3) : juste le
 point d'entrée qui câble les briques ensemble — réconciliation → écriture
 (settlement plateforme avec ventilation TVA réelle, ou catégorisation
-règles/ML pour le reste) → clôture → PDF. Peut donc importer tous les
-modules métier sans violer les règles de dépendance (celles-ci s'appliquent
-entre modules, pas depuis la racine de composition, au même titre qu'`api/`).
+règles/ML pour le reste) → clôture simplifiée → liasse PDF simplifiée. Peut
+donc importer tous les modules métier sans violer les règles de dépendance
+(celles-ci s'appliquent entre modules, pas depuis la racine de composition,
+au même titre qu'`api/`).
 
 Usage : `python -m axelcompta.demo` depuis backend/, une fois le package
 installé (`pip install -e .`).
@@ -19,9 +20,9 @@ from pathlib import Path
 
 from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, ModeleSklearn, charger_modele
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
-from axelcompta.closing.bouchon import BouchonClosingService
+from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.core.ids import DossierId, TenantId, TransactionId
-from axelcompta.filings.pdf_bouchon import PdfBouchonRenderer
+from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.ecritures_settlement import construire_ecriture_settlement
 from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
 from axelcompta.ingestion.providers.fixture import FixtureProvider, FixtureSettlementProvider
@@ -32,7 +33,7 @@ from axelcompta.workflow.auto_accept import construire_ecriture_categorisee
 
 DOSSIER_DEMO = DossierId("demo-1")
 TENANT_DEMO = TenantId("demo")
-SORTIE_PDF_DEFAUT = Path(__file__).resolve().parent.parent / "_demo_output" / "liasse_semaine2.pdf"
+SORTIE_PDF_DEFAUT = Path(__file__).resolve().parent.parent / "_demo_output" / "liasse.pdf"
 
 # Transactions « reste des transactions » (doc 17 §6, semaine 2) : ne passent
 # pas par un settlement Rollee, juste par règles + ML (categorize/). Ajoutées
@@ -115,8 +116,8 @@ def executer(chemin: Path | None = None) -> Path:
             construire_ecriture_categorisee(transaction, proposition, compte, numero)
         )
 
-    liasse = BouchonClosingService(ledger).cloturer(DOSSIER_DEMO, exercice="2026")
-    pdf = PdfBouchonRenderer().rendre(liasse)
+    liasse = ClotureSimplifieeService(ledger).cloturer(DOSSIER_DEMO, exercice="2026")
+    pdf = PdfLiasseSimplifieeRenderer().rendre(liasse)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(pdf)

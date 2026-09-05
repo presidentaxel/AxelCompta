@@ -144,6 +144,9 @@ Digifactory, découvert cette fois avant de compter dessus plutôt qu'après.
 
 ### Semaine 3 — Clôture + liasse
 
+> **Fait (2026-09-05)** — `backend/axelcompta/closing/bilan_simplifie.py`,
+> `filings/liasse_simplifiee.py`. Détail : [docs/18-organisation-code.md](18-organisation-code.md).
+
 - Balance → compte de résultat / bilan simplifié.
 - `LiassePivot` réduit au strict nécessaire pour le récit de démo, rendu PDF.
 - **Golden test de sortie** (§7) : le critère de "c'est fini", pas la
