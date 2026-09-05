@@ -19,7 +19,9 @@ défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-mono
 > `documents`, `anomaly`, `ml` n'ont toujours que leur `README.md` +
 > `__init__.py`. Ajout du 2026-09-05 (hors plan doc 17 initial, demandé
 > explicitement) : un second PDF en overlay sur le vrai formulaire CERFA
-> 2065-SD officiel (ADR-006) — voir `filings/README.md` pour ses limites.
+> 2065-SD officiel (ADR-006), avec exercice/régime/comptabilité informatisée
+> en plus du résultat — voir `filings/README.md` pour ce qui reste blanc et
+> pourquoi (identité d'entreprise, jamais inventée).
 
 ## Faire tourner la démo (doc 17 semaines 0-3 + CERFA 2065)
 
@@ -40,10 +42,12 @@ le reste (règles + ML via `RulesAndMlPipeline`, puis
 `construire_ecriture_categorisee`) → `ClotureSimplifieeService` (compte de
 résultat + bilan, doc 17 semaine 3) → deux renderers au choix :
 `PdfLiasseSimplifieeRenderer` (lisible, pas de mise en page officielle) ou
-`PdfCerfa2065Renderer` (une case remplie sur le vrai formulaire officiel).
-Vérifié : le bilan s'équilibre (trésorerie = résultat + TVA à payer), la
-somme des soldes de tous les comptes vaut exactement 0, et "728,15"
-apparaît bien dans la vraie case du vrai PDF officiel (relu visuellement).
+`PdfCerfa2065Renderer` (résultat, exercice, régime, comptabilité
+informatisée remplis sur le vrai formulaire officiel — identité
+d'entreprise volontairement blanche). Vérifié : le bilan s'équilibre
+(trésorerie = résultat + TVA à payer), la somme des soldes de tous les
+comptes vaut exactement 0, et "728,15" apparaît bien dans la vraie case du
+vrai PDF officiel (relu visuellement).
 
 ## Faire tourner la démo sur un vrai dossier complet (doc 17 §2, §7bis)
 
@@ -100,7 +104,7 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/pytest -q -m integration
 ```
 
-Tout passe à 0 erreur (dernière vérification : 2026-09-05, 96 tests rapides
+Tout passe à 0 erreur (dernière vérification : 2026-09-05, 97 tests rapides
 + 3 d'intégration, y compris contre un conteneur Postgres fraîchement
 recréé).
 

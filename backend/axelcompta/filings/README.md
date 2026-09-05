@@ -12,12 +12,18 @@ Renderers : FEC, PDF de liasse, EDI-TDFC, dossier INPI.
   **Pas de conformité CERFA/DGFiP, pas d'EDI, pas d'INPI** — c'est écrit
   noir sur blanc dans le PDF lui-même pour qu'on ne s'y trompe jamais.
 - `cerfa/2065-sd_2026.pdf` + `cerfa_2065.py` — `PdfCerfa2065Renderer`
-  (**fait, 2026-09-05**) : overlay sur le **vrai formulaire officiel**
-  2065-SD (téléchargé depuis impots.gouv.fr), une seule case remplie
-  (Cadre C.1, résultat fiscal), le reste blanc car hors profil démo (pas
-  de groupe, pas de plus-value...). Voir ADR-006 pour le POC complet et ses
-  limites — **toujours pas une télédéclaration réelle** (EDI/EFI
-  obligatoire, statut Partenaire EDI, doc 02).
+  (**fait, 2026-09-05, complété le même jour suite à « il me faut tout sur
+  le dossier »**) : overlay sur le **vrai formulaire officiel** 2065-SD
+  (téléchargé depuis impots.gouv.fr). Cases remplies : résultat fiscal
+  (Cadre C.1), exercice ouvert/clos, régime réel normal, comptabilité
+  informatisée (OUI + logiciel "AxelCompta") — tous des faits qu'on connaît
+  vraiment. **Cadre A (désignation, SIRET, adresse) reste blanc exprès** :
+  aucune identité d'entreprise n'est modélisée, et un vrai dossier
+  historique est pseudonymisé à l'audit (doc 07 §2.2) — inventer un nom ou
+  un SIRET serait fabriquer une donnée, pas en afficher une vraie. Voir
+  ADR-006 pour le POC complet et ses limites — **toujours pas une
+  télédéclaration réelle** (EDI/EFI obligatoire, statut Partenaire EDI,
+  doc 02).
 
 ## Statuts
 

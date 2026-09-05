@@ -18,6 +18,19 @@ def test_remplit_la_case_benefice_si_resultat_positif() -> None:
     assert "728,15" in texte
 
 
+def test_remplit_exercice_regime_et_comptabilite_informatisee() -> None:
+    # Faits qu'on connaît vraiment (pas des inventions) : doc 17 §3, suite à
+    # « il me faut tout sur le dossier » — l'identité de l'entreprise
+    # (désignation, SIRET) reste volontairement blanche, voir docstring du
+    # module.
+    liasse = LiassePivot(dossier_id=DossierId("d1"), exercice="2024", cases={"2065": 0})
+    pdf = PdfCerfa2065Renderer().rendre(liasse)
+    texte = PdfReader(io.BytesIO(pdf)).pages[0].extract_text()
+    assert "01/01/2024" in texte
+    assert "31/12/2024" in texte
+    assert "AxelCompta" in texte
+
+
 def test_remplit_la_case_deficit_si_resultat_negatif() -> None:
     liasse = LiassePivot(dossier_id=DossierId("d1"), exercice="2026", cases={"2065": -50_00})
     pdf = PdfCerfa2065Renderer().rendre(liasse)

@@ -66,3 +66,14 @@ normal ou 2033 A à G en réel simplifié, non couverts par ce POC.
 Ce PDF reste **une aide à la relecture humaine, pas une télédéclaration** :
 le dépôt légal du 2065 est obligatoirement dématérialisé par EDI/EFI (doc 02,
 statut Partenaire EDI), jamais par PDF — aucun outil de rendu ne change ça.
+
+**Complété le même jour** suite à « il me faut tout sur le dossier » (Louis) :
+exercice ouvert/clos, régime réel normal, comptabilité informatisée (OUI +
+logiciel) rejoignent le résultat fiscal — 4 cases au lieu d'une, toutes des
+faits réels (pas d'invention). **Cadre A (désignation de la société, SIRET,
+adresse) reste blanc, décision explicite** : aucune identité d'entreprise
+n'est modélisée dans le domaine (`tenants/models.py`), et un vrai dossier
+historique est pseudonymisé exprès à l'audit (doc 07 §2.2) — y écrire un nom
+ou un SIRET serait fabriquer une donnée d'identité, pas en afficher une
+vraie. Si une vraie identité de dossier existe un jour (V1), cette case se
+remplit alors normalement.
