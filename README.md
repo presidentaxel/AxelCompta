@@ -13,6 +13,9 @@ le premier.
 
 **Statut du projet : phase de cadrage.** Ces documents sont des brouillons à
 relire, amender et valider avant d'écrire la première ligne de code produit.
+L'arborescence `backend/` et `frontend/` existe déjà (dossiers + `README.md`
+par module, aucun code) pour que l'organisation soit prête dès le top départ —
+voir [doc 18 — Organisation du code](docs/18-organisation-code.md).
 
 ## Sommaire
 
@@ -34,7 +37,10 @@ relire, amender et valider avant d'écrire la première ligne de code produit.
 | [13 — Intégrations plateformes](docs/13-integrations-plateformes.md) | Pattern DataProvider, Rollee (fleet mode), réconciliation settlements, TVA transport 10%, templates Uber/Bolt | Avant tout code d'ingestion ou de catégorisation VTC |
 | [14 — Onboarding / Offboarding](docs/14-onboarding-offboarding.md) | Cycle de vie d'un tenant : collecte des données, import en masse, connexion providers, reprise historique, export et purge | Avant le pilote client (phase 4) et à la signature de tout nouveau client |
 | [15 — Observabilité](docs/15-observabilite.md) | Métriques métier (KPIs taux catégorisation, coût LLM, balance, FEC), métriques techniques (mémoire ML, file de jobs, Bridge/Rollee), logs structurés JSON, alerting, dashboards Grafana | Avant le premier déploiement staging |
-| [ADR 001-006](docs/adr/) | Architecture Decision Records : monolithe, file de jobs, hébergement, signature, OCR, PDF liasses | À lire avant de remettre en question une décision d'architecture |
+| [16 — Intégration Digifactory](docs/16-integration-digifactory.md) | Connecteur Digifactory (agrégateur Bridge), schéma fixtures, statut du blocage token (401) | Avant tout code d'ingestion bancaire |
+| [17 — Plan démo backend](docs/17-plan-demo-backend.md) | Sprint d'un mois volontairement optimiste : coupe verticale, scope réduit à un seul profil dossier, semaine par semaine, golden test | Avant de démarrer la démo interne — **distinct du roadmap doc 12** |
+| [18 — Organisation du code](docs/18-organisation-code.md) | Correspondance entre l'arborescence `backend/`/`frontend/` et les modules du doc 03, graphe de dépendances, statut démo vs V1 par module | Avant de toucher au code, pour situer un module dans l'arbre |
+| [ADR 001-007](docs/adr/) | Architecture Decision Records : monolithe, file de jobs, hébergement, signature, OCR, PDF liasses, modèle ML de catégorisation | À lire avant de remettre en question une décision d'architecture |
 | [Référence Revolut](docs/references/DESIGN-revolut.md) | Analyse du design system marketing Revolut (source : getdesign.md) — inspiration pour la rigueur de tokenisation | Contexte de conception de DESIGN.md |
 
 ## Les 7 décisions structurantes déjà prises (à confirmer)

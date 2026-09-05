@@ -1,0 +1,39 @@
+# categorize/
+
+Pipeline de catégorisation hybride en étages : règles dures → modèle ML →
+LLM arbitre → revue humaine. Produit des `ProposedEntry` — seul `workflow`
+peut les transformer en écritures réelles via `ledger`, après validation
+(règle de dépendance CI, doc 03 §3).
+
+**Dépendances :** `core`, `packs`, `documents` (matching pièce, V1 seulement).
+**N'a pas le droit d'écrire dans `ledger` directement.**
+
+## Les 4 étages (V1, doc 05 §1)
+
+1. **Règles dures** — déterministe, biais maîtrisé (regex du pack).
+2. **Modèle ML** — TF-IDF + régression logistique / gradient boosting sur ce
+   que les règles ne couvrent pas.
+3. **LLM arbitre** — cas ambigus restants, via pseudonymisation en amont
+   (doc 10 §4).
+4. **Revue humaine** — filet final, explicabilité de bout en bout (doc 05 §7).
+
+## Ce qui existe déjà et sera réutilisé
+
+- [`_AUDIT_DONNEES/modeles/tfidf_logreg_v1.joblib`](../../../_AUDIT_DONNEES/modeles/) —
+  94,4% accuracy, **aucun réentraînement nécessaire** pour la démo.
+- [`_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv`](../../../_AUDIT_DONNEES/resultats/) —
+  48 042 lignes labellisées, sert de jeu de données pour le golden test.
+
+## Statuts
+
+- **Démo (doc 17 §3, semaine 2)** : étages 1 et 2 seulement (règles + ML
+  existant). **Pas de LLM d'arbitrage** — stub qui passe tout en confiance
+  haute. Pas de revue humaine / UI de validation.
+- **V1 (doc 12, phase 2)** : pipeline complet à 4 étages, boucle de feedback
+  continue (doc 07 §5).
+
+## Doc de référence
+
+[doc 05](../../../docs/05-pipeline-categorisation.md) (pipeline complet),
+[doc 07](../../../docs/07-ml-donnees-entrainement.md) (ML, données, MLOps),
+[doc 17 §3, §4bis](../../../docs/17-plan-demo-backend.md).
