@@ -11,6 +11,8 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "reportlab>=4.0",
     "python-dotenv>=1.0",
+    "joblib>=1.3",
+    "scikit-learn>=1.4",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +37,12 @@ include = ["axelcompta*"]
 python_version = "3.12"
 strict = true
 warn_unused_configs = true
+
+# joblib n'a ni py.typed ni stubs publiés (types-joblib n'existe pas) —
+# justification requise pour toute suppression de type (doc 08 §3).
+[[tool.mypy.overrides]]
+module = "joblib"
+ignore_missing_imports = true
 
 # --- Lint + format : ruff (doc 08 §3) ---
 [tool.ruff]

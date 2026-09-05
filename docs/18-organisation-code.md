@@ -52,6 +52,7 @@ graph TD
     documents --> tenants
     ingestion["ingestion/providers"] --> core
     ingestion --> tenants
+    ingestion --> ledger
     categorize["categorize"] --> core
     categorize --> packs
     categorize --> ingestion
@@ -65,6 +66,7 @@ graph TD
     filings --> closing
     workflow["workflow"] --> core
     workflow --> categorize
+    workflow --> ingestion
     workflow --> ledger
     ml["ml"] -. artefact chargé, jamais importé .-> categorize
     api["api"] -. façades publiques seulement .-> tenants
@@ -89,16 +91,19 @@ il n'entre en jeu qu'en semaine 2, une fois les vrais templates de
 ventilation TVA nécessaires :
 
 ```
-ingestion/providers  →  ingestion/reconciliation  →  ledger  →  closing  →  filings
-  (fixtures, golden      (bouchon : égalité de       (512/706    (bouchon :   (PDF
-   test doc 17 §7)        montant, doc 13 §4.2         bruts,      solde par    bouchon,
-                           pour la vraie version)       doc 17 §7)  compte)      reportlab)
+Chemin settlement (Rollee) :
+  ingestion/providers → ingestion/reconciliation → ingestion/ecritures_settlement → ledger → closing → filings
+   (fixtures golden      (reconcilier() : montant       (ventilation TVA          (512/706+   (bouchon :  (PDF
+    test doc 17 §7)        ±1cts, fenêtre date,           réelle, doc 13 §5.3,      TVA)        solde par   bouchon,
+                           libellé, doc 13 §4.2)          Uber/Bolt)                            compte)     reportlab)
+
+Chemin « reste des transactions » (carburant, péage...) — categorize inséré
+au lieu d'ecritures_settlement, pas de ventilation TVA :
+  ingestion/providers → categorize (règles + ML) → workflow/auto_accept → ledger → closing → filings
 ```
 
-Semaine 2 (à faire) insère `categorize` (règles + ML) entre la réconciliation
-et `ledger`, pour produire les `ProposedEntry` qui pilotent les vrais
-templates d'écriture (doc 13 §5.3, ventilation TVA complète). `tenants`,
-`packs`, `core` et `api` restent transverses.
+`tenants`, `packs`, `core` et `api` restent transverses. Les deux chemins
+convergent dans le même `ledger` (mémoire pour la démo).
 
 `backend/axelcompta/demo.py` est la composition root qui câble tout ça —
 absent du découpage doc 03 §3 exprès : c'est un point d'entrée (comme `api/`),
@@ -107,23 +112,27 @@ dépendance.
 
 ## Statut d'implémentation actuel
 
-**Semaines 0 et 1 du doc 17 faites (2026-09-05)** :
-- Semaine 0 : `python -m axelcompta.demo` produit un vrai PDF à partir des
-  fixtures du golden test (doc 17 §7), en mémoire (`InMemoryLedgerService`,
-  pas de DB requise). Postgres + Alembic sont montés (`docker-compose.yml`,
-  `migrations/`) et vérifiés contre un vrai conteneur
-  (`PostgresLedgerService`, tests d'intégration) mais pas encore branchés
-  dans `demo.py`.
+**Semaines 0 à 2 du doc 17 faites (2026-09-05)** :
+- Semaine 0 : `python -m axelcompta.demo` produit un vrai PDF, en mémoire
+  (`InMemoryLedgerService`, pas de DB requise). Postgres + Alembic sont
+  montés (`docker-compose.yml`, `migrations/`) et vérifiés contre un vrai
+  conteneur (`PostgresLedgerService`, tests d'intégration) mais pas encore
+  branchés dans `demo.py`.
 - Semaine 1 : les 5 providers rendent des données (plus aucun
   `NotImplementedError`). `FileImportProvider` (chemin C) rejoue le vrai CSV
-  audit (36 152 lignes, regroupement des composites, inversion du signe
-  FEC → relevé bancaire) — testé contre le fichier réel, pas seulement des
-  fixtures. `DigifactoryProvider`/`RolleeProvider` restent chemin B
-  (fixtures) : token 401 et sandbox non vérifié toujours d'actualité côté
-  Louis, chemin A non tenté.
+  audit (36 152 lignes) — testé contre le fichier réel. `DigifactoryProvider`/
+  `RolleeProvider` restent chemin B (fixtures) : token 401 et sandbox non
+  vérifié toujours d'actualité côté Louis, chemin A non tenté.
+- Semaine 2 : `reconcilier()` (doc 13 §4.2, montant ±1cts/fenêtre de
+  date/libellé) remplace le bouchon. `construire_ecriture_settlement`
+  (doc 13 §5.3) reproduit le golden test Uber exactement et gère le cas
+  Bolt (autoliquidation). `RulesAndMlPipeline` (règles du pack + modèle
+  `tfidf_logreg_v1.joblib` chargé comme artefact) catégorise le reste des
+  transactions ; `workflow/auto_accept.py` les transforme en écriture sans
+  revue humaine (stand-in assumé, pas l'architecture cible).
 
 Détail et commandes : [backend/README.md](../backend/README.md).
 
-Prochaine étape : semaine 2 du doc 17 (`categorize` — règles + ML existant —
-inséré entre réconciliation et `ledger`, vraie ventilation TVA doc 13 §5.3,
-algorithme de réconciliation réel doc 13 §4.2).
+Prochaine étape : semaine 3 du doc 17 (vraie clôture — balance → compte de
+résultat/bilan — et liasse réduite, au lieu du solde brut par compte actuel
+de `closing/bouchon.py` et du PDF debug de `filings/pdf_bouchon.py`).

@@ -21,7 +21,7 @@ class PdfBouchonRenderer(FilingRenderer):
         tampon = io.BytesIO()
         dessin = canvas.Canvas(tampon, pagesize=A4)
         dessin.setFont("Helvetica-Bold", 16)
-        dessin.drawString(50, 800, "AxeLCompta — Liasse (démo, doc 17 semaine 0)")
+        dessin.drawString(50, 800, "AxeLCompta — Liasse (démo, doc 17)")
         dessin.setFont("Helvetica", 11)
         dessin.drawString(50, 770, f"Dossier {liasse.dossier_id} — exercice {liasse.exercice}")
         position_y = 730

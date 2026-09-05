@@ -13,20 +13,23 @@ code : `if secteur == "vtc"` est interdit hors de ce module.
 Le pack **VTC** (le premier) est déjà largement dégrossi dans l'audit,
 inchangé à cet endroit :
 
-- [`_AUDIT_DONNEES/packs_vtc/taxonomie.md`](../../../_AUDIT_DONNEES/packs_vtc/taxonomie.md) — ~40-80 classes.
-- [`_AUDIT_DONNEES/packs_vtc/regles_regex.csv`](../../../_AUDIT_DONNEES/packs_vtc/regles_regex.csv) — 24 règles regex.
-- [`_AUDIT_DONNEES/packs_vtc/mapping_pcg_categorie.csv`](../../../_AUDIT_DONNEES/packs_vtc/mapping_pcg_categorie.csv) — 61 mappings PCG, 18 catégories.
+- [`_AUDIT_DONNEES/packs_vtc/taxonomie.md`](../../../_AUDIT_DONNEES/packs_vtc/taxonomie.md) — 29 catégories décrites (+ 1 bucket technique résiduel).
+- [`_AUDIT_DONNEES/packs_vtc/regles_regex.csv`](../../../_AUDIT_DONNEES/packs_vtc/regles_regex.csv) — 12 règles regex (déjà la version réduite pour la démo).
+- [`_AUDIT_DONNEES/packs_vtc/mapping_pcg_categorie.csv`](../../../_AUDIT_DONNEES/packs_vtc/mapping_pcg_categorie.csv) — 71 comptes PCG mappés vers 29 catégories.
 
-`packs/` sera la version *packagée et testée* de ces artefacts pour tourner
-en runtime API ; en attendant, ce module charge les fichiers de l'audit
-directement.
+`vtc_demo.py` charge ces deux CSV directement (fait, semaine 2) : ni
+dupliqués, ni réencodés — `packs/` sera la version *packagée et validée
+par un expert-comptable* de ces artefacts pour la V1.
 
 ## Statuts
 
-- **Démo (doc 17 §4bis)** : pack VTC réduit aux ~15 catégories les plus
-  fréquentes, base du catégoriseur à règles.
-- **V1 (doc 12, phase 1.1 + 0.2)** : taxonomie complète construite avec le
-  comptable du client, table de mapping comptes historiques → taxonomie.
+- **Démo (doc 17 §4bis, semaine 2, fait)** : `charger_regles()` (12 règles),
+  `charger_compte_par_categorie()` (premier compte listé par catégorie —
+  choix déterministe, **pas un jugement comptable validé**), et
+  `nature_depuis_compte()` (charge/produit par convention PCG classe 6/7).
+- **V1 (doc 12, phase 1.1 + 0.2)** : taxonomie complète et mapping
+  compte-par-catégorie validés avec le comptable du client (aujourd'hui un
+  brouillon d'audit, premier compte listé pris arbitrairement).
 
 ## Doc de référence
 

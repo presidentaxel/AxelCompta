@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+
+from axelcompta.core.ids import DossierId, TransactionId
+from axelcompta.core.money import Money
+from axelcompta.ingestion.ecritures_settlement import (
+    RegimeTvaInconnu,
+    construire_ecriture_settlement,
+)
+from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
+from axelcompta.ledger.invariants import solde
+from axelcompta.ledger.models import Ecriture, Sens
+
+
+def _transaction(montant_cts: int) -> NormalizedTransaction:
+    return NormalizedTransaction(
+        id=TransactionId("tx1"),
+        dossier_id=DossierId("d1"),
+        date=date(2026, 9, 3),
+        montant_cts=montant_cts,
+        libelle="UBER BV",
+        source_provider="fixture",
+        raw_payload={},
+    )
+
+
+def _settlement(
+    gross_cts: int, commission_cts: int, net_cts: int, regime: str, platform: str = "uber"
+) -> PlatformSettlement:
+    return PlatformSettlement(
+        dossier_id=DossierId("d1"),
+        platform=platform,
+        period_start=date(2026, 8, 1),
+        period_end=date(2026, 8, 31),
+        payout_date=date(2026, 9, 2),
+        gross_earnings_cts=gross_cts,
+        commission_cts=commission_cts,
+        commission_tva_regime=regime,
+        net_payout_cts=net_cts,
+        currency="EUR",
+        source_provider="rollee",
+        raw_payload={},
+    )
+
+
+def _montant(ecriture: Ecriture, compte: str, sens: Sens) -> int:
+    return next(
+        ligne.montant.centimes
+        for ligne in ecriture.lignes
+        if ligne.compte == compte and ligne.sens is sens
+    )
+
+
+def test_uber_france_reproduit_le_golden_test_doc13_paragraphe_5_3() -> None:
+    settlement = _settlement(1_040_00, 192_00, 848_00, "france_20")
+    ecriture = construire_ecriture_settlement(_transaction(848_00), settlement, numero=1)
+
+    assert _montant(ecriture, "512", Sens.DEBIT) == 848_00
+    assert _montant(ecriture, "622", Sens.DEBIT) == 160_00
+    assert _montant(ecriture, "44566", Sens.DEBIT) == 32_00
+    assert _montant(ecriture, "706", Sens.CREDIT) == 945_45
+    assert _montant(ecriture, "44571", Sens.CREDIT) == 94_55
+
+    debit, credit = solde(ecriture)
+    assert debit == credit == Money(104_000)
+
+
+def test_bolt_autoliquidation_est_equilibree_et_symetrique() -> None:
+    settlement = _settlement(500_00, 50_00, 450_00, "autoliquidation_ue", platform="bolt")
+    ecriture = construire_ecriture_settlement(_transaction(450_00), settlement, numero=2)
+
+    assert _montant(ecriture, "622", Sens.DEBIT) == 50_00  # déjà HT, pas divisé
+    tva_deductible = _montant(ecriture, "44566", Sens.DEBIT)
+    montants_44571 = [
+        ligne.montant.centimes for ligne in ecriture.lignes if ligne.compte == "44571"
+    ]
+    assert tva_deductible in montants_44571  # la ligne due symétrique existe et s'annule
+
+    debit, credit = solde(ecriture)
+    assert debit == credit
+
+
+def test_regime_inconnu_leve_une_erreur_explicite() -> None:
+    settlement = _settlement(100_00, 10_00, 90_00, "regime_jamais_vu")
+    with pytest.raises(RegimeTvaInconnu):
+        construire_ecriture_settlement(_transaction(90_00), settlement, numero=1)

@@ -28,7 +28,7 @@ from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-from axelcompta.core.ids import DossierId, TenantId
+from axelcompta.core.ids import DossierId, TenantId, TransactionId
 
 from .base import DataProvider, NormalizedTransaction, PlatformSettlement, ProviderHealth
 
@@ -68,6 +68,7 @@ def charger_transactions_csv(
     groupes = _regrouper(chemin, dossier_id, depuis, jusqua)
     resultat = [
         NormalizedTransaction(
+            id=TransactionId(f"{cle[0]}:{cle[1]}:{cle[2]}"),
             dossier_id=dossier_id,
             date=datetime.strptime(cle[2], "%Y-%m-%d").date(),
             montant_cts=-sum(_vers_centimes(ligne["montant"]) for ligne in lignes),

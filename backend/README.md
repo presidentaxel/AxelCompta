@@ -3,31 +3,38 @@
 Monolithe modulaire Python (FastAPI / SQLAlchemy / Postgres), découpage complet
 défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
 
-> **Statut au 2026-09-05 : doc 17 semaines 0 et 1 faites.** Une commande
+> **Statut au 2026-09-05 : doc 17 semaines 0 à 2 faites.** Une commande
 > unique produit un PDF à partir de fixtures (doc 17 §2 : « coupe verticale
-> d'abord »), sans ventilation TVA (semaine 2). Postgres + Alembic sont
-> montés et vérifiés contre un vrai conteneur. Les 5 providers rendent des
-> données réelles ou fixtures — plus aucun stub `NotImplementedError` — dont
-> `FileImportProvider` (chemin C) rejouant les 36 152 lignes réelles de
-> `_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv`. **Aucun accès réel** aux
-> API Digifactory/Rollee (token 401, sandbox non vérifié — chemin A non
-> tenté). Les modules non prévus pour la démo (`documents`, `anomaly`,
-> `workflow`, `ml`) n'ont toujours que leur `README.md` + `__init__.py`.
+> d'abord »), **avec la vraie ventilation TVA** (settlement plateforme :
+> golden test Uber doc 13 §5.3 reproduit exactement, cas Bolt autoliquidation
+> testé) et la vraie réconciliation (montant ±1 centime, fenêtre de date,
+> libellé). Le « reste des transactions » (carburant, péage...) passe par
+> règles + ML existant (`categorize/`), accepté sans revue humaine
+> (`workflow/auto_accept.py` — stand-in, pas l'architecture cible). Postgres
+> + Alembic montés et vérifiés contre un vrai conteneur, pas encore branchés
+> dans `demo.py` (qui tourne en mémoire). Les 5 providers rendent des
+> données réelles ou fixtures — plus aucun stub `NotImplementedError`.
+> **Aucun accès réel** aux API Digifactory/Rollee (token 401, sandbox non
+> vérifié — chemin A non tenté). `documents`, `anomaly`, `ml` n'ont toujours
+> que leur `README.md` + `__init__.py`.
 
-## Faire tourner la démo (doc 17 semaine 0)
+## Faire tourner la démo (doc 17 semaines 0-2)
 
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m axelcompta.demo
-# → Liasse démo générée : backend/_demo_output/liasse_semaine0.pdf
+# → Liasse démo générée : backend/_demo_output/liasse_semaine2.pdf
 ```
 
 Aucune base de données requise : `demo.py` utilise `InMemoryLedgerService`.
-La couture prouvée (doc 17 §7, golden test) : fixtures (settlement Uber
-1 040,00 € / transaction +848,00 € UBER BV) → `reconcilier_bouchon` →
-écriture 512/706 (sans ventilation, doc 13 §5.3 pour la vraie version,
-semaine 2) → clôture bouchon → PDF.
+La couture prouvée : fixtures (settlement Uber 1 040,00 € / transaction
++848,00 € UBER BV, + deux transactions « reste » : carburant, péage) →
+`reconcilier()` (doc 13 §4.2) → écriture ventilée TVA pour le settlement
+(`construire_ecriture_settlement`, doc 13 §5.3) ou écriture catégorisée pour
+le reste (règles + ML via `RulesAndMlPipeline`, puis
+`construire_ecriture_categorisee`) → clôture bouchon → PDF. Vérifié : la
+somme des soldes de tous les comptes du PDF vaut exactement 0.
 
 ## Postgres + Alembic
 
@@ -67,8 +74,9 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/pytest -q -m integration
 ```
 
-Tout passe à 0 erreur (dernière vérification : 2026-09-05, y compris
-l'intégration contre un conteneur Postgres fraîchement recréé).
+Tout passe à 0 erreur (dernière vérification : 2026-09-05, 84 tests rapides
++ 3 d'intégration, y compris contre un conteneur Postgres fraîchement
+recréé).
 
 ## Tests : un dossier miroir par module (doc 08 §3)
 
@@ -110,15 +118,15 @@ Détail complet de la correspondance arbre ↔ docs : [docs/18-organisation-code
 |---|---|---|---|
 | [`core/`](axelcompta/core/README.md) | Types partagés : monnaie, erreurs, ids typés | Actif (minimal) | Actif |
 | [`tenants/`](axelcompta/tenants/README.md) | Tenants, dossiers, statuts/régimes | Réduit (1 dossier en dur) | Actif |
-| [`packs/`](axelcompta/packs/README.md) | Packs métier : taxonomies, règles, templates | Actif (pack VTC réduit) | Actif |
+| [`packs/`](axelcompta/packs/README.md) | Packs métier : taxonomies, règles, templates | Actif (règles + mapping compte) | Actif |
 | [`ingestion/providers/`](axelcompta/ingestion/providers/README.md) | Interface `DataProvider` + implémentations | Actif | Actif |
 | [`documents/`](axelcompta/documents/README.md) | Justificatifs, OCR, Factur-X, matching | Non prévu | Actif |
-| [`categorize/`](axelcompta/categorize/README.md) | Pipeline règles → ML → LLM → revue humaine | Réduit (règles + ML, pas de LLM) | Actif |
+| [`categorize/`](axelcompta/categorize/README.md) | Pipeline règles → ML → LLM → revue humaine | Actif (règles + ML, pas de LLM) | Actif |
 | [`anomaly/`](axelcompta/anomaly/README.md) | Détection d'abus / anomalies | Non prévu | Actif |
 | [`ledger/`](axelcompta/ledger/README.md) | ❤️ Moteur comptable pur | Actif | Actif |
 | [`closing/`](axelcompta/closing/README.md) | Clôture d'exercice, états financiers | Réduit | Actif |
 | [`filings/`](axelcompta/filings/README.md) | Renderers FEC, PDF, EDI-TDFC, INPI | Réduit (PDF simplifié seulement) | Actif |
-| [`workflow/`](axelcompta/workflow/README.md) | Validation, revue, signature électronique | Non prévu | Actif |
+| [`workflow/`](axelcompta/workflow/README.md) | Validation, revue, signature électronique | Réduit (auto-accept, pas de revue) | Actif |
 | [`api/`](axelcompta/api/README.md) | Routes FastAPI, auth, permissions | Réduit (pas d'auth) | Actif |
 | [`ml/`](axelcompta/ml/README.md) | Entraînement, évaluation, registry modèles | Non prévu (modèle déjà entraîné réutilisé) | Actif |
 

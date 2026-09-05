@@ -13,7 +13,7 @@ from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from axelcompta.core.ids import DossierId, TenantId
+from axelcompta.core.ids import DossierId, TenantId, TransactionId
 
 from .base import DataProvider, NormalizedTransaction, PlatformSettlement, ProviderHealth
 
@@ -89,6 +89,7 @@ def parser_transactions(
         if depuis <= date_operation <= jusqua:
             resultat.append(
                 NormalizedTransaction(
+                    id=TransactionId(str(tx["id"])),
                     dossier_id=dossier_id,
                     date=date_operation,
                     montant_cts=_vers_centimes(tx["amount"]),

@@ -26,11 +26,25 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
   36 152 lignes labellisées, déjà rejoué par `FileImportProvider` (chemin C,
   `ingestion/providers/file_import.py`, fait en semaine 1).
 
+## Fichiers
+
+- `models.py` — `ProposedEntry`, `Etage`.
+- `pipeline.py` — `CategorizationPipeline`, façade abstraite.
+- `ml_fallback.py` — charge `tfidf_logreg_v1.joblib` comme artefact (jamais
+  `import axelcompta.ml`, doc 03 §3), reproduit exactement le featurizing de
+  `entrainer_modele_baseline.py` (bucket de montant + libellé). Dégradation
+  explicite si le fichier est absent (`ModeleMlIndisponible`, gitignoré).
+- `rules_and_ml.py` — `RulesAndMlPipeline` (**fait, semaine 2**) : étage 1
+  (première règle du pack qui matche) puis étage 2 (ML si aucune règle ne
+  matche, ou catégorie par défaut à confiance nulle si le modèle est absent).
+
 ## Statuts
 
-- **Démo (doc 17 §3, semaine 2)** : étages 1 et 2 seulement (règles + ML
-  existant). **Pas de LLM d'arbitrage** — stub qui passe tout en confiance
-  haute. Pas de revue humaine / UI de validation.
+- **Démo (doc 17 §3, semaine 2, fait)** : étages 1 et 2 seulement (règles +
+  ML existant, aucun réentraînement). **Pas de LLM d'arbitrage** — pas de
+  stage 3 du tout, pas même un stub. Pas de revue humaine / UI de validation
+  (la transformation en écriture passe par `workflow/auto_accept.py`, qui
+  accepte tout sans revue — doc 17 §3).
 - **V1 (doc 12, phase 2)** : pipeline complet à 4 étages, boucle de feedback
   continue (doc 07 §5).
 

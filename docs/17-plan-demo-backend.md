@@ -129,6 +129,10 @@ Digifactory, découvert cette fois avant de compter dessus plutôt qu'après.
 
 ### Semaine 2 — Réconciliation + catégorisation + écritures complètes
 
+> **Fait (2026-09-05)** — `backend/axelcompta/ingestion/reconciliation.py`,
+> `ingestion/ecritures_settlement.py`, `categorize/rules_and_ml.py`,
+> `workflow/auto_accept.py`. Détail : [docs/18-organisation-code.md](18-organisation-code.md).
+
 - Algorithme de matching montant+date+libellé (doc 13 §4.2), états
   `en_attente_banque` / `réconcilié` / `revue manuelle`.
 - Templates d'écriture **avec ventilation TVA complète** (doc 13 §5.3) : au

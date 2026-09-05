@@ -11,13 +11,20 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
 
-from axelcompta.core.ids import DossierId, TenantId
+from axelcompta.core.ids import DossierId, TenantId, TransactionId
 
 
 @dataclass(frozen=True, slots=True)
 class NormalizedTransaction:
-    """Transaction bancaire normalisée (doc 04 §5 : la sortie unique du module)."""
+    """Transaction bancaire normalisée (doc 04 §5 : la sortie unique du module).
 
+    `id` : clé de déduplication stable (doc 16 §5 — "bloquant"). Chaque
+    provider construit son propre id de façon déterministe (id natif du
+    fournisseur si disponible, sinon dérivé du dossier + de la référence de
+    pièce + de la date).
+    """
+
+    id: TransactionId
     dossier_id: DossierId
     date: date
     montant_cts: int

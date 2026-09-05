@@ -46,6 +46,10 @@ pipeline selon le chemin retenu le jour de la démo.
     seule la récupération du payload change, pas le parsing.
   - `RolleeProvider` (chemin B) : fixture calée sur le golden test doc 17 §7,
     filtrée par fenêtre de `payout_date`.
+  - `NormalizedTransaction` porte désormais un `id` stable (doc 16 §5,
+    ajouté semaine 2) : `id` natif du fournisseur pour Digifactory, dérivé
+    de dossier+piece_ref+date pour FileImportProvider — nécessaire pour
+    relier une transaction à sa `ProposedEntry` (`categorize/`).
   - **Chemin A (réel) non tenté** : token Digifactory toujours en 401
     (doc 16 §7), accès sandbox Rollee toujours non vérifié (doc 17 §5).
 - **V1 (doc 12, phase 0.3 + 1)** : spikes Digifactory/Bridge/Rollee menés à

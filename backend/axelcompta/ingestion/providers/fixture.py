@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from axelcompta.core.ids import DossierId, TenantId
+from axelcompta.core.ids import DossierId, TenantId, TransactionId
 from axelcompta.ingestion.providers.base import (
     DataProvider,
     NormalizedTransaction,
@@ -33,6 +33,7 @@ class FixtureProvider(DataProvider):
     ) -> list[NormalizedTransaction]:
         return [
             NormalizedTransaction(
+                id=TransactionId("fixture-uber-1"),
                 dossier_id=dossier_id,
                 date=date(2026, 9, 3),
                 montant_cts=848_00,
