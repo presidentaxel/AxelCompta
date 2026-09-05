@@ -17,15 +17,18 @@ défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-mono
 > pas encore branchés dans `demo.py` (qui tourne en mémoire). **Aucun accès
 > réel** aux API Digifactory/Rollee (token 401, sandbox non vérifié).
 > `documents`, `anomaly`, `ml` n'ont toujours que leur `README.md` +
-> `__init__.py`.
+> `__init__.py`. Ajout du 2026-09-05 (hors plan doc 17 initial, demandé
+> explicitement) : un second PDF en overlay sur le vrai formulaire CERFA
+> 2065-SD officiel (ADR-006) — voir `filings/README.md` pour ses limites.
 
-## Faire tourner la démo (doc 17 semaines 0-3)
+## Faire tourner la démo (doc 17 semaines 0-3 + CERFA 2065)
 
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m axelcompta.demo
 # → Liasse démo générée : backend/_demo_output/liasse.pdf
+# → CERFA 2065 (case résultat fiscal remplie) : backend/_demo_output/cerfa_2065.pdf
 ```
 
 Aucune base de données requise : `demo.py` utilise `InMemoryLedgerService`.
@@ -35,9 +38,12 @@ La couture prouvée : fixtures (settlement Uber 1 040,00 € / transaction
 (`construire_ecriture_settlement`, doc 13 §5.3) ou écriture catégorisée pour
 le reste (règles + ML via `RulesAndMlPipeline`, puis
 `construire_ecriture_categorisee`) → `ClotureSimplifieeService` (compte de
-résultat + bilan, doc 17 semaine 3) → `PdfLiasseSimplifieeRenderer`. Vérifié :
-le bilan s'équilibre (trésorerie = résultat + TVA à payer) et la somme des
-soldes de tous les comptes vaut exactement 0.
+résultat + bilan, doc 17 semaine 3) → deux renderers au choix :
+`PdfLiasseSimplifieeRenderer` (lisible, pas de mise en page officielle) ou
+`PdfCerfa2065Renderer` (une case remplie sur le vrai formulaire officiel).
+Vérifié : le bilan s'équilibre (trésorerie = résultat + TVA à payer), la
+somme des soldes de tous les comptes vaut exactement 0, et "728,15"
+apparaît bien dans la vraie case du vrai PDF officiel (relu visuellement).
 
 ## Postgres + Alembic
 
@@ -77,7 +83,7 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/pytest -q -m integration
 ```
 
-Tout passe à 0 erreur (dernière vérification : 2026-09-05, 86 tests rapides
+Tout passe à 0 erreur (dernière vérification : 2026-09-05, 90 tests rapides
 + 3 d'intégration, y compris contre un conteneur Postgres fraîchement
 recréé).
 
@@ -128,7 +134,7 @@ Détail complet de la correspondance arbre ↔ docs : [docs/18-organisation-code
 | [`anomaly/`](axelcompta/anomaly/README.md) | Détection d'abus / anomalies | Non prévu | Actif |
 | [`ledger/`](axelcompta/ledger/README.md) | ❤️ Moteur comptable pur | Actif | Actif |
 | [`closing/`](axelcompta/closing/README.md) | Clôture d'exercice, états financiers | Actif (compte de résultat + bilan simplifiés) | Actif |
-| [`filings/`](axelcompta/filings/README.md) | Renderers FEC, PDF, EDI-TDFC, INPI | Actif (liasse simplifiée, pas CERFA) | Actif |
+| [`filings/`](axelcompta/filings/README.md) | Renderers FEC, PDF, EDI-TDFC, INPI | Actif (liasse simplifiée + overlay CERFA 2065 partiel) | Actif |
 | [`workflow/`](axelcompta/workflow/README.md) | Validation, revue, signature électronique | Réduit (auto-accept, pas de revue) | Actif |
 | [`api/`](axelcompta/api/README.md) | Routes FastAPI, auth, permissions | Réduit (pas d'auth) | Actif |
 | [`ml/`](axelcompta/ml/README.md) | Entraînement, évaluation, registry modèles | Non prévu (modèle déjà entraîné réutilisé) | Actif |

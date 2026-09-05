@@ -21,7 +21,9 @@ from pathlib import Path
 from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, ModeleSklearn, charger_modele
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
+from axelcompta.closing.models import LiassePivot
 from axelcompta.core.ids import DossierId, TenantId, TransactionId
+from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.ecritures_settlement import construire_ecriture_settlement
 from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
@@ -33,7 +35,9 @@ from axelcompta.workflow.auto_accept import construire_ecriture_categorisee
 
 DOSSIER_DEMO = DossierId("demo-1")
 TENANT_DEMO = TenantId("demo")
-SORTIE_PDF_DEFAUT = Path(__file__).resolve().parent.parent / "_demo_output" / "liasse.pdf"
+DOSSIER_SORTIE_DEFAUT = Path(__file__).resolve().parent.parent / "_demo_output"
+SORTIE_PDF_DEFAUT = DOSSIER_SORTIE_DEFAUT / "liasse.pdf"
+SORTIE_CERFA_DEFAUT = DOSSIER_SORTIE_DEFAUT / "cerfa_2065.pdf"
 
 # Transactions « reste des transactions » (doc 17 §6, semaine 2) : ne passent
 # pas par un settlement Rollee, juste par règles + ML (categorize/). Ajoutées
@@ -85,12 +89,11 @@ async def _recuperer_fixtures() -> tuple[
     return transactions, tuple(settlements)
 
 
-def executer(chemin: Path | None = None) -> Path:
-    """Le cœur de la coupe verticale (doc 17 §2). Renvoie le chemin du PDF
-    produit ; `chemin` est paramétrable pour rester testable sans écrire
-    dans un emplacement fixe du disque à chaque run de test.
+def _construire_liasse() -> LiassePivot:
+    """Le cœur de la coupe verticale (doc 17 §2) : fixtures → réconciliation
+    → écritures → clôture. Partagé par les deux renderers (simplifié et
+    CERFA 2065) puisqu'ils consomment la même `LiassePivot`.
     """
-    destination = chemin or SORTIE_PDF_DEFAUT
     transactions, settlements = asyncio.run(_recuperer_fixtures())
     resultats = reconcilier(transactions, settlements)
 
@@ -116,9 +119,26 @@ def executer(chemin: Path | None = None) -> Path:
             construire_ecriture_categorisee(transaction, proposition, compte, numero)
         )
 
-    liasse = ClotureSimplifieeService(ledger).cloturer(DOSSIER_DEMO, exercice="2026")
-    pdf = PdfLiasseSimplifieeRenderer().rendre(liasse)
+    return ClotureSimplifieeService(ledger).cloturer(DOSSIER_DEMO, exercice="2026")
 
+
+def executer(chemin: Path | None = None) -> Path:
+    """Liasse simplifiée (compte de résultat + bilan, doc 17 semaine 3).
+    `chemin` est paramétrable pour rester testable sans écrire dans un
+    emplacement fixe du disque à chaque run de test.
+    """
+    destination = chemin or SORTIE_PDF_DEFAUT
+    pdf = PdfLiasseSimplifieeRenderer().rendre(_construire_liasse())
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(pdf)
+    return destination
+
+
+def executer_cerfa_2065(chemin: Path | None = None) -> Path:
+    """Overlay sur le vrai formulaire officiel 2065-SD (doc 17 §3, ADR-006) —
+    voir `filings/cerfa_2065.py` pour ce qui est rempli et ce qui ne l'est pas."""
+    destination = chemin or SORTIE_CERFA_DEFAUT
+    pdf = PdfCerfa2065Renderer().rendre(_construire_liasse())
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(pdf)
     return destination
@@ -126,7 +146,9 @@ def executer(chemin: Path | None = None) -> Path:
 
 def main() -> None:
     chemin = executer()
+    chemin_cerfa = executer_cerfa_2065()
     print(f"Liasse démo générée : {chemin}")
+    print(f"CERFA 2065 (case résultat fiscal remplie) : {chemin_cerfa}")
 
 
 if __name__ == "__main__":

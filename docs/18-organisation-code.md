@@ -136,6 +136,14 @@ dépendance.
   `PdfLiasseSimplifieeRenderer` (`filings/liasse_simplifiee.py`) remplace le
   dump brut de comptes par une présentation compte de résultat/bilan/case
   2065 — toujours pas conforme CERFA/DGFiP, écrit noir sur blanc dans le PDF.
+- Hors plan initial, demandé explicitement (2026-09-05) : `PdfCerfa2065Renderer`
+  (`filings/cerfa_2065.py`) fait un overlay sur le **vrai formulaire
+  officiel** 2065-SD (téléchargé depuis impots.gouv.fr, ADR-006 mis à
+  jour). Une seule case remplie (résultat fiscal), le reste blanc car hors
+  profil démo. Nuance importante : ceci reste de la fidélité visuelle pour
+  la relecture humaine, **pas une conformité légale** — le dépôt réel du
+  2065 est obligatoirement télétransmis par EDI/EFI (doc 02, statut
+  Partenaire EDI), jamais par PDF.
 
 Détail et commandes : [backend/README.md](../backend/README.md).
 
