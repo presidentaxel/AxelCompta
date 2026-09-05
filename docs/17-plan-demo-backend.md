@@ -55,10 +55,15 @@ démo dessus seul.
 
 - **Chemin A** : `DigifactoryProvider` réel si le token se débloque d'ici là.
 - **Chemin B** : fixtures Digifactory (schéma doc 16 §3-4) si toujours bloqué.
-- **Chemin C (filet)** : rejouer `resultats/fec_ml_taxonomie.csv` (48 042
-  lignes réelles déjà labellisées, issues de l'audit) via `FileImportProvider`.
-  Garantit que la démo ne meurt pas si l'API externe est capricieuse le jour J,
-  et prouve le pipeline sur données réelles quoi qu'il arrive.
+- **Chemin C (filet)** : rejouer `resultats/fec_ml_taxonomie.csv` (36 152
+  lignes réelles déjà labellisées à ce jour — 48 042 avant une passe de
+  réduction du bucket non catégorisé, chiffre resté dans le §4bis et
+  ADR-007 pour le benchmark ML historique) via `FileImportProvider` —
+  **fait** (semaine 1) : regroupe les lignes composites, inverse la
+  convention débit-crédit FEC vers le sens relevé bancaire, testé contre le
+  fichier réel. Garantit que la démo ne meurt pas si l'API externe est
+  capricieuse le jour J, et prouve le pipeline sur données réelles quoi
+  qu'il arrive.
 
 Les trois passent par la même interface `DataProvider` (doc 03 §2.2,
 doc 13 §2) — zéro changement ailleurs dans le pipeline selon le chemin retenu
@@ -71,7 +76,7 @@ Ce plan tient en un mois en grande partie parce que ces briques existent déjà 
 | Actif | Où | Usage démo |
 |---|---|---|
 | `packs_vtc/` — 24 règles regex, 61 mappings PCG, 18 catégories | `_AUDIT_DONNEES/packs_vtc/` | Base du catégoriseur à règles, réduite aux ~15 catégories les plus fréquentes |
-| `resultats/fec_ml_taxonomie.csv` — 48 042 lignes labellisées | `_AUDIT_DONNEES/resultats/` | Filet d'ingestion (chemin C) + jeu de données pour le golden test |
+| `resultats/fec_ml_taxonomie.csv` — 36 152 lignes labellisées | `_AUDIT_DONNEES/resultats/` | Filet d'ingestion (chemin C, **fait**) + jeu de données pour le golden test |
 | `modeles/tfidf_logreg_v1.joblib` — 94,4% accuracy | `_AUDIT_DONNEES/modeles/` | Fallback ML pour ce que les règles ratent, aucun réentraînement nécessaire |
 | Exemple chiffré Uber France / Bolt déjà travaillé | doc 13 §5.3 | Sert directement de golden test de réconciliation + ventilation TVA (§7) |
 

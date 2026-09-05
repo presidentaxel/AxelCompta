@@ -3,12 +3,16 @@
 Monolithe modulaire Python (FastAPI / SQLAlchemy / Postgres), découpage complet
 défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
 
-> **Statut au 2026-09-05 : squelette bout-en-bout de la démo doc 17 semaine 0.**
-> Une commande unique produit un PDF à partir de fixtures (doc 17 §2 :
-> « coupe verticale d'abord »), sans ventilation TVA (semaine 2). Postgres +
-> Alembic sont montés et vérifiés contre un vrai conteneur. Les modules non
-> prévus pour la démo (`documents`, `anomaly`, `workflow`, `ml`) n'ont
-> toujours que leur `README.md` + `__init__.py`.
+> **Statut au 2026-09-05 : doc 17 semaines 0 et 1 faites.** Une commande
+> unique produit un PDF à partir de fixtures (doc 17 §2 : « coupe verticale
+> d'abord »), sans ventilation TVA (semaine 2). Postgres + Alembic sont
+> montés et vérifiés contre un vrai conteneur. Les 5 providers rendent des
+> données réelles ou fixtures — plus aucun stub `NotImplementedError` — dont
+> `FileImportProvider` (chemin C) rejouant les 36 152 lignes réelles de
+> `_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv`. **Aucun accès réel** aux
+> API Digifactory/Rollee (token 401, sandbox non vérifié — chemin A non
+> tenté). Les modules non prévus pour la démo (`documents`, `anomaly`,
+> `workflow`, `ml`) n'ont toujours que leur `README.md` + `__init__.py`.
 
 ## Faire tourner la démo (doc 17 semaine 0)
 

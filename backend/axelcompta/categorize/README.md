@@ -23,7 +23,8 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
 - [`_AUDIT_DONNEES/modeles/tfidf_logreg_v1.joblib`](../../../_AUDIT_DONNEES/modeles/) —
   94,4% accuracy, **aucun réentraînement nécessaire** pour la démo.
 - [`_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv`](../../../_AUDIT_DONNEES/resultats/) —
-  48 042 lignes labellisées, sert de jeu de données pour le golden test.
+  36 152 lignes labellisées, déjà rejoué par `FileImportProvider` (chemin C,
+  `ingestion/providers/file_import.py`, fait en semaine 1).
 
 ## Statuts
 

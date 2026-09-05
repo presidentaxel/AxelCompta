@@ -25,20 +25,32 @@ dépendre d'aucune des deux API externes le jour J :
 |---|---|---|
 | A (réel) | `DigifactoryProvider` si déblocage token | `RolleeProvider` si accès sandbox obtenu |
 | B (fixtures) | `DigifactoryProvider` contre fixtures (schéma doc 16 §3-4) | `PlatformSettlement` fixtures calées main sur les mêmes transactions (doc 13 §4.1) |
-| C (filet, banque seulement) | `FileImportProvider` rejouant `_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv` (48 042 lignes réelles labellisées) | — |
+| C (filet, banque seulement) | `FileImportProvider` rejouant `_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv` (36 152 lignes réelles labellisées ; le chiffre de 48 042 du doc 17 §4bis est daté d'avant une passe de réduction du bucket non catégorisé) | — |
 
 Les trois passent par la même interface — zéro changement ailleurs dans le
 pipeline selon le chemin retenu le jour de la démo.
 
 ## Statuts
 
-- **Démo (doc 17 semaine 0, fait)** : `FixtureProvider`/`FixtureSettlementProvider`
-  rendent les données du golden test doc 17 §7 (settlement Uber 1 040,00 € /
-  transaction +848,00 € UBER BV). **Semaine 1 (à faire)** : chemins A/B/C
-  réels pour `DigifactoryProvider`/`RolleeProvider`/`FileImportProvider`
-  (aujourd'hui des stubs qui lèvent `NotImplementedError`).
+- **Démo (doc 17 semaine 0-1, fait)** : les 5 providers rendent des données
+  (fixtures ou fichier réel), plus aucun stub `NotImplementedError` :
+  - `FixtureProvider`/`FixtureSettlementProvider` : golden test doc 17 §7.
+  - `FileImportProvider` (chemin C) : rejoue le vrai CSV audit, regroupe et
+    somme les lignes composites (`piece_ref` type `PAI-185#0`/`#1`...),
+    inverse la convention débit-crédit FEC vers le sens relevé bancaire —
+    testé contre les 36 152 lignes réelles (229 transactions reconstruites
+    sur un dossier test).
+  - `DigifactoryProvider` (chemin B) : parsing conforme au schéma doc 16 §3-4
+    contre une fixture figée — filtre `deleted`/`future`, déduplique par
+    `id` (garde l'`updated_at` le plus récent). Le jour du déblocage token,
+    seule la récupération du payload change, pas le parsing.
+  - `RolleeProvider` (chemin B) : fixture calée sur le golden test doc 17 §7,
+    filtrée par fenêtre de `payout_date`.
+  - **Chemin A (réel) non tenté** : token Digifactory toujours en 401
+    (doc 16 §7), accès sandbox Rollee toujours non vérifié (doc 17 §5).
 - **V1 (doc 12, phase 0.3 + 1)** : spikes Digifactory/Bridge/Rollee menés à
-  terme, tous les chemins de secours consolidés.
+  terme (accès réel obtenu, pas seulement les fixtures), tous les chemins de
+  secours consolidés.
 
 ## Doc de référence
 

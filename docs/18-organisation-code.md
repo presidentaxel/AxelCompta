@@ -107,12 +107,23 @@ dépendance.
 
 ## Statut d'implémentation actuel
 
-**Semaine 0 du doc 17 faite (2026-09-05)** : `python -m axelcompta.demo`
-produit un vrai PDF à partir des fixtures du golden test (doc 17 §7), en
-mémoire (`InMemoryLedgerService`, pas de DB requise). Postgres + Alembic
-sont montés (`docker-compose.yml`, `migrations/`) et vérifiés contre un vrai
-conteneur (`PostgresLedgerService`, tests d'intégration) mais pas encore
-branchés dans `demo.py`. Détail et commandes : [backend/README.md](../backend/README.md).
+**Semaines 0 et 1 du doc 17 faites (2026-09-05)** :
+- Semaine 0 : `python -m axelcompta.demo` produit un vrai PDF à partir des
+  fixtures du golden test (doc 17 §7), en mémoire (`InMemoryLedgerService`,
+  pas de DB requise). Postgres + Alembic sont montés (`docker-compose.yml`,
+  `migrations/`) et vérifiés contre un vrai conteneur
+  (`PostgresLedgerService`, tests d'intégration) mais pas encore branchés
+  dans `demo.py`.
+- Semaine 1 : les 5 providers rendent des données (plus aucun
+  `NotImplementedError`). `FileImportProvider` (chemin C) rejoue le vrai CSV
+  audit (36 152 lignes, regroupement des composites, inversion du signe
+  FEC → relevé bancaire) — testé contre le fichier réel, pas seulement des
+  fixtures. `DigifactoryProvider`/`RolleeProvider` restent chemin B
+  (fixtures) : token 401 et sandbox non vérifié toujours d'actualité côté
+  Louis, chemin A non tenté.
 
-Prochaine étape : semaine 1 du doc 17 (chemins réels/fixtures pour les
-providers Digifactory/Rollee/FileImport, aujourd'hui des stubs).
+Détail et commandes : [backend/README.md](../backend/README.md).
+
+Prochaine étape : semaine 2 du doc 17 (`categorize` — règles + ML existant —
+inséré entre réconciliation et `ledger`, vraie ventilation TVA doc 13 §5.3,
+algorithme de réconciliation réel doc 13 §4.2).
