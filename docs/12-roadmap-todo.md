@@ -159,6 +159,23 @@ couverture ledger ≥ 95 %.
 - [ ] Matching justificatif↔transaction scoré + file de matching manuel + orphelins.
 - [ ] Golden tests OCR (corpus 200 documents annotés).
 
+### 2.7 Accès chauffeur en libre-service (mobile) — question ouverte, à cadrer
+
+**Nouveau, pas encore spec.** Contredit le modèle actuel : doc 11 §3.3 dit que
+la page de signature est « seul écran vu par le chauffeur/gérant » (zéro
+compte, lien + OTP) ; doc 04 §4.3 dit que les justificatifs arrivent via le
+gestionnaire ou par mail, « vu qu'ils n'ont pas accès à la plateforme ».
+Louis veut (2026-09-05) : le chauffeur prend ses tickets en photo lui-même,
+répond à des questions de catégorisation simples quand le système ne sait
+pas (« repas ou X ? »), et peut relier sa propre banque si besoin — depuis
+son téléphone. Implique un nouveau rôle/mode d'accès (doc 03 §7), un canal
+d'entrée mobile pour les justificatifs (doc 04 §4.3), et une version
+simplifiée de la file de revue (doc 11 §3.1) exposée au chauffeur plutôt
+qu'à l'analyste seul. **Décision prise avec Claude Code (session du
+2026-09-05) : cadrer et documenter ce chantier séparément (rôles, auth, UX
+mobile) avant tout code, après la démo doc 17.** Ne pas confondre avec le
+flux Rollee Connect chauffeur (doc 13 §3.3), qui lui est déjà spec.
+
 **Critère de sortie Phase 2** : sur le dataset historique rejoué, ≥ 85 % de
 catégorisation automatique à ≥ 97 % de précision, rappel anomalies ≥ 80 %,
 zéro fuite au test de pseudonymisation.
