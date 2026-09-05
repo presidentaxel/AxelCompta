@@ -30,9 +30,12 @@ semaine 2) → clôture bouchon → PDF.
 ```bash
 # DATABASE_URL doit être définie (voir ../.env.example — déjà alignée par
 # défaut sur docker-compose.yml, ne pas écraser un .env existant)
-docker compose up -d db       # attend `healthy` (pg_isready)
+docker compose up -d --wait db   # --wait : bloque jusqu'au healthcheck OK
+                                  # (sans --wait, "Started" ≠ prêt à accepter
+                                  # des connexions — Postgres redémarre en
+                                  # interne juste après le premier lancement)
 .venv/bin/alembic upgrade head
-docker compose down -v        # arrête et supprime les données (dev only)
+docker compose down -v           # arrête et supprime les données (dev only)
 ```
 
 Le schéma (`dossiers`, `ecritures`, `lignes_ecriture`) est défini par module
