@@ -84,23 +84,35 @@ graph TD
 
 La coupe verticale de la démo (« faire tourner tout le pipeline bout-en-bout
 dès les premiers jours », doc 17 §2) traverse tous les modules « actif » ou
-« réduit » du tableau ci-dessus, dans cet ordre :
+« réduit » du tableau ci-dessus. **Semaine 0 (faite) saute `categorize`** —
+il n'entre en jeu qu'en semaine 2, une fois les vrais templates de
+ventilation TVA nécessaires :
 
 ```
-ingestion/providers  →  categorize  →  ledger  →  closing  →  filings
-   (chemin A/B/C)      (règles+ML)   (golden      (bilan       (PDF
-                                       test §7)     simplifié)  simplifié)
+ingestion/providers  →  ingestion/reconciliation  →  ledger  →  closing  →  filings
+  (fixtures, golden      (bouchon : égalité de       (512/706    (bouchon :   (PDF
+   test doc 17 §7)        montant, doc 13 §4.2         bruts,      solde par    bouchon,
+                           pour la vraie version)       doc 17 §7)  compte)      reportlab)
 ```
 
-`tenants`, `packs`, `core` et `api` sont transverses (consultés à chaque
-étape, pas dans le flux séquentiel).
+Semaine 2 (à faire) insère `categorize` (règles + ML) entre la réconciliation
+et `ledger`, pour produire les `ProposedEntry` qui pilotent les vrais
+templates d'écriture (doc 13 §5.3, ventilation TVA complète). `tenants`,
+`packs`, `core` et `api` restent transverses.
+
+`backend/axelcompta/demo.py` est la composition root qui câble tout ça —
+absent du découpage doc 03 §3 exprès : c'est un point d'entrée (comme `api/`),
+pas un module d'architecture, donc pas soumis aux mêmes contraintes de
+dépendance.
 
 ## Statut d'implémentation actuel
 
-Louis a donné le top départ pour un squelette d'interfaces (2026-09-05) :
-chaque module actif ou réduit pour la démo a désormais des signatures
-(dataclasses, ABC) qui s'importent et passent mypy strict/ruff/import-linter
-— voir [backend/README.md](../backend/README.md) pour reproduire les
-vérifications. **Rien ne tourne encore** : pas de DB, pas d'appel réseau,
-pas de calcul. Prochaine étape : implémenter la semaine 0 du doc 17
-(squelette bout-en-bout avec fixtures, jusqu'au PDF « Hello World »).
+**Semaine 0 du doc 17 faite (2026-09-05)** : `python -m axelcompta.demo`
+produit un vrai PDF à partir des fixtures du golden test (doc 17 §7), en
+mémoire (`InMemoryLedgerService`, pas de DB requise). Postgres + Alembic
+sont montés (`docker-compose.yml`, `migrations/`) et vérifiés contre un vrai
+conteneur (`PostgresLedgerService`, tests d'intégration) mais pas encore
+branchés dans `demo.py`. Détail et commandes : [backend/README.md](../backend/README.md).
+
+Prochaine étape : semaine 1 du doc 17 (chemins réels/fixtures pour les
+providers Digifactory/Rollee/FileImport, aujourd'hui des stubs).

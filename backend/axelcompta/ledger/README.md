@@ -14,12 +14,25 @@ reste.
   déséquilibrée.
 - Immutabilité : une écriture validée ne se modifie pas, elle se contre-passe.
 
+## Fichiers
+
+- `models.py` — domaine pur (`Ecriture`, `LigneEcriture`, `Journal`, `Sens`).
+- `invariants.py` — `verifier_equilibre` : pur, sans I/O, la seule autorité sur
+  l'équilibre débit/crédit.
+- `service.py` — `LedgerService`, la façade abstraite (seule chose que `api`
+  a le droit d'importer, doc 03 §3).
+- `memory.py` — `InMemoryLedgerService` : implémentation en mémoire pour la
+  démo (doc 17 semaine 0), sans Postgres.
+- `orm.py` / `repository.py` — `PostgresLedgerService` : implémentation
+  réelle contre Postgres (SQLAlchemy Core). `orm.py` définit les tables,
+  séparé de `models.py` pour garder le domaine pur (doc 08 §2.1).
+
 ## Statuts
 
-- **Démo (doc 17 §7, golden test)** : doit reproduire noir sur blanc
-  l'exemple Uber chiffré en doc 13 §5.3 — settlement 1 040,00 € TTC,
-  commission 192,00 € TTC, écriture ventilée (512/622x/44566/706/44571)
-  équilibrée. C'est le critère « le concept est validé ».
+- **Démo (doc 17 semaine 0, fait)** : `verifier_equilibre` + les deux
+  implémentations de `LedgerService` (mémoire et Postgres) tournent contre le
+  golden test doc 17 §7, **sans ventilation TVA** (512/706 bruts). La
+  ventilation réelle (512/622x/44566/706/44571) arrive semaine 2 (doc 13 §5.3).
 - **V1 (doc 12, phase 1.2-1.3)** : moteur complet, immobilisations,
   rapprochement bancaire (doc 06 §4), tous les templates du pack VTC (doc 06 §3).
 

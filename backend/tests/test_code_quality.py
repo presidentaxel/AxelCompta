@@ -44,9 +44,16 @@ def _packages(racine: Path) -> list[Path]:
     return sorted({chemin.parent for chemin in racine.rglob("__init__.py")})
 
 
+def _modules_autonomes(racine: Path) -> list[Path]:
+    """Fichiers .py directement à la racine du package, hors __init__.py — ex.
+    demo.py (composition root, pas un des 14 modules d'architecture)."""
+    return sorted(fichier for fichier in racine.glob("*.py") if fichier.name != "__init__.py")
+
+
 def verifier_module_a_ses_tests(axelcompta: Path, tests: Path) -> list[str]:
     """Chaque package de axelcompta/ doit avoir un dossier miroir sous tests/
-    avec au moins un fichier test_*.py (doc 08 §3)."""
+    avec au moins un fichier test_*.py ; chaque module autonome (ex. demo.py)
+    doit avoir un tests/test_<nom>.py (doc 08 §3)."""
     violations = []
     for paquet in _packages(axelcompta):
         relatif = paquet.relative_to(axelcompta)
@@ -54,6 +61,11 @@ def verifier_module_a_ses_tests(axelcompta: Path, tests: Path) -> list[str]:
         if not dossier_tests.is_dir() or not any(dossier_tests.glob("test_*.py")):
             violations.append(
                 f"axelcompta/{relatif} n'a pas de tests dans tests/{relatif} (doc 08 §3)"
+            )
+    for module in _modules_autonomes(axelcompta):
+        if not (tests / f"test_{module.stem}.py").is_file():
+            violations.append(
+                f"axelcompta/{module.name} n'a pas de tests/test_{module.stem}.py (doc 08 §3)"
             )
     return violations
 

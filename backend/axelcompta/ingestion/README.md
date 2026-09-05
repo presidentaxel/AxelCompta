@@ -7,7 +7,16 @@ transmettre à `categorize/`.
 
 **Dépendances :** `core`, `tenants`, `packs` (config dossier + pack).
 
-## Contenu prévu
+## Fichiers
+
+- `providers/` — pattern `DataProvider` (voir son propre README).
+- `reconciliation.py` — matching `PlatformSettlement` ↔ `NormalizedTransaction`
+  (doc 13 §2.1, §4). `reconcilier_bouchon` (doc 17 semaine 0, fait) : égalité
+  exacte de montant, un seul candidat accepté. L'algorithme réel (fenêtre de
+  date, heuristique de libellé, tolérance 1 centime, doc 13 §4.2) est prévu
+  semaine 2.
+
+## Contenu prévu (au-delà de la démo)
 
 - Normalisation `Decimal` → centimes à l'ingestion.
 - Filtrage des transactions `deleted`/`future` côté banque (doc 16 §5).
@@ -15,8 +24,9 @@ transmettre à `categorize/`.
 
 ## Statuts
 
-- **Démo (doc 17 semaine 1)** : normalisation minimale, un seul flux par
-  dossier de démo.
+- **Démo (doc 17 semaine 0, fait)** : `reconcilier_bouchon` tourne contre les
+  fixtures. **Semaine 1-2 (à faire)** : normalisation réelle, algorithme de
+  matching complet (doc 13 §4.2).
 - **V1 (doc 12, phase 1)** : orchestration multi-dossiers, retries, monitoring
   des flux par dossier.
 

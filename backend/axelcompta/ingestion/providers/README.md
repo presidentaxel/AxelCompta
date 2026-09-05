@@ -32,9 +32,11 @@ pipeline selon le chemin retenu le jour de la démo.
 
 ## Statuts
 
-- **Démo (doc 17 semaine 0-1)** : squelette semaine 0 avec
-  `FixtureProvider`/`FixtureSettlementProvider`, puis chemins réels/fixtures
-  semaine 1.
+- **Démo (doc 17 semaine 0, fait)** : `FixtureProvider`/`FixtureSettlementProvider`
+  rendent les données du golden test doc 17 §7 (settlement Uber 1 040,00 € /
+  transaction +848,00 € UBER BV). **Semaine 1 (à faire)** : chemins A/B/C
+  réels pour `DigifactoryProvider`/`RolleeProvider`/`FileImportProvider`
+  (aujourd'hui des stubs qui lèvent `NotImplementedError`).
 - **V1 (doc 12, phase 0.3 + 1)** : spikes Digifactory/Bridge/Rollee menés à
   terme, tous les chemins de secours consolidés.
 

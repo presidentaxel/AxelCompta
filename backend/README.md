@@ -3,26 +3,65 @@
 Monolithe modulaire Python (FastAPI / SQLAlchemy / Postgres), découpage complet
 défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
 
-> **Statut au 2026-09-05 : squelette d'interfaces, aucune logique métier.**
-> Louis a donné le top départ pour cette étape (doc 12 §0.1 reste sinon la
-> référence — relecture associé encore en attente). Chaque module a des
-> signatures (classes, dataclasses, ABC) qui s'importent et passent mypy
-> strict/ruff/import-linter, mais aucune méthode n'est implémentée : rien ne
-> tourne encore (pas de DB, pas d'appel réseau, pas de calcul).
+> **Statut au 2026-09-05 : squelette bout-en-bout de la démo doc 17 semaine 0.**
+> Une commande unique produit un PDF à partir de fixtures (doc 17 §2 :
+> « coupe verticale d'abord »), sans ventilation TVA (semaine 2). Postgres +
+> Alembic sont montés et vérifiés contre un vrai conteneur. Les modules non
+> prévus pour la démo (`documents`, `anomaly`, `workflow`, `ml`) n'ont
+> toujours que leur `README.md` + `__init__.py`.
+
+## Faire tourner la démo (doc 17 semaine 0)
+
+```bash
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/python -m axelcompta.demo
+# → Liasse démo générée : backend/_demo_output/liasse_semaine0.pdf
+```
+
+Aucune base de données requise : `demo.py` utilise `InMemoryLedgerService`.
+La couture prouvée (doc 17 §7, golden test) : fixtures (settlement Uber
+1 040,00 € / transaction +848,00 € UBER BV) → `reconcilier_bouchon` →
+écriture 512/706 (sans ventilation, doc 13 §5.3 pour la vraie version,
+semaine 2) → clôture bouchon → PDF.
+
+## Postgres + Alembic
+
+```bash
+# DATABASE_URL doit être définie (voir ../.env.example — déjà alignée par
+# défaut sur docker-compose.yml, ne pas écraser un .env existant)
+docker compose up -d db       # attend `healthy` (pg_isready)
+.venv/bin/alembic upgrade head
+docker compose down -v        # arrête et supprime les données (dev only)
+```
+
+Le schéma (`dossiers`, `ecritures`, `lignes_ecriture`) est défini par module
+(`tenants/orm.py`, `ledger/orm.py`) sur une `MetaData` partagée
+(`core/db.py`) ; `migrations/env.py` lit `DATABASE_URL` (jamais une valeur
+figée dans `alembic.ini`). `PostgresLedgerService` (`ledger/repository.py`)
+est l'implémentation réelle de `LedgerService` contre cette base — testée en
+intégration (voir plus bas), pas encore branchée dans `demo.py`.
 
 ## Reproduire les vérifications
 
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest -q                # importe tous les modules + 2 règles de qualité (doc 08)
-.venv/bin/mypy axelcompta tests    # strict, doit rester à 0 issue
+.venv/bin/pytest -q                       # suite rapide (doc 08 §4 étape 5), sans DB
+.venv/bin/mypy axelcompta tests migrations  # strict, doit rester à 0 issue
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
-.venv/bin/lint-imports              # frontières de dépendance (doc 03 §3)
+.venv/bin/lint-imports                     # frontières de dépendance (doc 03 §3)
 ```
 
-Les quatre passent à 0 erreur sur ce squelette (dernière vérification :
-2026-09-05).
+Pour l'intégration (doc 08 §4 étape 6, nécessite Postgres — voir ci-dessus) :
+
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
+.venv/bin/pytest -q -m integration
+```
+
+Tout passe à 0 erreur (dernière vérification : 2026-09-05, y compris
+l'intégration contre un conteneur Postgres fraîchement recréé).
 
 ## Tests : un dossier miroir par module (doc 08 §3)
 

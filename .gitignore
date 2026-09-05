@@ -10,6 +10,9 @@
 .env.*
 !.env.example
 !.env.test.example
+
+# Sorties générées par la démo doc 17 (jamais du code source)
+backend/_demo_output/
 *.pem
 *.key
 *.p12

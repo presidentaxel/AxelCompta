@@ -19,11 +19,18 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 - Option IR bornée : date de début, décompte des 5 exercices, alertes N-1/N,
   bascule IS tracée, changement de régime par avenant daté.
 
+## Fichiers
+
+- `models.py` — domaine pur (`Tenant`, `Dossier`).
+- `orm.py` — mapping SQLAlchemy Core de `Dossier` (doc 17 semaine 0, fait) :
+  table `dossiers`, un seul schéma, aucune colonne RLS.
+
 ## Statuts
 
-- **Démo (doc 17 §3)** : réduit à l'extrême — **un seul profil dossier codé
-  en dur** (SASU, IS, TVA réel normal, assujetti 10%, pas d'option IR, pas de
-  franchise), 2-3 dossiers de test max. **Pas de multi-tenant, pas de RLS.**
+- **Démo (doc 17 §3, semaine 0 fait pour la persistance)** : réduit à
+  l'extrême — **un seul profil dossier codé en dur** (SASU, IS, TVA réel
+  normal, assujetti 10%, pas d'option IR, pas de franchise), 2-3 dossiers de
+  test max. **Pas de multi-tenant, pas de RLS.**
 - **V1 (doc 12, phase 1.1)** : multi-tenant complet, ~200 dossiers
   indépendants, matrice statut × pack pleinement opérationnelle.
 
