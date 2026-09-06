@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DESIGN.md : fond app = canvas-app, jamais du blanc pur en body direct. */
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* DESIGN.md — règle des montants : invariant non négociable. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

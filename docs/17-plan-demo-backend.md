@@ -265,6 +265,26 @@ zéro, on ajoute les deux interfaces autour du moteur existant.
   premier écran qui remplace un stub du moteur (`auto_accept`) par une
   vraie décision humaine dans l'UI.
 
+> **Fait, en partie (2026-09-06)** — `backend/axelcompta/demo_api.py`
+> (FastAPI, lecture seule : `/dossiers`, `/dossiers/{id}`,
+> `/dossiers/{id}/transactions`) + `frontend/` (Next.js App Router,
+> Tailwind sur les tokens `DESIGN.md`) : tableau de bord des 3 dossiers et
+> fiche dossier avec liste des transactions, badge « à trancher » sur le
+> compte d'attente 471 — les 3 dépenses ambiguës de Sophie s'y voient
+> réellement, calculées par le vrai moteur (pas de données mockées côté
+> front). Testé en vrai (API + Next.js lancés ensemble, doc 17 §9,
+> commandes dans `frontend/README.md`), pas seulement en unitaire.
+>
+> **Pas fait** : la décision humaine elle-même (accepter/reclasser une
+> écriture à trancher) — l'API ne sert que du GET. Volontaire : mieux vaut
+> un écran de lecture réel et fini qu'une écriture à moitié câblée
+> derrière. C'est la suite immédiate, pas reportée sine die.
+>
+> `demo_api.py` est une composition root distincte de `axelcompta/api/`
+> (la vraie API produit, doc 03 §7, toujours un squelette) — elle peut
+> importer `demo_chauffeurs_type.py` directement (règle des composition
+> roots, doc 18), ce que `api/` n'aura jamais le droit de faire.
+
 ### Semaine 3 — Interface chauffeur
 
 - Parcours mobile de Karim (doc 19 §5) : transactions, une question de

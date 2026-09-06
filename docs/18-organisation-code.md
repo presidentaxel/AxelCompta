@@ -37,7 +37,7 @@ AxeLCompta/
 │   ├── workflow/                # non prévu démo (revue humaine, signature — V1 seulement)
 │   ├── api/                    # réduit démo — pas d'auth (V1 : auth/MFA/permissions)
 │   └── ml/                      # non prévu démo — modèle déjà entraîné réutilisé tel quel
-├── frontend/                   # réduit démo — rapport HTML/notebook (V1 : Next.js complet)
+├── frontend/                   # actif démo (pivot 2026-09-06) — Next.js réel, lecture seule (V1 : écriture + auth)
 └── _AUDIT_DONNEES/              # existant, inchangé — source de données pour packs/ et categorize/
 ```
 
