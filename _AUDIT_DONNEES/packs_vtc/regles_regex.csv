@@ -11,3 +11,4 @@ regex,categorie,confiance,source
 "\bzara\b|kiabi|primark|s[ée]phora|\bfnac\b|\bh&m\b|shein|\bnike\b|adidas|decathlon",usage_personnel_suspect,moyenne,"⚠️ trouvé mélangé dans fournitures_administratives — signalé pour revue humaine, pas d'auto-validation"
 urssaf,charges_sociales_impots,haute,libellés réels échantillon URSSAF
 dgfip,charges_sociales_impots,moyenne,"peut aussi être une subvention (compte 741) — trancher par le compte PCG, pas le libellé seul"
+"\bald\b|arval|leaseplan|\bloa\b|location longue dur[ée]e",loyers_locations,haute,"absente du pack réduit initial — ajoutée pour le financement véhicule en LOA (doc 06 §3.5, doc 17 §4.3 profil Yanis)"

@@ -93,17 +93,22 @@ auto-acceptée. Sert à montrer que le pipeline distingue le nominal de
 l'à-trancher, pas seulement à calculer juste.
 ```
 
-### 4.3 Yanis — franchise TVA, Bolt uniquement, véhicule en LOA
+### 4.3 Yanis — franchise TVA, Uber uniquement, véhicule en LOA
 
 Teste le régime franchise (pas de TVA collectée, doc 13 §5.3 « cas
-franchise ») et le template LOA (part non déductible, doc 06 §3.5) :
+franchise ») et le financement en LOA (doc 06 §3.5). **Uber, pas Bolt** :
+combiner franchise et commission en autoliquidation UE (Bolt) pose une
+vraie question fiscale (l'obligation d'autoliquider peut subsister malgré
+la franchise) volontairement laissée hors scope démo — seule la
+combinaison franchise + `france_20` est implémentée (§5).
 
 ```
-Settlement Bolt : brut 1 040,00 € (pas de TVA collectée), commission
+Settlement Uber : brut 1 040,00 € (pas de TVA collectée), commission
   192,00 € TTC non récupérable (franchise) :
   512 D 848,00 / 622x D 192,00 (TTC) / 706 C 1 040,00
-Loyer LOA mensuel (ex. 380 € TTC) : part déductible/non déductible selon
-  le template déjà écrit (doc 06 §3.5), suivi hors-bilan.
+Loyer LOA mensuel (378 € TTC) : passé en 613 (locations) via la
+catégorisation courante — pas de split déductible/non déductible pour cette
+démo (doc 06 §3.5 : la ventilation fine reste V1, hors scope §8).
 ```
 
 ### 4.4 Ce que ces trois profils prouvent ensemble
@@ -123,7 +128,7 @@ en §12 et [doc 18](18-organisation-code.md)) :
 | Module | Rôle | Statut |
 |---|---|---|
 | `ingestion/reconciliation.py` | Matching settlement ↔ transaction bancaire | Fait, inchangé |
-| `ingestion/ecritures_settlement.py` | Ventilation TVA Uber/Bolt/franchise | Fait, inchangé |
+| `ingestion/ecritures_settlement.py` | Ventilation TVA Uber/Bolt/franchise | Fait — **étendu le 2026-09-06** : `tva_recettes_regime` en paramètre, franchise ajoutée (§9 semaine 1) |
 | `categorize/rules_and_ml.py` | Règles pack VTC + modèle ML pour le reste des transactions | Fait, inchangé |
 | `workflow/auto_accept.py` | Stand-in pour la revue humaine (démo seulement) | Fait — **remplacé dans la démo produit** par la vraie file de revue humaine (doc 11 §3.1) côté UI, puisque Sophie (§4.2) doit être tranchée par un humain, pas auto-acceptée |
 | `closing/bilan_simplifie.py`, `filings/*` | Clôture, liasse, CERFA 2065, FEC, grand livre, balance | Fait, inchangé |
@@ -190,6 +195,35 @@ zéro, on ajoute les deux interfaces autour du moteur existant.
   seul un bug de mapping/règle serait acceptable à corriger (comme les deux
   déjà trouvés en semaine 4 de l'ancien plan, §12).
 
+> **Fait (2026-09-06)** — `backend/axelcompta/ingestion/providers/chauffeurs_demo.py`
+> (génération déterministe des 3 profils : courses agrégées en settlements
+> hebdomadaires, dépenses récurrentes, la dépense ponctuelle de Sophie) et
+> `backend/axelcompta/demo_chauffeurs_type.py` (composition root : rapport
+> HTML + liasse/CERFA/FEC/grand livre/balance par chauffeur, sur le modèle
+> de `demo_multi_dossiers.py`). Contrairement à `demo_dossier_reel.py`,
+> aucun fichier gitignored requis — tourne sur n'importe quel clone.
+>
+> Le moteur n'a **pas** tourné sans modification, contrairement à
+> l'hypothèse ci-dessus — écart trouvé en écrivant Yanis (franchise) plutôt
+> qu'en testant après coup : `ingestion/ecritures_settlement.py` avait le
+> taux de TVA recettes figé en dur à 10% assujetti (profil unique de
+> l'ancien plan, doc 17 §3 d'origine) et ne savait pas du tout traiter la
+> franchise. Ajouté `tva_recettes_regime` en paramètre (doc 13 §5.1,
+> vocabulaire doc 14 §1.2) avec la branche franchise déjà décrite doc 13
+> §5.3 — limitée à une commission `france_20` (§4.3). Une deuxième règle
+> manquante trouvée pareillement : le pack réduit (12 règles) n'avait pas
+> de règle LOA, ajoutée dans `_AUDIT_DONNEES/packs_vtc/regles_regex.csv`
+> (donnée, pas du code). Les deux ont des tests dédiés
+> (`tests/ingestion/test_ecritures_settlement.py`,
+> `tests/ingestion/providers/test_chauffeurs_demo.py`).
+>
+> Résultat sur les 3 profils (200 jours actifs chacun, ~230 jours
+> calendaires, seed déterministe) : 100% des settlements réconciliés,
+> toutes les écritures équilibrées. CA plateforme sur la période : Karim
+> 14 412 €, Sophie 13 375 € (Uber+Bolt), Yanis 12 584 € (franchise). Le
+> compte d'attente 471 de Sophie contient bien la dépense Zara (68 €), pas
+> auto-catégorisée sur un compte de résultat (doc 17 §11).
+
 ### Semaine 2 — Interface gestionnaire
 
 - Dashboard 3 dossiers + fiche dossier (doc 11 §2) branchés sur les vraies
@@ -230,8 +264,15 @@ deux golden tests supplémentaires, un par nouveau profil :
 - **Sophie** : le mois complet doit produire une écriture usage-personnel
   (455/108) sur la dépense ambiguë **uniquement après validation humaine**
   dans la file de revue — pas d'auto-acceptation sur ce cas précis.
+  **Vérifié côté moteur (2026-09-06)** : la dépense reste au compte
+  d'attente 471, jamais auto-catégorisée (`tests/test_demo_chauffeurs_type.py`)
+  — la vraie écriture 455/108 reste à faire une fois la file de revue
+  construite côté UI (§9 semaine 2).
 - **Yanis** : balance équilibrée avec le traitement franchise (pas de TVA
-  collectée) et le suivi LOA hors-bilan.
+  collectée). **Fait (2026-09-06)** : `tests/ingestion/test_ecritures_settlement.py`
+  et `tests/ingestion/providers/test_chauffeurs_demo.py`. Le suivi LOA
+  hors-bilan (part non déductible séparée) n'est pas fait — la démo passe
+  le loyer en charge simple (613), limite assumée (§4.3).
 
 ## 12. Historique — ce qui a déjà été fait (acquis, réutilisé §5)
 

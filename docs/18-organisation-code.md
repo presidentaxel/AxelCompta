@@ -170,3 +170,17 @@ travail reste la brique de calcul réutilisée telle quelle. **Pivot du
 interfaces (gestionnaire PC, chauffeur mobile), parcours cadré dans
 [doc 19](19-parcours-utilisateur.md) (doc 12 §2.7). Aucun code front
 n'existe encore pour ces deux interfaces — c'est l'objet du nouveau plan.
+
+**Semaine 1 du nouveau plan faite (2026-09-06)** : jeu de données des 3
+chauffeurs type (`ingestion/providers/chauffeurs_demo.py`,
+`demo_chauffeurs_type.py`, doc 17 §4/§9) — génération déterministe, aucun
+fichier gitignored requis contrairement à `demo_dossier_reel.py`/
+`demo_multi_dossiers.py`. A fait remonter deux écarts dans le moteur
+existant, corrigés : `ingestion/ecritures_settlement.py` n'avait pas de
+régime franchise (`tva_recettes_regime` était figé en dur à 10% assujetti,
+profil unique de l'ancien plan) ; le pack réduit n'avait pas de règle pour
+le financement en LOA (ajoutée dans `_AUDIT_DONNEES/packs_vtc/regles_regex.csv`).
+Les deux corrections sont des extensions du moteur, pas des contournements —
+testées (`tests/ingestion/test_ecritures_settlement.py`,
+`tests/ingestion/providers/test_chauffeurs_demo.py`), inchangées pour les
+dossiers existants (comportement par défaut identique).

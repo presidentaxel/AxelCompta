@@ -3,9 +3,10 @@
 Templates de données par régime de commission (doc 13 §5.2) — pas une
 branche de code : ajouter une plateforme = ajouter une entrée dans
 `TEMPLATES_COMMISSION`, pas un `if`. Le taux de TVA sur les recettes
-(doc 13 §5.1, configurable par dossier) est ici figé à 10 % assujetti — le
-profil unique de la démo (doc 17 §3 : « assujetti 10% sur recettes, pas de
-franchise »).
+(doc 13 §5.1) est **configurable par dossier** via `tva_recettes_regime`
+(doc 14 §1.2) — ajouté pour la démo à 3 chauffeurs (doc 17 §4 : Yanis est en
+franchise, Karim et Sophie assujettis 10%), alors que la première version de
+ce module (profil unique doc 17 §3) l'avait figé en dur à 10% assujetti.
 
 Ne dépend pas de `ledger` pour ses règles de calcul : celles-ci sont pures
 (`_ventiler`). Dépend de `ledger.models` uniquement pour construire l'objet
@@ -25,7 +26,14 @@ from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 
 from .providers.base import NormalizedTransaction, PlatformSettlement
 
-TAUX_TVA_RECETTES_DEMO = Decimal("0.10")
+# doc 13 §5.1 : régimes possibles pour `tva_recettes_regime` (vocabulaire du
+# CSV d'onboarding, doc 14 §1.2). `None` pour franchise : pas de taux, pas de
+# TVA collectée du tout — le montant brut de la plateforme est déjà le net
+# comptable, traité à part (`_lignes_franchise`).
+TAUX_TVA_RECETTES_PAR_REGIME: dict[str, Decimal | None] = {
+    "assujetti_taux_reduit": Decimal("0.10"),
+    "franchise": None,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,8 +51,15 @@ TEMPLATES_COMMISSION = {
 
 
 class RegimeTvaInconnu(DomaineError):
-    """`commission_tva_regime` sans template (doc 13 §5.2) — erreur attendue :
-    un nouveau régime s'ajoute en données, ne se devine jamais (doc 08 §5)."""
+    """`commission_tva_regime` sans template (doc 13 §5.2), ou combinaison
+    `tva_recettes_regime` × `commission_tva_regime` non couverte — erreur
+    attendue : un nouveau régime s'ajoute en données, ne se devine jamais
+    (doc 08 §5)."""
+
+
+class RegimeTvaRecettesInconnu(DomaineError):
+    """`tva_recettes_regime` sans entrée dans `TAUX_TVA_RECETTES_PAR_REGIME` —
+    même logique que `RegimeTvaInconnu` côté recettes plutôt que commission."""
 
 
 def _ventiler(montant_ttc_cts: int, taux: Decimal) -> tuple[int, int]:
@@ -86,23 +101,60 @@ def _lignes_commission(
     ]
 
 
+def _lignes_franchise(settlement: PlatformSettlement) -> list[LigneEcriture]:
+    """doc 13 §5.3 « cas franchise » : pas de TVA collectée sur les recettes
+    (le brut plateforme est déjà le montant comptable), commission plateforme
+    non récupérable donc comptabilisée TTC intégralement (pas de ligne
+    44566). Seul `france_20` est couvert ici (Uber) — combiner franchise avec
+    une commission en autoliquidation UE (Bolt) pose une vraie question
+    fiscale (l'obligation d'autoliquider une TVA due peut subsister malgré la
+    franchise) volontairement laissée hors scope démo (doc 17 §3 : « pas de
+    cas limites »), à trancher avec l'expert-comptable avant la V1.
+    """
+    if settlement.commission_tva_regime != "france_20":
+        raise RegimeTvaInconnu(
+            f"franchise + {settlement.commission_tva_regime} : combinaison non couverte, "
+            "doc 17 §3 (pas de cas limites dans la démo)"
+        )
+    return [
+        LigneEcriture("512", Sens.DEBIT, Money(settlement.net_payout_cts)),
+        LigneEcriture("622", Sens.DEBIT, Money(settlement.commission_cts)),  # TTC, non récupérable
+        LigneEcriture("706", Sens.CREDIT, Money(settlement.gross_earnings_cts)),  # pas de TVA
+    ]
+
+
 def construire_ecriture_settlement(
-    transaction: NormalizedTransaction, settlement: PlatformSettlement, numero: int
+    transaction: NormalizedTransaction,
+    settlement: PlatformSettlement,
+    numero: int,
+    *,
+    tva_recettes_regime: str = "assujetti_taux_reduit",
 ) -> Ecriture:
     """doc 13 §5.3. Le montant du 512 est celui du settlement
     (`net_payout_cts`), pas celui de la transaction bancaire : les deux
     peuvent différer d'1 centime (tolérance de réconciliation, doc 13 §4.2)
     et seul le premier garantit l'équilibre avec les lignes dérivées.
-    """
-    template = TEMPLATES_COMMISSION.get(settlement.commission_tva_regime)
-    if template is None:
-        raise RegimeTvaInconnu(settlement.commission_tva_regime)
 
-    recettes_ht, tva_collectee = _ventiler(settlement.gross_earnings_cts, TAUX_TVA_RECETTES_DEMO)
-    lignes = [
-        LigneEcriture("512", Sens.DEBIT, Money(settlement.net_payout_cts)),
-        *_lignes_commission(settlement, template, recettes_ht, tva_collectee),
-    ]
+    `tva_recettes_regime` est une configuration de dossier (doc 14 §1.2),
+    jamais devinée depuis les données du settlement.
+    """
+    if tva_recettes_regime not in TAUX_TVA_RECETTES_PAR_REGIME:
+        raise RegimeTvaRecettesInconnu(tva_recettes_regime)
+
+    if tva_recettes_regime == "franchise":
+        lignes = _lignes_franchise(settlement)
+    else:
+        template = TEMPLATES_COMMISSION.get(settlement.commission_tva_regime)
+        if template is None:
+            raise RegimeTvaInconnu(settlement.commission_tva_regime)
+        taux = TAUX_TVA_RECETTES_PAR_REGIME[tva_recettes_regime]
+        assert taux is not None  # tous les régimes non-franchise ont un taux (garanti par le dict)
+        recettes_ht, tva_collectee = _ventiler(settlement.gross_earnings_cts, taux)
+        lignes = [
+            LigneEcriture("512", Sens.DEBIT, Money(settlement.net_payout_cts)),
+            *_lignes_commission(settlement, template, recettes_ht, tva_collectee),
+        ]
+
     return Ecriture(
         id=EcritureId(f"settlement-{numero}"),
         dossier_id=transaction.dossier_id,
