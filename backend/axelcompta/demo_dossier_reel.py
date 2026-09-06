@@ -32,6 +32,8 @@ from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot
 from axelcompta.core.ids import DossierId, TenantId
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
+from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
+from axelcompta.filings.fec import exporter_fec
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.ingestion.providers.file_import import FileImportProvider
@@ -67,9 +69,13 @@ async def _recuperer_transactions(
     )
 
 
-def construire_liasse(
+def construire_ledger(
     dossier_id: DossierId = DOSSIER_PAR_DEFAUT, annee: int = ANNEE_PAR_DEFAUT
-) -> LiassePivot:
+) -> InMemoryLedgerService:
+    """Cœur réutilisable : ingestion réelle → catégorisation → écritures.
+    Partagé par les renderers ci-dessous et par `demo_multi_dossiers.py`
+    (doc 17 semaine 4) pour ne pas dupliquer le pipeline une troisième fois.
+    """
     transactions = asyncio.run(_recuperer_transactions(dossier_id, annee))
 
     ledger = InMemoryLedgerService()
@@ -81,7 +87,13 @@ def construire_liasse(
         ledger.enregistrer(
             construire_ecriture_categorisee(transaction, proposition, compte, numero)
         )
+    return ledger
 
+
+def construire_liasse(
+    dossier_id: DossierId = DOSSIER_PAR_DEFAUT, annee: int = ANNEE_PAR_DEFAUT
+) -> LiassePivot:
+    ledger = construire_ledger(dossier_id, annee)
     return ClotureSimplifieeService(ledger).cloturer(dossier_id, exercice=str(annee))
 
 
@@ -103,11 +115,35 @@ def executer_cerfa_2065(chemin: Path | None = None) -> Path:
     return destination
 
 
+def executer_exports_comptables(
+    dossier_id: DossierId = DOSSIER_PAR_DEFAUT,
+    annee: int = ANNEE_PAR_DEFAUT,
+    dossier_sortie: Path | None = None,
+) -> tuple[Path, Path, Path]:
+    """FEC + grand livre + balance (doc 06 §6) sur un vrai dossier — le
+    détail complet, pas juste le résultat de la liasse (doc 17, suite à
+    « s'il est faux, on ne sait pas »)."""
+    dossier_sortie = dossier_sortie or DOSSIER_SORTIE_DEFAUT
+    ecritures = construire_ledger(dossier_id, annee).grand_livre(dossier_id)
+    dossier_sortie.mkdir(parents=True, exist_ok=True)
+    chemin_fec = dossier_sortie / "journal_dossier_reel.fec.txt"
+    chemin_grand_livre = dossier_sortie / "grand_livre_dossier_reel.csv"
+    chemin_balance = dossier_sortie / "balance_dossier_reel.csv"
+    chemin_fec.write_text(exporter_fec(ecritures), encoding="utf-8")
+    chemin_grand_livre.write_text(exporter_grand_livre(ecritures), encoding="utf-8")
+    chemin_balance.write_text(exporter_balance(ecritures), encoding="utf-8")
+    return chemin_fec, chemin_grand_livre, chemin_balance
+
+
 def main() -> None:
     chemin = executer()
     chemin_cerfa = executer_cerfa_2065()
+    chemin_fec, chemin_gl, chemin_balance = executer_exports_comptables()
     print(f"Liasse sur dossier réel ({DOSSIER_PAR_DEFAUT}, exercice {ANNEE_PAR_DEFAUT}) : {chemin}")
     print(f"CERFA 2065 (case déficit remplie) : {chemin_cerfa}")
+    print(f"FEC : {chemin_fec}")
+    print(f"Grand livre : {chemin_gl}")
+    print(f"Balance : {chemin_balance}")
 
 
 if __name__ == "__main__":

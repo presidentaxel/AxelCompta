@@ -56,11 +56,13 @@ class ClotureSimplifieeService(ClosingService):
         self._ledger = ledger
 
     def cloturer(self, dossier_id: DossierId, exercice: str) -> LiassePivot:
-        balance = _solde_par_compte(self._ledger.grand_livre(dossier_id))
+        ecritures = self._ledger.grand_livre(dossier_id)
+        balance = _solde_par_compte(ecritures)
         produits, charges = _compte_de_resultat(balance)
         resultat = produits - charges
         # TVA nette due = collectée (44571, crédit) - déductible (44566, débit)
         tva_a_payer = -balance.get("44571", 0) - balance.get("44566", 0)
+        dates = [ecriture.date for ecriture in ecritures]
         return LiassePivot(
             dossier_id=dossier_id,
             exercice=exercice,
@@ -72,4 +74,10 @@ class ClotureSimplifieeService(ClosingService):
                 "TVA_A_PAYER": tva_a_payer,
                 "2065": resultat,  # case-clé du formulaire 2065 (doc 17 §3)
             },
+            # Bornes réelles de l'exercice (doc 06 §7 : un exercice peut être
+            # partiel, création en cours d'année) — pas une hypothèse année
+            # civile qui serait fausse pour un dossier réel créé en cours
+            # d'exercice.
+            exercice_debut=min(dates) if dates else None,
+            exercice_fin=max(dates) if dates else None,
         )

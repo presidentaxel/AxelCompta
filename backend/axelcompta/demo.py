@@ -24,6 +24,8 @@ from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot
 from axelcompta.core.ids import DossierId, TenantId, TransactionId
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
+from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
+from axelcompta.filings.fec import exporter_fec
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.ecritures_settlement import construire_ecriture_settlement
 from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
@@ -89,10 +91,10 @@ async def _recuperer_fixtures() -> tuple[
     return transactions, tuple(settlements)
 
 
-def _construire_liasse() -> LiassePivot:
+def _construire_ledger() -> InMemoryLedgerService:
     """Le cœur de la coupe verticale (doc 17 §2) : fixtures → réconciliation
-    → écritures → clôture. Partagé par les deux renderers (simplifié et
-    CERFA 2065) puisqu'ils consomment la même `LiassePivot`.
+    → écritures. Partagé par les renderers de liasse (qui clôturent) et les
+    exports comptables (qui lisent directement le grand livre, doc 06 §6).
     """
     transactions, settlements = asyncio.run(_recuperer_fixtures())
     resultats = reconcilier(transactions, settlements)
@@ -119,7 +121,11 @@ def _construire_liasse() -> LiassePivot:
             construire_ecriture_categorisee(transaction, proposition, compte, numero)
         )
 
-    return ClotureSimplifieeService(ledger).cloturer(DOSSIER_DEMO, exercice="2026")
+    return ledger
+
+
+def _construire_liasse() -> LiassePivot:
+    return ClotureSimplifieeService(_construire_ledger()).cloturer(DOSSIER_DEMO, exercice="2026")
 
 
 def executer(chemin: Path | None = None) -> Path:
@@ -144,11 +150,31 @@ def executer_cerfa_2065(chemin: Path | None = None) -> Path:
     return destination
 
 
+def executer_exports_comptables(dossier_sortie: Path | None = None) -> tuple[Path, Path, Path]:
+    """FEC + grand livre + balance (doc 06 §6) — le détail derrière les
+    chiffres de la liasse, pour un contrôle ou pour tracer une erreur
+    (2026-09-05, suite à « s'il est faux, on ne sait pas »)."""
+    dossier_sortie = dossier_sortie or DOSSIER_SORTIE_DEFAUT
+    ecritures = _construire_ledger().grand_livre(DOSSIER_DEMO)
+    dossier_sortie.mkdir(parents=True, exist_ok=True)
+    chemin_fec = dossier_sortie / "journal.fec.txt"
+    chemin_grand_livre = dossier_sortie / "grand_livre.csv"
+    chemin_balance = dossier_sortie / "balance.csv"
+    chemin_fec.write_text(exporter_fec(ecritures), encoding="utf-8")
+    chemin_grand_livre.write_text(exporter_grand_livre(ecritures), encoding="utf-8")
+    chemin_balance.write_text(exporter_balance(ecritures), encoding="utf-8")
+    return chemin_fec, chemin_grand_livre, chemin_balance
+
+
 def main() -> None:
     chemin = executer()
     chemin_cerfa = executer_cerfa_2065()
+    chemin_fec, chemin_gl, chemin_balance = executer_exports_comptables()
     print(f"Liasse démo générée : {chemin}")
     print(f"CERFA 2065 (case résultat fiscal remplie) : {chemin_cerfa}")
+    print(f"FEC : {chemin_fec}")
+    print(f"Grand livre : {chemin_gl}")
+    print(f"Balance : {chemin_balance}")
 
 
 if __name__ == "__main__":

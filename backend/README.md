@@ -17,11 +17,14 @@ défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-mono
 > pas encore branchés dans `demo.py` (qui tourne en mémoire). **Aucun accès
 > réel** aux API Digifactory/Rollee (token 401, sandbox non vérifié).
 > `documents`, `anomaly`, `ml` n'ont toujours que leur `README.md` +
-> `__init__.py`. Ajout du 2026-09-05 (hors plan doc 17 initial, demandé
-> explicitement) : un second PDF en overlay sur le vrai formulaire CERFA
-> 2065-SD officiel (ADR-006), avec exercice/régime/comptabilité informatisée
-> en plus du résultat — voir `filings/README.md` pour ce qui reste blanc et
-> pourquoi (identité d'entreprise, jamais inventée).
+> `__init__.py`. **Doc 17 semaines 0 à 4 toutes faites** (2026-09-05) :
+> semaine 4 tourne sur 3 vrais dossiers (`demo_multi_dossiers.py`) et a fait
+> remonter un vrai bug (11/12 règles du pack sans indicateur insensible à la
+> casse — le CA détecté d'un dossier passe de 591 € à 11 937 € une fois
+> corrigé). Ajouté hors plan initial, demandé explicitement : overlay sur le
+> vrai formulaire CERFA 2065-SD officiel (ADR-006) et exports FEC/grand
+> livre/balance (doc 06 §6) — le détail légal derrière les chiffres de la
+> liasse, pour un contrôle ou pour tracer une erreur.
 
 ## Faire tourner la démo (doc 17 semaines 0-3 + CERFA 2065)
 
@@ -29,8 +32,8 @@ défini en [doc 03 §3](../docs/03-architecture.md#3--découpage-en-modules-mono
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m axelcompta.demo
-# → Liasse démo générée : backend/_demo_output/liasse.pdf
-# → CERFA 2065 (case résultat fiscal remplie) : backend/_demo_output/cerfa_2065.pdf
+# → liasse.pdf, cerfa_2065.pdf, journal.fec.txt, grand_livre.csv, balance.csv
+# dans backend/_demo_output/
 ```
 
 Aucune base de données requise : `demo.py` utilise `InMemoryLedgerService`.

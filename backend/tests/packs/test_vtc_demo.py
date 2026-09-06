@@ -20,6 +20,20 @@ def test_une_regle_matche_bien_un_libelle_carburant() -> None:
     assert regle_carburant.motif.search("CB TOTAL ACCESS A6 03/09")
 
 
+def test_toutes_les_regles_sont_insensibles_a_la_casse() -> None:
+    # Bug trouvé en testant sur un vrai dossier complet (doc 17 §2,
+    # 2026-09-05) : seule la règle "carburant" avait (?i) inline dans le
+    # CSV du pack ; les 11 autres — dont recettes_plateformes, le revenu
+    # principal d'un chauffeur — ne matchaient jamais un libellé bancaire
+    # en MAJUSCULES (le format usuel). Sur un vrai dossier, ça faisait
+    # tomber le CA à quelques centaines d'euros au lieu de dizaines de
+    # milliers. Corrigé en forçant re.IGNORECASE au chargement.
+    regles = charger_regles()
+    regle_recettes = next(r for r in regles if r.categorie == "recettes_plateformes")
+    assert regle_recettes.motif.search("FAE UBER POP COMMIS & COURTAGES SUR VENTES")
+    assert regle_recettes.motif.search("REGUL UBER COMMIS & COURTAGES SUR VENTES")
+
+
 def test_charge_un_compte_par_categorie() -> None:
     comptes = charger_compte_par_categorie()
     assert comptes["carburant"].startswith("6")

@@ -24,6 +24,16 @@ Renderers : FEC, PDF de liasse, EDI-TDFC, dossier INPI.
   ADR-006 pour le POC complet et ses limites — **toujours pas une
   télédéclaration réelle** (EDI/EFI obligatoire, statut Partenaire EDI,
   doc 02).
+- `fec.py` — `exporter_fec()` (**fait, 2026-09-05**) : le FEC, 18 colonnes
+  normées (art. A.47 A-1), même schéma que `_AUDIT_DONNEES/extraire_fec.py`.
+  **Le format légal exigé en cas de contrôle fiscal** — demandé explicitement
+  suite à « s'il est faux, on ne sait pas » (une liasse sans le détail
+  derrière ne permet pas de tracer une erreur). Pas passé dans « Test Compta
+  Demat » ni comparé octet à octet à un FEC de référence (doc 09 §3) — la
+  checklist complète reste V1.
+- `export_comptable.py` — `exporter_grand_livre()`/`exporter_balance()`
+  (**fait, 2026-09-05**) : CSV, doc 06 §6 (« pour l'expert-comptable du
+  client »). Réutilisent les mêmes libellés de compte que le FEC.
 
 ## Statuts
 
@@ -31,6 +41,8 @@ Renderers : FEC, PDF de liasse, EDI-TDFC, dossier INPI.
   un PDF qui présente un compte de résultat et un bilan simplifiés (plus le
   dump brut de comptes de la semaine 0/2, remplacé). `PdfCerfa2065Renderer`
   ajoute la fidélité visuelle au vrai formulaire pour la case résultat.
+  `fec.py`/`export_comptable.py` ajoutent le détail (journal, grand livre,
+  balance) qui manquait derrière les chiffres de la liasse.
 - **V1 (doc 12, phase 3)** : conformité complète sur toute la liasse
   (2050-2059G/2033A-G, pas seulement le récapitulatif 2065), testée via
   « Test Compta Demat » (spike FEC, doc 12 §0.3), EDI-TDFC (doc 02 —

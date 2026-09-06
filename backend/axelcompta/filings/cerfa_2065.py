@@ -11,9 +11,12 @@ Cases remplies, toutes repérées sur les bordures de cellule réelles du PDF
 jamais inventés (2026-09-05, suite à « il me faut tout sur le dossier ») :
 - Cadre C.1 « Bénéfice imposable au taux normal » / « Déficit », depuis la
   case `"2065"` de la `LiassePivot`.
-- Exercice ouvert/clos : année civile complète déduite de `liasse.exercice`
-  (01/01 au 31/12) — c'est l'hypothèse déjà prise à l'ingestion (doc 17 §3,
-  `demo_dossier_reel.py` filtre bien sur l'année civile).
+- Exercice ouvert/clos : bornes réelles (`liasse.exercice_debut/fin`,
+  dérivées des dates d'écriture par `ClotureSimplifieeService`) — un
+  exercice réel peut être partiel (création en cours d'année, doc 06 §7),
+  pas toujours 01/01-31/12. Repli sur l'année civile de `exercice`
+  seulement si ces bornes sont inconnues (`LiassePivot` construite à la
+  main, sans passer par une vraie clôture).
 - Cadre "Régime réel normal" : coché, seul profil du démo (doc 17 §3).
 - Cadre F "Comptabilité informatisée" : OUI + logiciel "AxelCompta" — vrai
   par construction, pas une estimation.
@@ -76,10 +79,22 @@ def _dessiner_resultat(dessin: canvas.Canvas, resultat_cts: int) -> None:
     dessin.drawRightString(x, Y_LIGNE_RESULTAT_FISCAL, _formatter_euros(resultat_cts))
 
 
-def _dessiner_identification(dessin: canvas.Canvas, exercice: str) -> None:
+def _dessiner_identification(dessin: canvas.Canvas, liasse: LiassePivot) -> None:
+    # Bornes réelles de l'exercice si on les connaît (dossier réel, doc 06 §7 :
+    # peut être partiel) ; sinon repli sur l'année civile de `exercice`.
+    debut = (
+        liasse.exercice_debut.strftime("%d/%m/%Y")
+        if liasse.exercice_debut
+        else f"01/01/{liasse.exercice}"
+    )
+    fin = (
+        liasse.exercice_fin.strftime("%d/%m/%Y")
+        if liasse.exercice_fin
+        else f"31/12/{liasse.exercice}"
+    )
     dessin.setFont("Helvetica", 9)
-    dessin.drawString(X_EXERCICE_OUVERT, Y_LIGNE_EXERCICE, f"01/01/{exercice}")
-    dessin.drawString(X_EXERCICE_CLOS, Y_LIGNE_EXERCICE, f"31/12/{exercice}")
+    dessin.drawString(X_EXERCICE_OUVERT, Y_LIGNE_EXERCICE, debut)
+    dessin.drawString(X_EXERCICE_CLOS, Y_LIGNE_EXERCICE, fin)
     dessin.setFont("Helvetica-Bold", 9)
     dessin.drawCentredString(X_REGIME_REEL_NORMAL, Y_LIGNE_REGIME, "X")
     dessin.drawCentredString(X_COMPTA_INFORMATISEE_OUI, Y_LIGNE_COMPTA_INFORMATISEE, "X")
@@ -100,7 +115,7 @@ class PdfCerfa2065Renderer(FilingRenderer):
         tampon = io.BytesIO()
         dessin = canvas.Canvas(tampon, pagesize=(largeur, hauteur))
         _dessiner_resultat(dessin, liasse.cases.get("2065", 0))
-        _dessiner_identification(dessin, liasse.exercice)
+        _dessiner_identification(dessin, liasse)
         dessin.save()
         tampon.seek(0)
 

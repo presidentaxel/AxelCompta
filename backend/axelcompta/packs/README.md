@@ -28,6 +28,19 @@ par un expert-comptable* de ces artefacts pour la V1.
   choix déterministe, **pas un jugement comptable validé**). `nature_depuis_compte()`
   est ré-exportée ici pour compat mais vit maintenant dans
   `core/pcg.py` (semaine 3) : ce n'est pas une règle spécifique au pack VTC.
+- **Bug trouvé en testant sur 3 vrais dossiers complets (2026-09-05, doc 17
+  §7bis/semaine 4)** : `charger_regles()` force maintenant `re.IGNORECASE`
+  sur les 12 règles. Une seule (`carburant`) avait `(?i)` inline dans le CSV
+  du pack ; les 11 autres — dont `recettes_plateformes`, le revenu principal
+  d'un chauffeur — ne matchaient donc jamais un libellé bancaire en
+  MAJUSCULES (le format usuel des relevés). Sur un dossier réel testé, le
+  chiffre d'affaires détecté est passé de 591 € à 11 937 € une fois corrigé.
+  **Écart résiduel assumé, pas un bug** : ~29 000 € de CA réel sur ce
+  dossier, le reste correspond à des libellés sans nom de plateforme (ex.
+  « REGUL FACT DIVERS PRESTATIONS SERVICES ») — une vraie limite de
+  couverture du pack (12 règles, doc 12 §2.1 en prévoit 100-200 pour la V1),
+  pas quelque chose que `re.IGNORECASE` peut résoudre. Corrigé au
+  chargement, pas dans le CSV source (toujours un brouillon d'audit).
 - **V1 (doc 12, phase 1.1 + 0.2)** : taxonomie complète et mapping
   compte-par-catégorie validés avec le comptable du client (aujourd'hui un
   brouillon d'audit, premier compte listé pris arbitrairement).

@@ -31,10 +31,21 @@ class RegleCategorisation:
 
 
 def charger_regles(chemin: Path | None = None) -> tuple[RegleCategorisation, ...]:
+    """`re.IGNORECASE` forcé sur toutes les règles, pas seulement celles qui
+    ont `(?i)` inline dans le CSV — bug trouvé en testant sur un vrai
+    dossier complet (doc 17 §2, 2026-09-05) : seule 1 des 12 règles du pack
+    (`carburant`) a `(?i)`, les 11 autres — dont `recettes_plateformes`, le
+    revenu principal d'un chauffeur — ne matchaient donc jamais un libellé
+    bancaire en MAJUSCULES (le format usuel des relevés bancaires réels).
+    Sur un vrai dossier testé, ça faisait tomber le CA à quelques centaines
+    d'euros au lieu de plusieurs dizaines de milliers.
+    """
     chemin = chemin or CHEMIN_REGLES_PAR_DEFAUT
     with chemin.open(newline="", encoding="utf-8") as fichier:
         return tuple(
-            RegleCategorisation(re.compile(ligne["regex"]), ligne["categorie"], ligne["confiance"])
+            RegleCategorisation(
+                re.compile(ligne["regex"], re.IGNORECASE), ligne["categorie"], ligne["confiance"]
+            )
             for ligne in csv.DictReader(fichier)
         )
 
