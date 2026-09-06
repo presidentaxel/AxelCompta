@@ -63,22 +63,30 @@ def test_volume_coherent_avec_jusqua_200_jours_actifs(profil) -> None:
 
 
 @pytest.mark.parametrize("profil", PROFILS_DEMO, ids=lambda p: p.nom)
-def test_tous_les_settlements_se_reconcilient(profil) -> None:
-    """Les montants/dates/libellés générés doivent matcher l'algorithme réel
-    (doc 13 §4.2) — pas un mode dégradé propre au test."""
+def test_reconciliation_conforme_au_retard_configure(profil) -> None:
+    """Tous les settlements se réconcilient, **sauf** celui visé par
+    `retard_reglement` (Karim, doc 13 §4.2/§4.3) — exercer l'état
+    `en_attente_banque` est le but, pas un raté de la génération."""
     transactions, settlements = _donnees(profil)
     resultats = reconcilier(transactions, settlements)
-    etats = {r.etat for r in resultats}
-    assert etats == {EtatReconciliation.RECONCILIE}
+    non_reconcilies = [r for r in resultats if r.etat is not EtatReconciliation.RECONCILIE]
+    attendu = 1 if profil.retard_reglement is not None else 0
+    assert len(non_reconcilies) == attendu
+    if non_reconcilies:
+        assert non_reconcilies[0].etat is EtatReconciliation.EN_ATTENTE_BANQUE
 
 
 @pytest.mark.parametrize("profil", PROFILS_DEMO, ids=lambda p: p.nom)
-def test_chaque_ecriture_de_settlement_est_equilibree(profil) -> None:
+def test_chaque_ecriture_de_settlement_reconciliee_est_equilibree(profil) -> None:
     """Le vrai test demandé : les calculs (pas juste la génération) tiennent
-    sur les 3 régimes (assujetti Karim/Sophie, franchise Yanis)."""
+    sur les 3 régimes (assujetti Karim/Sophie, franchise Yanis) — sur tout
+    settlement effectivement réconcilié (le retard de Karim n'en produit
+    justement pas, §ci-dessus)."""
     transactions, settlements = _donnees(profil)
     resultats = reconcilier(transactions, settlements)
-    for numero, resultat in enumerate(resultats, start=1):
+    reconcilies = [r for r in resultats if r.etat is EtatReconciliation.RECONCILIE]
+    assert reconcilies  # au moins un, sinon le test ne prouve rien
+    for numero, resultat in enumerate(reconcilies, start=1):
         ecriture = construire_ecriture_settlement(
             resultat.transaction,
             resultat.settlement,
@@ -104,3 +112,28 @@ def test_sophie_a_bien_deux_plateformes() -> None:
 
 def test_karim_a_une_seule_plateforme_uber() -> None:
     assert {p.nom for p in PROFIL_KARIM.plateformes} == {"uber"}
+
+
+def test_sophie_a_plusieurs_depenses_ambigues_pas_une_seule() -> None:
+    """doc 17 : « il faut 2/3 chauffeurs un peu différents » — poussé plus
+    loin le 2026-09-06, la file de revue doit avoir du volume, pas une
+    anecdote unique."""
+    assert len(PROFIL_SOPHIE.depenses_ponctuelles) >= 3
+
+
+def test_yanis_change_de_loueur_loa_en_cours_dannee() -> None:
+    """Renouvellement de contrat (doc 06 §3.5) : deux dépenses récurrentes
+    qui ne se chevauchent pas, à des montants différents."""
+    loyers = [d for d in PROFIL_YANIS.depenses_recurrentes if "LOA" in d.libelle]
+    assert len(loyers) == 2
+    assert {d.montant_cts for d in loyers} == {(378_00, 378_00), (410_00, 410_00)}
+    premier, second = sorted(loyers, key=lambda d: d.debut_relatif)
+    assert premier.fin_relatif == second.debut_relatif  # pas de trou ni de chevauchement
+
+
+def test_transaction_en_retard_de_karim_existe_toujours() -> None:
+    """Le virement retardé (doc 13 §6, mode dégradé) n'est pas perdu — il
+    doit apparaître dans les transactions, juste hors fenêtre de son
+    settlement (test précédent)."""
+    transactions, _ = _donnees(PROFIL_KARIM)
+    assert any(t.montant_cts > 100_00 and "uber" in t.libelle.lower() for t in transactions)

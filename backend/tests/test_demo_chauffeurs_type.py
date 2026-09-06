@@ -21,6 +21,21 @@ def test_construire_ledger_ne_leve_aucune_ecriture_desequilibree() -> None:
         assert len(ledger.grand_livre(profil.dossier_id)) > 0
 
 
+def test_karim_a_bien_un_settlement_non_reconcilie_traite_en_mode_degrade() -> None:
+    """doc 13 §4.3/§6 : le règlement retardé de Karim ne produit pas
+    d'écriture ventilée TVA (settlement non réconcilié, ignoré comme les
+    autres), mais son virement bancaire, lui, existe toujours et doit être
+    catégorisé (mode dégradé — 706 brut, sans ventilation)."""
+    profil = next(p for p in PROFILS_DEMO if p.nom == "Karim")
+    ledger = construire_ledger(profil)
+    libelles_706 = [
+        ecriture.libelle
+        for ecriture in ledger.grand_livre(profil.dossier_id)
+        if any(ligne.compte == "706" for ligne in ecriture.lignes)
+    ]
+    assert any("uber" in libelle.lower() for libelle in libelles_706)
+
+
 def test_sophie_a_une_ecriture_en_attente_pour_la_depense_ambigue() -> None:
     """doc 17 §11 : pas d'auto-acceptation sur la dépense Zara — doit
     atterrir sur le compte d'attente 471, pas un compte de résultat."""

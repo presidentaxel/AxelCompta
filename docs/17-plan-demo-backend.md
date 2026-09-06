@@ -223,6 +223,39 @@ zéro, on ajoute les deux interfaces autour du moteur existant.
 > 14 412 €, Sophie 13 375 € (Uber+Bolt), Yanis 12 584 € (franchise). Le
 > compte d'attente 471 de Sophie contient bien la dépense Zara (68 €), pas
 > auto-catégorisée sur un compte de résultat (doc 17 §11).
+>
+> **Poussé plus loin (2026-09-06), à la demande de Louis** (« on connaît les
+> chiffres, autant pousser un peu ») — sans toucher au moteur cette fois,
+> uniquement le jeu de données :
+> - Montée en charge progressive (30 premiers jours actifs à volume réduit)
+>   et congés (un bloc de repos forcé par profil), pas seulement le bruit
+>   aléatoire d'1 jour sur 7.
+> - Catégories supplémentaires sur les 3 dossiers : URSSAF (trimestriel),
+>   honoraires comptable (semestriel), amendes ponctuelles.
+> - **Karim** (le profil « nominal ») a maintenant une grosse réparation
+>   isolée (890 €, distincte de l'entretien courant) et surtout **un
+>   règlement dont le virement arrive hors fenêtre de réconciliation**
+>   (doc 13 §4.2) : le settlement reste `en_attente_banque` (33/34 réconciliés,
+>   pas 34/34), et son virement, lui, atterrit quand même en 706 brut via le
+>   mode dégradé (doc 13 §6) — jamais exercé jusqu'ici. Un dossier par
+>   ailleurs propre peut avoir un accroc ; le but est de voir la
+>   réconciliation le reporter correctement, pas de fabriquer un cas
+>   parfait partout.
+> - **Sophie** passe d'une seule dépense ambiguë à quatre sur l'année (Zara,
+>   Fnac, Sephora + une amende) — pour voir la file de revue avec du volume,
+>   pas une anecdote.
+> - **Yanis** change de loueur LOA en cours d'année (ALD Automotive à
+>   378 €/mois jusqu'au jour 180, puis Arval à 410 €/mois) — un
+>   renouvellement de contrat réel, pas un montant fixe sur toute la
+>   période. Avec les URSSAF/honoraires en plus, son exercice ressort
+>   maintenant **déficitaire** (-1 346,50 €) : exerce la case Déficit du
+>   CERFA 2065 sur ce profil aussi (avant, seul le dossier réel de l'ancien
+>   plan, doc 12 historique, y était jamais allé).
+>
+> Tests dédiés à chaque ajout dans
+> `tests/ingestion/providers/test_chauffeurs_demo.py` et
+> `tests/test_demo_chauffeurs_type.py` (135 tests passent au total, ruff/
+> mypy/import-linter propres).
 
 ### Semaine 2 — Interface gestionnaire
 
