@@ -1,242 +1,268 @@
-# 17 — Plan démo backend accéléré (1 mois, optimiste)
+# 17 — Plan de démo produit (UX + moteur réel)
 
-> **Statut : plan de sprint, volontairement optimiste et non réaliste.**
-> Distinct du roadmap (doc 12), qui reste l'hypothèse de référence à capacité
-> réelle (1-2 devs, phases pluri-mensuelles). Ce doc-ci sert un seul objectif :
-> une démo interne — **pas client** — prouvant que la chaîne complète tient
-> bout-en-bout. Aucune gestion des cas limites n'est visée ; le concept est
-> considéré validé dès qu'un dossier passe de l'ingestion à la liasse sans
-> intervention manuelle sur le chemin nominal.
-> Dernière mise à jour : 2026-09-01.
+> **Statut : plan de sprint révisé, remplace la version précédente de ce
+> doc.** Pivot décidé avec Louis le 2026-09-06 : l'ancien plan (« coupe
+> verticale backend, front minimal en semaine 4 ») est **faux maintenant**.
+> Le principe change : on construit d'abord le parcours complet des deux
+> interfaces produit (gestionnaire PC, chauffeur mobile — détail dans
+> [doc 19](19-parcours-utilisateur.md)), avec de **vrais calculs** tournant
+> sur un **jeu de données synthétique mais réaliste**, plutôt que l'inverse.
+> Le travail déjà fait sur le moteur (§12) n'est pas jeté — il devient le
+> cœur qu'on branche derrière ces deux interfaces.
+> Dernière mise à jour : 2026-09-06.
 
 ## 1. Objectif de la démo
 
-Partir d'une ingestion Digifactory/Bridge (ou son filet de secours, §4) **et**
-d'une réconciliation Rollee réelle (§5, **must-have**, pas de mode dégradé),
-et produire automatiquement une liasse fiscale sur 1-3 dossiers de test. Le
-front n'est pas la priorité (§6, semaine 4 seulement, minimal).
+Faire tourner **le produit dans son ensemble** — pas juste le backend — sur
+2-3 dossiers chauffeur fabriqués à la main mais crédibles : interface
+gestionnaire (PC) + interface chauffeur (mobile) + moteur de calcul réel
+(réconciliation, catégorisation, écritures, clôture, liasse). L'objectif
+n'est pas la conformité DGFiP ni la gestion de tous les cas limites — c'est
+de pouvoir dire **« ça marche, il reste à affiner »**, pas **« c'est un
+jouet »**. Citation de Louis (2026-09-06) qui résume l'esprit : *« la démo
+est un peu un produit final mais sans la précision de tout, donc tout
+marche mais le résultat a le droit d'être un poil foireux »*.
 
-## 2. Principe directeur
+## 2. Ce qui change par rapport à l'ancien plan
 
-**Coupe verticale d'abord.** Faire tourner tout le pipeline bout-en-bout dès
-les premiers jours avec des données bidons/fixtures, puis remplacer les
-bouchons un par un par du réel. On ne finit jamais un module en profondeur
-avant que la couture vers le suivant existe — l'intégration est le risque
-principal sur un mois, pas la justesse d'un module isolé.
+| Avant (jusqu'au 2026-09-05) | Maintenant |
+|---|---|
+| Coupe verticale backend d'abord, front minimal en dernier (rapport HTML) | UX des deux interfaces d'abord, moteur branché dessus dès que possible |
+| Données = replay du CSV audit réel (36 152 lignes, bruit réel) | Données = 2-3 chauffeurs type fabriqués à la main (§4), propres mais réalistes |
+| Calculs acceptés « estimés/simplifiés » | Calculs **réels** — objectif explicite : détecter si le moteur déconne, sur des données qu'on maîtrise |
+| Chauffeur = jamais mentionné (front) | Chauffeur = une des deux interfaces de la démo (doc 19) |
+| Connexion bancaire = Digifactory uniquement | Deux modes visibles, un seul câblé en priorité (doc 19 §4) |
 
-> **Reformulé par Louis (2026-09-05), pour éviter de se reposer la question
-> à chaque étape :** le but de la démo, c'est de pouvoir dire **« on peut le
-> faire »** — que la chaîne se comporte comme en production, bout en bout.
-> **Pas obligatoire** : gérer tous les cas limites, ni que chaque écriture
-> soit parfaitement juste au centime (les estimations/simplifications sont
-> acceptées, doc 17 §3 le dit déjà). **Obligatoire en revanche** : que le
-> résultat **ressemble à un produit**, pas à un jouet — donc testé sur un
-> dossier assez complet (volume, variété de catégories) pour être crédible,
-> pas juste un exemple à 2-3 lignes. Voir §7bis pour le test sur données
-> réelles qui répond à ce point.
+**Ce qui ne change pas** : le moteur déjà construit (§12) n'est pas
+réécrit — reconciliation, catégorisation, écritures, clôture, liasse
+gardent leur logique. Ce qui change, c'est le jeu de données qu'on leur
+donne à manger, et le fait qu'on les branche derrière une vraie interface
+plutôt qu'un rapport HTML de sortie.
 
-## 3. Coupes de scope assumées
+## 3. Principe directeur (mis à jour)
 
-Un seul profil dossier, codé en dur, tout le reste dérive de là :
+**Le parcours utilisateur d'abord, le moteur dessous dès que possible.**
+On ne construit pas une UI seule sur des données statiques mockées jusqu'au
+bout — dès qu'un écran existe, on le branche sur le vrai moteur (déjà
+construit) plutôt que d'attendre la fin. Le risque principal n'est plus
+l'intégration technique (déjà prouvée, doc 17 historique §12) mais
+**est-ce que le parcours donne envie et est-ce que le calcul reste juste
+sur un cas qu'on maîtrise**.
 
-- **SASU, IS, TVA réel normal, assujetti 10% sur recettes, pas d'option IR, pas de franchise.**
-- 2-3 dossiers de démo max, pas 200.
-- Catégorisation : règles + modèle ML déjà entraîné (§4bis). **Pas de LLM
-  d'arbitrage** dans la démo (stub qui passe tout en confiance haute).
-- Liasse : sous-ensemble de formulaires (bilan simplifié + compte de résultat
-  + une case-clé 2065), rendu en PDF propre — **pas de conformité CERFA/DGFiP
-  stricte**, pas d'EDI, pas d'INPI.
+## 4. Le jeu de données synthétique — 3 chauffeurs type
 
-**Ce qu'on ne construit pas du tout pour cette démo :**
+Fabriqués à la main pour être crédibles (volume, variété) sans tomber dans
+les vrais cas limites du dataset historique (doc 07). Chacun exerce un
+chemin de calcul déjà implémenté (§12) — aucun nouveau template à écrire,
+seulement de nouvelles données à faire tourner dedans. Objectif explicite
+de Louis : *« il faut 2/3 chauffeurs un peu différents, on veut voir
+comment ça rend en gestion multicompte de façon claire »*.
 
-- Multi-tenant / RLS (un seul schéma suffit)
-- Auth / MFA (accès direct ou trivial)
-- OCR / justificatifs (transactions traitées sans matching de pièce)
-- Détection d'anomalies
-- Workflow de revue humaine / UI de validation
-- Signature électronique
-- Dashboard consentements
-- Entraînement ML (on réutilise le modèle existant, §4bis)
-- Matrice statut × pack (doc 03 §3bis, doc 06 §7) — un seul profil en dur
+### 4.1 Karim — SASU, IS, assujetti TVA (taux réduit 10%), Uber principalement
 
-## 4. Filet de sécurité — ingestion bancaire (Digifactory/Bridge)
+Le cas « propre » : le golden test déjà validé (doc 13 §5.3) devient son
+mois type, répété sur 4 semaines avec de légères variations de volume.
 
-Le token Digifactory est en 401 à ce jour (doc 16 §7) — ne pas parier la
-démo dessus seul.
+```
+Semaine type (× 4, montants variables ±15%) :
+  Settlement Uber : brut 1 040,00 € TTC / commission 192,00 € TTC / net 848,00 €
+  → 512 D 848,00 / 622x D 160,00 / 44566 D 32,00 / 706 C 945,45 / 44571 C 94,55
+Charges du mois : carburant (~4× 55-70 €, Esso/Total), péage (~4× 8-12 €),
+assurance auto (1× mensuelle), entretien (1× ponctuel, ex. Norauto).
+Repas légitimes hors domicile (2-3× dans le mois) : McDonald's/Quick — pas
+présumés personnels (doc 07 §4, BOFiP).
+```
 
-- **Chemin A** : `DigifactoryProvider` réel si le token se débloque d'ici là.
-- **Chemin B** : fixtures Digifactory (schéma doc 16 §3-4) si toujours bloqué.
-- **Chemin C (filet)** : rejouer `resultats/fec_ml_taxonomie.csv` (36 152
-  lignes réelles déjà labellisées à ce jour — 48 042 avant une passe de
-  réduction du bucket non catégorisé, chiffre resté dans le §4bis et
-  ADR-007 pour le benchmark ML historique) via `FileImportProvider` —
-  **fait** (semaine 1) : regroupe les lignes composites, inverse la
-  convention débit-crédit FEC vers le sens relevé bancaire, testé contre le
-  fichier réel. Garantit que la démo ne meurt pas si l'API externe est
-  capricieuse le jour J, et prouve le pipeline sur données réelles quoi
-  qu'il arrive.
+Sert de golden test **et** de "dossier de référence sans ambiguïté" pour
+montrer que le cas nominal ne fait pas remonter de fausse alerte.
 
-Les trois passent par la même interface `DataProvider` (doc 03 §2.2,
-doc 13 §2) — zéro changement ailleurs dans le pipeline selon le chemin retenu
-le jour de la démo.
+### 4.2 Sophie — EURL, IS, assujetti TVA, Uber + Bolt, une dépense personnelle ambiguë
 
-## 4bis. Ce qu'on réutilise déjà (accélérateurs issus de l'audit)
+Teste le mix de plateformes (autoliquidation Bolt, doc 13 §5.3 « cas
+autoliquidation ») et la file de revue humaine :
 
-Ce plan tient en un mois en grande partie parce que ces briques existent déjà :
+```
+Semaines paires : settlement Uber (comme Karim, montants différents).
+Semaines impaires : settlement Bolt — commission HT 160,00 €, autoliquidation
+  UE : 44566 D 32,00 / 44571 C 32,00 (impact trésorerie nul, obligatoire
+  pour la CA3, doc 13 §5.3).
+Une dépense carte pro à consonance personnelle dans le mois (ex. achat Zara
+ou Sephora, ~60-80 €) — doit remonter dans la file de revue comme
+« à justifier / usage personnel » (doc 06 §3.6, doc 11 §3.2), pas être
+auto-acceptée. Sert à montrer que le pipeline distingue le nominal de
+l'à-trancher, pas seulement à calculer juste.
+```
 
-| Actif | Où | Usage démo |
+### 4.3 Yanis — franchise TVA, Bolt uniquement, véhicule en LOA
+
+Teste le régime franchise (pas de TVA collectée, doc 13 §5.3 « cas
+franchise ») et le template LOA (part non déductible, doc 06 §3.5) :
+
+```
+Settlement Bolt : brut 1 040,00 € (pas de TVA collectée), commission
+  192,00 € TTC non récupérable (franchise) :
+  512 D 848,00 / 622x D 192,00 (TTC) / 706 C 1 040,00
+Loyer LOA mensuel (ex. 380 € TTC) : part déductible/non déductible selon
+  le template déjà écrit (doc 06 §3.5), suivi hors-bilan.
+```
+
+### 4.4 Ce que ces trois profils prouvent ensemble
+
+Trois régimes TVA (assujetti/franchise), les deux plateformes du pilote
+avec leurs deux traitements TVA différents, un cas nominal, un cas à
+trancher par un humain, un cas avec immobilisation financée — sans sortir
+une seule fois du périmètre déjà documenté et déjà codé. C'est le test de
+« gestion multicompte claire » demandé : le gestionnaire doit voir au
+premier coup d'œil que ces trois dossiers sont dans des états différents.
+
+## 5. Le moteur réutilisé tel quel
+
+Rien ne change dans la logique de calcul déjà construite (détail complet
+en §12 et [doc 18](18-organisation-code.md)) :
+
+| Module | Rôle | Statut |
 |---|---|---|
-| `packs_vtc/` — 24 règles regex, 61 mappings PCG, 18 catégories | `_AUDIT_DONNEES/packs_vtc/` | Base du catégoriseur à règles, réduite aux ~15 catégories les plus fréquentes |
-| `resultats/fec_ml_taxonomie.csv` — 36 152 lignes labellisées | `_AUDIT_DONNEES/resultats/` | Filet d'ingestion (chemin C, **fait**) + jeu de données pour le golden test |
-| `modeles/tfidf_logreg_v1.joblib` — 94,4% accuracy | `_AUDIT_DONNEES/modeles/` | Fallback ML pour ce que les règles ratent, aucun réentraînement nécessaire |
-| Exemple chiffré Uber France / Bolt déjà travaillé | doc 13 §5.3 | Sert directement de golden test de réconciliation + ventilation TVA (§7) |
+| `ingestion/reconciliation.py` | Matching settlement ↔ transaction bancaire | Fait, inchangé |
+| `ingestion/ecritures_settlement.py` | Ventilation TVA Uber/Bolt/franchise | Fait, inchangé |
+| `categorize/rules_and_ml.py` | Règles pack VTC + modèle ML pour le reste des transactions | Fait, inchangé |
+| `workflow/auto_accept.py` | Stand-in pour la revue humaine (démo seulement) | Fait — **remplacé dans la démo produit** par la vraie file de revue humaine (doc 11 §3.1) côté UI, puisque Sophie (§4.2) doit être tranchée par un humain, pas auto-acceptée |
+| `closing/bilan_simplifie.py`, `filings/*` | Clôture, liasse, CERFA 2065, FEC, grand livre, balance | Fait, inchangé |
 
-## 5. Rollee — réconciliation réelle (must-have, pas de mode dégradé)
+Seul `workflow/auto_accept.py` change de rôle : il servait de bouchon
+d'auto-validation en l'absence d'UI ; la démo produit a maintenant une
+vraie file de revue humaine à montrer, donc le stub n'est plus la solution
+pour tous les cas — seulement un fallback si le temps manque pour brancher
+l'écran de revue derrière chaque profil.
 
-Contrairement à une version précédente de ce plan, **on ne bascule pas sur le
-mode dégradé** de doc 13 §6 (écriture `512/706` brute sans ventilation). La
-démo doit montrer l'algorithme de matching (doc 13 §4.2) et la génération
-d'écriture ventilée (doc 13 §5.3) — c'est la partie qui démontre la valeur
-du produit.
+## 6. Les deux interfaces de la démo
 
-**Risque à lever en priorité, jour 1 :** le statut d'accès au sandbox Rollee
-n'est pas connu à ce stade (contrairement à Digifactory, aucun test d'accès
-n'a encore été fait côté Rollee). Vérifier ça avant toute autre chose cette
-semaine — c'est potentiellement le même genre de blocage que le 401
-Digifactory, découvert cette fois avant de compter dessus plutôt qu'après.
+Détail complet du parcours dans [doc 19](19-parcours-utilisateur.md). Pour
+la démo précisément :
 
-- **Chemin A** : `RolleeProvider` réel contre le sandbox si l'accès est obtenu à temps.
-- **Chemin B (filet)** : fixtures `PlatformSettlement` construites à la main
-  selon le schéma doc 13 §4.1, **calées sur les mêmes transactions bancaires**
-  choisies pour la démo (même montant net, même fenêtre de date) — pour
-  garantir que la réconciliation ait un match propre à montrer, même sans
-  API Rollee fonctionnelle. Contrairement au côté bancaire, il n'existe pas
-  de dataset Rollee déjà réel/labellisé dans l'audit ; ces fixtures sont donc
-  à écrire spécifiquement pour la démo, pas récupérables gratuitement.
+- **Interface gestionnaire (PC/web)** : dashboard des 3 dossiers, file de
+  revue réelle sur la dépense ambiguë de Sophie, clôture et liasse par
+  dossier — s'appuie directement sur doc 11, rien de nouveau à concevoir
+  côté écrans, seulement à construire.
+- **Interface chauffeur (mobile/webapp)** : au moins un des trois profils
+  (Karim, le plus simple) doit pouvoir être suivi côté chauffeur — voir ses
+  transactions catégorisées, répondre à une question simple, signer.
 
-## 6. Semaine par semaine
+## 7. Connexion bancaire dans la démo
 
-### Semaine 0 (jours 1-3) — Squelette bout-en-bout
+Voir [doc 19 §4](19-parcours-utilisateur.md#4-connexion-bancaire--deux-modes-par-dossier).
+Résumé : mode `gestionnaire` (Digifactory) câblé en priorité — Louis
+relance le fournisseur pour débloquer le token 401 (doc 16 §7) avant la fin
+du mois. Mode `chauffeur_direct` : **si le temps le permet**, montré en
+fonctionnement à la fin plutôt qu'en premier — pas bloquant pour juger la
+démo réussie.
 
-- `core/` minimal : `Money` (centimes int), types id.
-- Postgres + Alembic minimal, un seul schéma.
-- **Les deux flux dès le départ** : `FixtureProvider` (transactions bancaires
-  bidons) + `FixtureSettlementProvider` (settlements Rollee bidons) →
-  réconciliation bouchon (match trivial) → écriture bouchon → clôture bouchon
-  → PDF "Hello World" liasse.
-- Objectif : une commande unique produit un PDF, même avec des chiffres faux.
-  Valide les coutures avant d'investir dans la justesse — y compris la
-  couture réconciliation, qui est la plus risquée.
-- **Jour 1, en parallèle** : vérifier l'accès sandbox Rollee (§5) et relancer
-  le fournisseur Digifactory sur le token (§4).
+## 8. Coupes de scope assumées (mise à jour)
 
-### Semaine 1 — Ingestion réelle des deux côtés
+Ce qui reste hors scope, comme avant :
+- Multi-tenant / RLS complet (les 3 dossiers de démo suffisent, un seul
+  schéma).
+- OCR réel des justificatifs (la photo s'attache à la transaction, le
+  contenu n'est pas lu).
+- Détection d'anomalies statistique (doc 05 §6.2) — la dépense ambiguë de
+  Sophie est un cas écrit à la main, pas détectée par un modèle de profil.
+- Signature électronique réelle (prestataire non choisi, ADR-004 toujours
+  en attente) — simulateur d'écran suffit.
+- Matrice complète statut × pack — seulement les 3 profils ci-dessus.
 
-- `DigifactoryProvider` contre fixtures/réel selon déblocage (chemin A/B §4).
-- `FileImportProvider` branché sur le CSV audit en filet (chemin C §4).
-- `RolleeProvider` réel (chemin A §5) ou fixtures calées main (chemin B §5).
-- Normalisation : `Decimal`→centimes à l'ingestion, filtrage `deleted`/`future`
-  côté banque (doc 16 §5).
+Nouveau, ajouté par ce pivot :
+- **Pas de self-signup public** (doc 19 §3.1) — les comptes de démo sont
+  créés à la main.
+- **Pas de synchronisation API gestionnaire** (doc 19 §3.3) — prévue,
+  documentée, pas construite ici.
+- **Pas de app store réel** — la démo tourne en webapp, l'app native est un
+  objectif post-démo (doc 19 §7).
 
-### Semaine 2 — Réconciliation + catégorisation + écritures complètes
+## 9. Semaines et jalons
 
-> **Fait (2026-09-05)** — `backend/axelcompta/ingestion/reconciliation.py`,
-> `ingestion/ecritures_settlement.py`, `categorize/rules_and_ml.py`,
-> `workflow/auto_accept.py`. Détail : [docs/18-organisation-code.md](18-organisation-code.md).
+Repart de la coupe verticale déjà prouvée (§12) — on ne recommence pas de
+zéro, on ajoute les deux interfaces autour du moteur existant.
 
-- Algorithme de matching montant+date+libellé (doc 13 §4.2), états
-  `en_attente_banque` / `réconcilié` / `revue manuelle`.
-- Templates d'écriture **avec ventilation TVA complète** (doc 13 §5.3) : au
-  minimum le cas Uber France (TVA 20% sur commission, déductible normalement)
-  et le cas Bolt (autoliquidation UE) — les deux variantes déjà chiffrées dans
-  la doc, pas besoin de les redériver.
-- Règles regex du pack VTC (réduites à ~15 catégories) + modèle TF-IDF existant
-  en fallback pour le reste des transactions (carburant, péage, entretien...).
+### Semaine 1 — Jeu de données + branchement moteur
 
-### Semaine 3 — Clôture + liasse
+- Écrire les fixtures des 3 profils (§4) comme `NormalizedTransaction` +
+  `PlatformSettlement`, au format déjà attendu par les providers existants.
+- Vérifier que le moteur existant (§5) tourne sans modification dessus —
+  seul un bug de mapping/règle serait acceptable à corriger (comme les deux
+  déjà trouvés en semaine 4 de l'ancien plan, §12).
 
-> **Fait (2026-09-05)** — `backend/axelcompta/closing/bilan_simplifie.py`,
-> `filings/liasse_simplifiee.py`. Détail : [docs/18-organisation-code.md](18-organisation-code.md).
+### Semaine 2 — Interface gestionnaire
 
-- Balance → compte de résultat / bilan simplifié.
-- `LiassePivot` réduit au strict nécessaire pour le récit de démo, rendu PDF.
-- **Golden test de sortie** (§7) : le critère de "c'est fini", pas la
-  conformité DGFiP.
+- Dashboard 3 dossiers + fiche dossier (doc 11 §2) branchés sur les vraies
+  données des 3 profils.
+- File de revue réelle (doc 11 §3.1) sur la dépense ambiguë de Sophie —
+  premier écran qui remplace un stub du moteur (`auto_accept`) par une
+  vraie décision humaine dans l'UI.
 
-### Semaine 4 — Tampon + démo
+### Semaine 3 — Interface chauffeur
 
-- Faire tourner sur 2-3 dossiers pour montrer que ce n'est pas câblé en dur
-  sur un seul cas.
-- Front minimal, pas prioritaire : un rapport HTML/notebook qui montre les
-  étapes du pipeline (transaction → settlement → réconciliation → écriture
-  → liasse) plutôt qu'une vraie UI — juste pour le récit visuel de la démo.
-- Répétition avec un run pré-cuit en secours si une API externe est capricieuse
-  le jour J (les chemins B/filet de §4 et §5 doivent être prêts à être
-  rejoués instantanément, pas improvisés en live).
+- Parcours mobile de Karim (doc 19 §5) : transactions, une question de
+  catégorisation, signature.
+- Connexion bancaire mode `gestionnaire` visible (toggle) ; mode
+  `chauffeur_direct` en construction si le temps le permet (§7).
 
-## 7. Golden test de sortie
+### Semaine 4 — Clôture, liasse, tampon, répétition
 
-Reproduire noir sur blanc l'exemple déjà chiffré en doc 13 §5.3 : settlement
-Uber 1 040,00 € TTC / commission 192,00 € TTC / net 848,00 €, réconcilié avec
-la transaction bancaire `+848,00 € UBER BV`, générant :
+- Clôture + liasse + CERFA 2065 + FEC/grand livre/balance sur les 3
+  dossiers (déjà fait au niveau moteur, §12 — reste à les exposer dans
+  l'interface gestionnaire plutôt qu'un export PDF isolé).
+- Répétition avec un run pré-cuit en secours, comme dans l'ancien plan.
 
-```
-512   Banque                        D   848,00
-622x  Commissions plateformes       D   160,00
-44566 TVA déductible sur commission D    32,00
-706   Prestations de services       C   945,45
-44571 TVA collectée (10%)           C    94,55
-```
-
-Balance équilibrée, écriture visible dans le grand livre du dossier,
-apparaît dans la liasse générée. Si ce cas précis tourne sur un dossier de
-démo (réel ou fixture calée), le concept est considéré validé.
-
-## 7bis. Test sur un dossier réel complet — « ressembler à un produit »
-
-> **Fait (2026-09-05)** — `backend/axelcompta/demo_dossier_reel.py`. Complète
-> le golden test §7 (3 lignes, chiffres connus d'avance) par un test sur un
-> vrai dossier entier, pour la raison donnée au §2 : le golden test prouve
-> que le calcul est juste sur un cas connu, celui-ci prouve que le pipeline
-> **tient à l'échelle** sur des données qu'on ne contrôle pas.
-
-Rejoue une année complète d'un vrai dossier du CSV audit
-(`DOS_98279ecabf05`, exercice 2024, 543 transactions reconstruites, 20
-catégories réelles) via `FileImportProvider` → `categorize` (règles + ML) →
-`workflow/auto_accept` → clôture → liasse + CERFA 2065. Aucun settlement
-Rollee historique, donc pas de ventilation TVA plateforme ici — uniquement
-le chemin « reste des transactions ».
-
-Résultat obtenu : CA 29 209,51 €, charges 30 979,92 €, résultat **négatif**
--1 770,41 € — la case Déficit du vrai formulaire 2065 se remplit
-correctement (jamais exercée par le golden test §7, qui est toujours
-bénéficiaire).
-
-**Un vrai bug trouvé en construisant ce test**, pas un cas limite anecdotique :
-le mapping compte-par-catégorie plaçait `recettes_plateformes` (le revenu
-principal d'un chauffeur) sur un compte hors compte de résultat (418, une
-créance temporaire) — sur le golden test à 3 lignes ça ne se voyait pas
-(cette catégorie n'y apparaît pas), sur un vrai dossier ça aurait renvoyé un
-chiffre d'affaires à zéro. Corrigé dans `packs/vtc_demo.py`
-(`CORRECTIONS_COMPTE_PAR_CATEGORIE`). C'est exactement pour ça que ce test
-existe : les jeux de données jouets cachent ce genre d'écart.
-
-**Limite assumée, pas corrigée** : sur ce dossier réel, `TRESORERIE ≠
-RESULTAT + TVA_A_PAYER` (contrairement au golden test §7) — des mouvements
-hors compte de résultat existent (achat de véhicule, capital) que le bilan
-simplifié ne suit pas séparément (doc 06 §5, V1 seulement). Documenté dans
-`closing/bilan_simplifie.py`, pas laissé comme un mystère.
-
-## 8. Risques et mitigations
+## 10. Risques et mitigations
 
 | Risque | Mitigation |
 |---|---|
-| Token Digifactory toujours bloqué (401, doc 16 §7) | Chemin B (fixtures) ou C (replay FEC) — déjà prévu, pas un blocage de dernière minute |
-| Accès sandbox Rollee jamais vérifié à ce jour | Vérifier jour 1 ; fixtures calées main en filet (§5 chemin B) |
-| Réconciliation qui ne matche rien en démo live | Répétition avec run pré-cuit (semaine 4), ne pas dépendre du direct |
-| Dérive de scope (retomber sur la matrice statut × pack, le multi-tenant...) | §3 rappelle explicitement les non-objectifs ; toute demande hors profil unique est reportée au doc 12 |
+| Token Digifactory toujours bloqué fin de mois | Le mode `gestionnaire` de la démo tourne sur les fixtures des 3 profils, pas sur l'API réelle — la relance Digifactory est en parallèle, pas sur le chemin critique de la démo |
+| Vouloir montrer `chauffeur_direct` complet fait déraper le planning | Explicitement en dernier, explicitement optionnel (§7, §9 semaine 3) |
+| La vraie file de revue humaine (nouveau vs `auto_accept`) prend plus de temps que prévu | Fallback : garder `auto_accept` pour Karim/Yanis (cas nominaux), ne construire l'écran de revue que pour le cas Sophie qui le justifie |
+| Dérive de scope vers la matrice complète statut × pack | §8 rappelle explicitement les non-objectifs |
 
-## 9. Rappel — ce plan n'est pas le roadmap
+## 11. Golden tests
+
+Le golden test Uber existant (doc 13 §5.3, ancien §7 de ce doc) reste valide
+tel quel — c'est exactement le mois type de Karim (§4.1). S'y ajoutent
+deux golden tests supplémentaires, un par nouveau profil :
+
+- **Sophie** : le mois complet doit produire une écriture usage-personnel
+  (455/108) sur la dépense ambiguë **uniquement après validation humaine**
+  dans la file de revue — pas d'auto-acceptation sur ce cas précis.
+- **Yanis** : balance équilibrée avec le traitement franchise (pas de TVA
+  collectée) et le suivi LOA hors-bilan.
+
+## 12. Historique — ce qui a déjà été fait (acquis, réutilisé §5)
+
+L'ancien plan (semaines 0 à 4, du 2026-09-01 au 2026-09-05) a démontré que
+la chaîne complète tient bout-en-bout sur données réelles, avant ce pivot :
+
+- **Semaine 0** : squelette bout-en-bout, PDF produit en mémoire, Postgres/
+  Alembic montés (pas encore branchés).
+- **Semaine 1** : les 5 providers fonctionnels ; `FileImportProvider`
+  rejoue le CSV audit réel (36 152 lignes).
+- **Semaine 2** : réconciliation réelle (doc 13 §4.2), écritures ventilées
+  TVA Uber/Bolt (doc 13 §5.3), règles + ML pour le reste.
+- **Semaine 3** : clôture réelle (bilan qui s'équilibre), liasse simplifiée
+  en PDF.
+- **Hors plan initial** : overlay sur le vrai CERFA 2065-SD officiel
+  (`filings/cerfa_2065.py`).
+- **Semaine 4** : tourné sur 3 vrais dossiers du CSV audit (pas des
+  fixtures) — **deux vrais bugs trouvés** : règles regex non insensibles à
+  la casse (CA détecté passé de 591 € à 11 937 € une fois corrigé), mapping
+  `recettes_plateformes` sur un mauvais compte.
+- **Test dossier réel complet** (`demo_dossier_reel.py`) : un vrai exercice
+  2024 rejoué (543 transactions), résultat négatif, case Déficit du CERFA
+  2065 exercée pour la première fois.
+- **Hors plan initial** : exports FEC + grand livre + balance
+  (`filings/fec.py`, `filings/export_comptable.py`).
+
+Détail complet, fichier par fichier, commandes de reproduction :
+[doc 18](18-organisation-code.md) et [backend/README.md](../backend/README.md).
+**Rien de ce travail n'est perdu** — c'est le contenu du §5 ci-dessus.
+
+## 13. Rappel — ce plan n'est pas le roadmap
 
 Les hypothèses de capacité, les phases et les critères de sortie du doc 12
 restent la référence pour la trajectoire produit réelle. Ce doc 17 est un

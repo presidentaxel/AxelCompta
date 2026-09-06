@@ -149,8 +149,24 @@ dépendance.
   (543 transactions réelles, résultat négatif) plutôt qu'un exemple à 2-3
   lignes — a fait remonter un vrai bug de mapping compte-par-catégorie
   (`recettes_plateformes`), corrigé dans `packs/vtc_demo.py`.
+- Semaine 4 (2026-09-05) : `demo_multi_dossiers.py` tourne sur **3 vrais
+  dossiers** (pas des fixtures) et génère un rapport HTML (doc 17 §6) avec,
+  pour chacun, liasse + CERFA 2065 + FEC + grand livre + balance. A fait
+  remonter un **deuxième** vrai bug, plus large que le premier : 11 des 12
+  règles regex du pack n'étaient pas insensibles à la casse — le CA détecté
+  d'un dossier est passé de 591 € à 11 937 € une fois corrigé
+  (`re.IGNORECASE` forcé dans `charger_regles()`).
+- Demandé explicitement, hors plan initial (2026-09-05) : `filings/fec.py`
+  (export FEC, 18 colonnes normées, doc 06 §6) et
+  `filings/export_comptable.py` (grand livre, balance) — le détail légal et
+  comptable derrière les chiffres de la liasse, pour un contrôle fiscal ou
+  pour tracer une erreur.
 
 Détail et commandes : [backend/README.md](../backend/README.md).
 
-Prochaine étape : semaine 4 du doc 17 (tampon + démo — faire tourner sur
-2-3 dossiers, front minimal qui montre les étapes du pipeline).
+Doc 17 semaines 0 à 4 (version backend-first) sont toutes faites — ce
+travail reste la brique de calcul réutilisée telle quelle. **Pivot du
+2026-09-06** : doc 17 est réécrit pour une démo produit avec deux
+interfaces (gestionnaire PC, chauffeur mobile), parcours cadré dans
+[doc 19](19-parcours-utilisateur.md) (doc 12 §2.7). Aucun code front
+n'existe encore pour ces deux interfaces — c'est l'objet du nouveau plan.
