@@ -15,6 +15,7 @@ export type DossierResume = {
   tva_a_payer_cts: number;
   nb_transactions: number;
   nb_a_trancher: number;
+  statut_invitation: "invité" | "actif" | null; // null = "non_invité" (doc 19 §3.2)
 };
 
 export type StatutTransaction = "validé" | "à trancher";

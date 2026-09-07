@@ -24,6 +24,22 @@ export class ApiError extends Error {
   }
 }
 
+export async function inviterChauffeur(
+  dossierId: string,
+  email: string,
+): Promise<{ dossier_id: string; email: string; statut: string }> {
+  const reponse = await fetch(`${API_BASE_URL}/dossiers/${dossierId}/inviter`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps;
+}
+
 export async function trancherTransaction(
   dossierId: string,
   ecritureId: string,
