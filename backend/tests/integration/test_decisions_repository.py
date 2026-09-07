@@ -17,7 +17,9 @@ from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
 pytestmark = pytest.mark.integration
 
 
-def _decision(dossier_id: str, ecriture_id: str, categorie: str, decide_le: datetime) -> DecisionHumaine:
+def _decision(
+    dossier_id: str, ecriture_id: str, categorie: str, decide_le: datetime
+) -> DecisionHumaine:
     return DecisionHumaine(
         dossier_id=DossierId(dossier_id),
         ecriture_id=EcritureId(ecriture_id),

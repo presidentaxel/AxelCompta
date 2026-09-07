@@ -17,7 +17,7 @@ def test_construire_ledger_ne_leve_aucune_ecriture_desequilibree() -> None:
     écriture (doc 06 §1) — si cette fonction ne lève pas, tout le pipeline
     (settlement + reste des transactions) est équilibré pour les 3 profils."""
     for profil in PROFILS_DEMO:
-        ledger = construire_ledger(profil)
+        ledger, _propositions = construire_ledger(profil)
         assert len(ledger.grand_livre(profil.dossier_id)) > 0
 
 
@@ -27,7 +27,7 @@ def test_karim_a_bien_un_settlement_non_reconcilie_traite_en_mode_degrade() -> N
     autres), mais son virement bancaire, lui, existe toujours et doit être
     catégorisé (mode dégradé — 706 brut, sans ventilation)."""
     profil = next(p for p in PROFILS_DEMO if p.nom == "Karim")
-    ledger = construire_ledger(profil)
+    ledger, _propositions = construire_ledger(profil)
     libelles_706 = [
         ecriture.libelle
         for ecriture in ledger.grand_livre(profil.dossier_id)
@@ -40,7 +40,7 @@ def test_sophie_a_une_ecriture_en_attente_pour_la_depense_ambigue() -> None:
     """doc 17 §11 : pas d'auto-acceptation sur la dépense Zara — doit
     atterrir sur le compte d'attente 471, pas un compte de résultat."""
     profil = next(p for p in PROFILS_DEMO if p.nom == "Sophie")
-    ledger = construire_ledger(profil)
+    ledger, _propositions = construire_ledger(profil)
     comptes_touches = {
         ligne.compte
         for ecriture in ledger.grand_livre(profil.dossier_id)

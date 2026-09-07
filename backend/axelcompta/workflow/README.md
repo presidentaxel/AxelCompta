@@ -47,15 +47,21 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
 
 ## Statuts
 
-- **Démo (doc 17 §9, en cours)** : `auto_accept.py` reste actif pour les
-  cas nominaux (Karim, Yanis). Bloc A (persistance des décisions) **fini**
-  — modèle, implémentation mémoire et Postgres, testées. **Pas encore
-  fait** : le branchement à un écran ni à `demo_api.py` (bloc C) — nécessite
-  d'abord d'exposer, pour chaque écriture « à trancher », la proposition
-  d'origine (`ProposedEntry`) que `construire_ledger()`
-  (`demo_chauffeurs_type.py`) calcule puis jette aujourd'hui plutôt que de
-  la retourner. Petit refactor à faire avant de coder l'endpoint, pas
-  juste un branchement direct.
+- **Démo (doc 17 §9)** : `auto_accept.py` reste actif pour les cas
+  nominaux (Karim, Yanis). **Bloc A et C finis (2026-09-07)** : la file de
+  revue est réelle de bout en bout — `demo_api.py` expose
+  `POST .../decision`, le clic dans l'UI déclenche vraiment
+  `revue.py`/`decisions_postgres.py`, testé en HTTP réel (`curl`) et dans
+  un vrai navigateur (clic → Postgres → rafraîchissement). `auto_accept.py`
+  n'est donc plus la seule voie : Sophie passe maintenant par la vraie
+  décision humaine, Karim/Yanis restent sur le stand-in (rien à trancher
+  chez eux dans la démo).
+- `revue.py` — `resoudre_ecriture_a_trancher()`, `CategorieInconnueError`
+  (**fait, 2026-09-07**) : reclasse une écriture « à trancher » vers le
+  compte réel de la catégorie choisie par l'humain — 455 (SASU/EURL) pour
+  « usage_personnel » (doc 06 §3.6), n'importe quel autre compte du pack
+  sinon. Montants et sens inchangés : une reclassification, pas un nouveau
+  calcul.
 - **V1 (doc 12, phase 3)** : actif, prestataire de signature tranché,
   persistance Postgres (pas la version mémoire).
 

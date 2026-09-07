@@ -1,5 +1,5 @@
-"""API FastAPI dédiée à la démo produit (doc 17 §9 semaine 2, doc 19) — sert
-les 3 chauffeurs type au frontend Next.js.
+"""API FastAPI dédiée à la démo produit (doc 17 §9, doc 19) — sert les 3
+chauffeurs type au frontend Next.js.
 
 Distincte de `axelcompta.api` (la vraie API produit, doc 03 §7, encore un
 squelette sans route) : ceci est une composition root comme
@@ -7,16 +7,20 @@ squelette sans route) : ceci est une composition root comme
 dépendance qu'un module métier — elle peut importer n'importe quoi
 directement, y compris une autre composition root.
 
-**Lecture seule pour l'instant** (dashboard + détail dossier + liste des
-transactions). La vraie décision humaine sur la file de revue (accepter/
-reclasser une écriture « à trancher », doc 11 §3.1/§3.2) est la prochaine
-étape (doc 17 §9 semaine 2) — pas encore câblée ici, volontairement : mieux
-vaut un écran de lecture réel qu'une décision à moitié faite.
+**Bloc A/C (doc 17 §9) : la file de revue est maintenant réelle.**
+`POST /dossiers/{id}/transactions/{ecriture_id}/decision` accepte/reclasse
+une écriture « à trancher » — la décision est persistée pour de vrai
+(`workflow.decisions_postgres`, doc 17 §9 bloc A), pas juste un changement
+d'état côté React. Requiert donc `DATABASE_URL` et un Postgres démarré
+(`docker compose up -d db` puis `alembic upgrade head` depuis `backend/`)
+— **changement par rapport à avant** : la démo n'était jusqu'ici pas
+censée avoir besoin d'infra pour tourner.
 
-Pas de persistance : chaque requête reconstruit le ledger depuis le
-générateur déterministe (`chauffeurs_demo.py`), comme les autres
-composition roots de démo. Suffisant pour 3 dossiers de quelques centaines
-d'écritures chacun — pas un choix qui tiendrait pour 200 dossiers réels.
+Transactions, écritures générées et liasse restent recalculées à la volée
+depuis `chauffeurs_demo.py` à chaque requête (déterministe, pas de coût à
+persister ça pour 3 dossiers) — seules les décisions humaines et leurs
+annotations dev survivent entre deux requêtes, réappliquées par-dessus le
+ledger recalculé (`_ledger_avec_decisions`).
 
 Usage : `uvicorn axelcompta.demo_api:app --reload --port 8000` depuis
 backend/ (nécessite `pip install -e ".[dev]"` pour uvicorn).
@@ -24,17 +28,32 @@ backend/ (nécessite `pip install -e ".[dev]"` pour uvicorn).
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from datetime import UTC, datetime
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy.engine import Engine
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
+from axelcompta.core.db import engine_depuis_env
+from axelcompta.core.ids import EcritureId, UserId
 from axelcompta.demo_chauffeurs_type import construire_ledger
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO, ProfilChauffeurType
+from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
+from axelcompta.packs.vtc_demo import charger_compte_par_categorie
+from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
+from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
+from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
 
 COMPTE_ATTENTE = "471"  # doc 06 §2 : compte d'attente par défaut, "à trancher"
 ORIGINE_FRONTEND_DEV = "http://localhost:3000"
+# doc 17 §9 bloc B (comptes réels) pas encore fait : toute décision de la
+# démo est attribuée à cet utilisateur unique en attendant. À retirer dès
+# que Supabase Auth est branché — pas un choix d'architecture, un stub.
+UTILISATEUR_DEMO = UserId("gestionnaire_demo")
 
 
 class DossierResume(BaseModel):
@@ -62,6 +81,10 @@ class TransactionVue(BaseModel):
     statut: str  # "validé" | "à trancher" — vocabulaire unique de badge (doc 11 §4)
 
 
+class DecisionEntree(BaseModel):
+    categorie: str  # "usage_personnel" ou toute catégorie du pack (doc 17 §9 bloc C)
+
+
 def _profil_par_id(dossier_id: str) -> ProfilChauffeurType:
     for profil in PROFILS_DEMO:
         if profil.dossier_id == dossier_id:
@@ -69,8 +92,34 @@ def _profil_par_id(dossier_id: str) -> ProfilChauffeurType:
     raise HTTPException(status_code=404, detail=f"Dossier inconnu : {dossier_id}")
 
 
-def _resume(profil: ProfilChauffeurType) -> DossierResume:
-    ledger = construire_ledger(profil)
+def _ledger_avec_decisions(
+    profil: ProfilChauffeurType, decisions: DecisionRepository
+) -> InMemoryLedgerService:
+    """Le ledger recalculé (déterministe), avec les décisions humaines
+    persistées ré-appliquées par-dessus (doc 17 §9 bloc A/C). C'est la
+    seule chose qui doit survivre entre deux requêtes — pas le ledger."""
+    ledger, _propositions = construire_ledger(profil)
+    dernieres_decisions = {
+        decision.ecriture_id: decision
+        for decision in decisions.lister_decisions(profil.dossier_id)
+    }
+    if not dernieres_decisions:
+        return ledger
+
+    comptes = charger_compte_par_categorie()
+    resultat = InMemoryLedgerService()
+    for ecriture in ledger.grand_livre(profil.dossier_id):
+        decision = dernieres_decisions.get(ecriture.id)
+        if decision is not None:
+            ecriture = resoudre_ecriture_a_trancher(
+                ecriture, decision.categorie, profil.forme_juridique, comptes
+            )
+        resultat.enregistrer(ecriture)
+    return resultat
+
+
+def _resume(profil: ProfilChauffeurType, decisions: DecisionRepository) -> DossierResume:
+    ledger = _ledger_avec_decisions(profil, decisions)
     ecritures = ledger.grand_livre(profil.dossier_id)
     liasse = ClotureSimplifieeService(ledger).cloturer(
         profil.dossier_id, exercice=str(profil.date_debut.year)
@@ -124,28 +173,108 @@ def _transaction_vue(ecriture: Ecriture) -> TransactionVue:
     )
 
 
+_ENGINE_DEMO: Engine | None = None
+
+
+def get_decisions() -> DecisionRepository:
+    """Dépendance FastAPI — construit l'engine Postgres **à la première
+    requête réelle**, pas à l'import du module : importer `demo_api` (pour
+    ses tests, par exemple) ne doit pas exiger `DATABASE_URL`. Les tests
+    surchargent cette dépendance
+    (`app.dependency_overrides[get_decisions] = ...`) avec
+    `InMemoryDecisionRepository` pour ne jamais l'appeler du tout."""
+    global _ENGINE_DEMO
+    if _ENGINE_DEMO is None:
+        _ENGINE_DEMO = engine_depuis_env()
+    return PostgresDecisionRepository(_ENGINE_DEMO)
+
+
+DecisionsDep = Annotated[DecisionRepository, Depends(get_decisions)]
+
+
+def _trancher(
+    profil: ProfilChauffeurType, ecriture_id: str, categorie: str, decisions: DecisionRepository
+) -> Ecriture:
+    """doc 17 §9 bloc C : la décision humaine, pour de vrai — déclenche le
+    `workflow` testé (doc 05 §5), pas un changement d'état côté React seul.
+    Extrait de la route (doc 08 §2 : longueur de fonction) plutôt que fait
+    inline."""
+    ledger, propositions = construire_ledger(profil)
+    ecriture = next(
+        (e for e in ledger.grand_livre(profil.dossier_id) if e.id == ecriture_id), None
+    )
+    if ecriture is None:
+        raise HTTPException(status_code=404, detail=f"Écriture inconnue : {ecriture_id}")
+    if decisions.decision_courante(profil.dossier_id, EcritureId(ecriture_id)) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cette écriture a déjà été tranchée (doc 05 §5 : décision immuable).",
+        )
+    if not any(ligne.compte == COMPTE_ATTENTE for ligne in ecriture.lignes):
+        raise HTTPException(status_code=409, detail="Cette écriture n'est pas à trancher.")
+    proposition = propositions.get(EcritureId(ecriture_id))
+    if proposition is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Aucune proposition d'origine pour cette écriture (incohérence interne).",
+        )
+    comptes = charger_compte_par_categorie()
+    try:
+        resoudre_ecriture_a_trancher(ecriture, categorie, profil.forme_juridique, comptes)
+    except CategorieInconnueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    decisions.enregistrer_decision(
+        DecisionHumaine(
+            dossier_id=profil.dossier_id,
+            ecriture_id=EcritureId(ecriture_id),
+            categorie=categorie,
+            etage_origine=proposition.etage,
+            confiance_origine=proposition.confiance,
+            decide_par=UTILISATEUR_DEMO,
+            decide_le=datetime.now(UTC),
+        )
+    )
+    ledger_a_jour = _ledger_avec_decisions(profil, decisions)
+    return next(e for e in ledger_a_jour.grand_livre(profil.dossier_id) if e.id == ecriture_id)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[ORIGINE_FRONTEND_DEV],
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
 
     @app.get("/dossiers", response_model=list[DossierResume])
-    def lister_dossiers() -> list[DossierResume]:
-        return [_resume(profil) for profil in PROFILS_DEMO]
+    def lister_dossiers(decisions: DecisionsDep) -> list[DossierResume]:
+        return [_resume(profil, decisions) for profil in PROFILS_DEMO]
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
-    def obtenir_dossier(dossier_id: str) -> DossierResume:
-        return _resume(_profil_par_id(dossier_id))
+    def obtenir_dossier(dossier_id: str, decisions: DecisionsDep) -> DossierResume:
+        return _resume(_profil_par_id(dossier_id), decisions)
 
     @app.get("/dossiers/{dossier_id}/transactions", response_model=list[TransactionVue])
-    def lister_transactions(dossier_id: str) -> list[TransactionVue]:
+    def lister_transactions(dossier_id: str, decisions: DecisionsDep) -> list[TransactionVue]:
         profil = _profil_par_id(dossier_id)
-        ledger = construire_ledger(profil)
+        ledger = _ledger_avec_decisions(profil, decisions)
         return [_transaction_vue(e) for e in ledger.grand_livre(profil.dossier_id)]
+
+    @app.post(
+        "/dossiers/{dossier_id}/transactions/{ecriture_id}/decision",
+        response_model=TransactionVue,
+    )
+    def trancher_transaction(
+        dossier_id: str,
+        ecriture_id: str,
+        entree: DecisionEntree,
+        decisions: DecisionsDep,
+    ) -> TransactionVue:
+        profil = _profil_par_id(dossier_id)
+        ecriture = _trancher(profil, ecriture_id, entree.categorie, decisions)
+        return _transaction_vue(ecriture)
 
     return app
 

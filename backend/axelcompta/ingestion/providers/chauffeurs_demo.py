@@ -111,6 +111,7 @@ class ProfilChauffeurType:
     dossier_id: DossierId
     nom: str  # pour les logs/rapports uniquement — jamais une vraie donnée personnelle
     tva_recettes_regime: str  # "assujetti_taux_reduit" | "franchise" (doc 14 §1.2)
+    forme_juridique: str  # "SASU" | "EURL" (doc 06 §7) — détermine le compte usage personnel
     plateformes: tuple[ConfigPlateforme, ...]
     date_debut: date
     nb_jours_actifs: int
@@ -356,6 +357,7 @@ PROFIL_KARIM = ProfilChauffeurType(
     dossier_id=DossierId("DEMO_karim"),
     nom="Karim",
     tva_recettes_regime="assujetti_taux_reduit",
+    forme_juridique="SASU",  # doc 17 §4.1
     plateformes=(_UBER,),
     date_debut=date(2025, 1, 6),
     nb_jours_actifs=200,
@@ -387,6 +389,7 @@ PROFIL_SOPHIE = ProfilChauffeurType(
     dossier_id=DossierId("DEMO_sophie"),
     nom="Sophie",
     tva_recettes_regime="assujetti_taux_reduit",
+    forme_juridique="EURL",  # doc 17 §4.2
     plateformes=(replace(_UBER, poids=0.55), replace(_BOLT, poids=0.45)),
     date_debut=date(2025, 1, 6),
     nb_jours_actifs=200,
@@ -417,6 +420,11 @@ PROFIL_YANIS = ProfilChauffeurType(
     dossier_id=DossierId("DEMO_yanis"),
     nom="Yanis",
     tva_recettes_regime="franchise",
+    # Non précisé dans doc 17 §4.3 — assumé pour compléter le champ, sans
+    # impact sur la démo actuelle (Yanis ne passe jamais par la revue
+    # humaine/usage personnel, doc 17 §11). À confirmer avec Louis si un
+    # jour Yanis a besoin de ce compte.
+    forme_juridique="SASU",
     # Uber uniquement (pas Bolt) : le régime franchise n'est câblé côté
     # écritures que pour une commission `france_20` (doc 13 §5.3, doc 17
     # §4.3) — combiner franchise + autoliquidation UE (Bolt) est un vrai

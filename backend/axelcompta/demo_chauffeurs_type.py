@@ -22,10 +22,11 @@ from datetime import timedelta
 from pathlib import Path
 
 from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, ModeleSklearn, charger_modele
+from axelcompta.categorize.models import ProposedEntry
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot
-from axelcompta.core.ids import TenantId
+from axelcompta.core.ids import EcritureId, TenantId
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
 from axelcompta.filings.fec import exporter_fec
@@ -72,18 +73,28 @@ async def _recuperer_donnees(
     return tuple(transactions), tuple(settlements)
 
 
-def construire_ledger(profil: ProfilChauffeurType) -> InMemoryLedgerService:
+def construire_ledger(
+    profil: ProfilChauffeurType,
+) -> tuple[InMemoryLedgerService, dict[EcritureId, ProposedEntry]]:
     """Cœur réutilisable, même structure que `demo.py`/`demo_dossier_reel.py` :
     settlement réconcilié → écriture ventilée TVA (régime du **profil**,
     doc 17 §4.3 — plus figé en dur comme dans la première version de ce
     module, doc 13 §5.1) ; le reste des transactions → règles + ML +
     auto-accept (stand-in, doc 17 §5 : remplacé côté UI par la vraie file de
     revue quand elle existera, notamment pour la dépense de Sophie).
+
+    Retourne aussi la `ProposedEntry` d'origine de chaque écriture catégorisée
+    (pas les écritures de settlement, qui n'en ont pas) — nécessaire au bloc
+    C (doc 17 §9) pour enregistrer `etage_origine`/`confiance_origine` sur
+    une `DecisionHumaine` quand la file de revue résout un cas comme celui
+    de Sophie. Trouvé en construisant la persistance des décisions
+    (2026-09-07) : cette proposition était calculée puis jetée juste après.
     """
     transactions, settlements = asyncio.run(_recuperer_donnees(profil))
     resultats = reconcilier(transactions, settlements)
 
     ledger = InMemoryLedgerService()
+    propositions: dict[EcritureId, ProposedEntry] = {}
     id_transactions_reconciliees = {
         r.transaction.id for r in resultats if r.transaction is not None
     }
@@ -104,10 +115,10 @@ def construire_ledger(profil: ProfilChauffeurType) -> InMemoryLedgerService:
             continue
         proposition = pipeline.categoriser(profil.dossier_id, transaction)
         compte = comptes.get(proposition.categorie, "471")  # 471 : compte d'attente par défaut
-        ledger.enregistrer(
-            construire_ecriture_categorisee(transaction, proposition, compte, numero)
-        )
-    return ledger
+        ecriture = construire_ecriture_categorisee(transaction, proposition, compte, numero)
+        ledger.enregistrer(ecriture)
+        propositions[ecriture.id] = proposition
+    return ledger, propositions
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,7 +144,7 @@ def _executer_un_chauffeur(profil: ProfilChauffeurType, racine_sortie: Path) -> 
         if r.etat is EtatReconciliation.RECONCILIE
     )
 
-    ledger = construire_ledger(profil)
+    ledger, _propositions = construire_ledger(profil)
     ecritures = ledger.grand_livre(profil.dossier_id)
     exercice = str(profil.date_debut.year)
     liasse = ClotureSimplifieeService(ledger).cloturer(profil.dossier_id, exercice=exercice)

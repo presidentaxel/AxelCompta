@@ -342,10 +342,24 @@ maintenant puisque c'est le même chantier que « construire les comptes de
 la démo ». **Estimation : ~1,5-2 jours** (premier vrai système d'auth du
 projet, donc moins de terrain déjà connu que le reste).
 
-**C. Écran de revue réelle sur la dépense de Sophie**, câblé sur A —
-accepter/reclasser déclenche vraiment le `workflow` testé (celui qui
-produit l'écriture 455/108 du golden test doc 17 §11), pas un changement
-d'état côté React seul. **Estimation : ~1 jour**, une fois A fait.
+**C. Écran de revue réelle sur la dépense de Sophie — fait (2026-09-07).**
+`workflow/revue.py` (reclassification 471 → compte réel, 455 pour « usage
+personnel » selon la forme juridique, doc 06 §3.6) + endpoint
+`POST /dossiers/{id}/transactions/{ecriture_id}/decision` (`demo_api.py`,
+FastAPI `Depends`/`dependency_overrides` pour ne pas coupler la suite de
+tests rapide à un Postgres démarré) + bouton réel dans la fiche dossier
+(`TrancherActions.tsx`, composant client Next.js). Vérifié en HTTP réel
+(`curl`, POST puis GET qui reflète la décision, retenter la même écriture
+refusé en 409) **et** dans un vrai navigateur (clic → Postgres →
+`router.refresh()` → la ligne Zara passe de 471/« à trancher » à
+455/« validé »). `nb_a_trancher` (dashboard) reflète la résolution.
+
+**Choix pour la démo, pas la version finale** : le champ libre "autre
+catégorie" (reclassification hors usage personnel) est un simple champ
+texte, sans les alternatives suggérées par le pipeline ni les raccourcis
+clavier de doc 11 §3.1 — cette richesse reste V1. Le stand-in
+`UTILISATEUR_DEMO` (un seul utilisateur fictif) attribue toutes les
+décisions tant que le bloc B (comptes réels) n'existe pas.
 
 ### Semaine 3 — Interface chauffeur
 
@@ -416,9 +430,10 @@ deux golden tests supplémentaires, un par nouveau profil :
   (455/108) sur la dépense ambiguë **uniquement après validation humaine**
   dans la file de revue — pas d'auto-acceptation sur ce cas précis.
   **Vérifié côté moteur (2026-09-06)** : la dépense reste au compte
-  d'attente 471, jamais auto-catégorisée (`tests/test_demo_chauffeurs_type.py`)
-  — la vraie écriture 455/108 reste à faire une fois la file de revue
-  construite côté UI (§9 semaine 2).
+  d'attente 471, jamais auto-catégorisée (`tests/test_demo_chauffeurs_type.py`).
+  **Vraie écriture 455 faite (2026-09-07)** : `test_trancher_en_usage_personnel_reclasse_vers_le_compte_455`
+  (`tests/test_demo_api.py`) — via l'API réelle, pas un test isolé de la
+  fonction de reclassification seule.
 - **Yanis** : balance équilibrée avec le traitement franchise (pas de TVA
   collectée). **Fait (2026-09-06)** : `tests/ingestion/test_ecritures_settlement.py`
   et `tests/ingestion/providers/test_chauffeurs_demo.py`. Le suivi LOA
