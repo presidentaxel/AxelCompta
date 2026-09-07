@@ -72,3 +72,11 @@ Quelle que soit la décision finale sur le compute :
 - **Auth** : implémentation maison (FastAPI + JWT), jamais Supabase Auth
 
 Ces trois règles garantissent que changer de provider = changer des variables d'environnement, pas réécrire du code.
+
+**Exception assumée pour la démo (doc 17, décidée 2026-09-07)** : les
+comptes gestionnaire/chauffeur de la démo utilisent **Supabase Auth**
+(rapidité de mise en œuvre, premier vrai système de comptes du projet).
+C'est une entorse consciente à la règle ci-dessus, pas un changement de
+décision — **la V1 doit repasser sur l'implémentation maison** avant le
+pilote, sous peine du lock-in que cette règle existe pour éviter. Ne pas
+laisser Supabase Auth s'installer par défaut faute d'y revenir.

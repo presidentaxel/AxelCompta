@@ -223,6 +223,13 @@ Quand le token fonctionnera, les fixtures sont remplacées par des réponses
 réelles capturées, et l'écart de schéma est traité à ce moment-là. Ne pas
 attendre le déblocage pour commencer.
 
+**Retest du 2026-09-07** : toujours 401, sur `/contacts` (avec et sans
+préfixe `Bearer`) et sur `/categories`. Mêmes constats côté client
+qu'au 01/09 (token correct, TLS/routage OK, échec au niveau
+authentification serveur) — rien n'a changé en un mois. Document de
+relance envoyé à Pierre BERTOLA avec tags de trace :
+[2026-09-07-relance-digifactory.md](2026-09-07-relance-digifactory.md).
+
 ---
 
 ## 8. Accès Bridge direct (piste parallèle, non bloquante, après le pilote Digifactory)

@@ -1,8 +1,19 @@
 # 12 — Roadmap et TODO maître
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-08-01
-> Hypothèse de capacité : 1 à 2 devs. Les durées sont des ordres de grandeur à
-> affiner après validation du périmètre ; à 1 dev, étirer d'environ ×1,7.
+> Statut : brouillon à valider — Dernière mise à jour : 2026-09-07
+> Hypothèse de capacité : **1 dev (Louis, seul sur le produit)** — l'associé
+> initialement pressenti n'est plus sur ce produit (segmentation actée le
+> week-end du 2026-09-05/06, voir §0.1). Les durées de ce doc supposaient
+> encore 1 à 2 devs à sa rédaction (2026-08-01) : à recalibrer, étirer
+> d'environ ×1,7 par rapport aux ordres de grandeur ci-dessous.
+>
+> **Ce doc a pris du retard sur le code** entre le 01/08 et le 02/09 : le
+> sprint du 2026-09-02 au 2026-09-06 (voir doc 17, doc 18) a produit
+> l'essentiel du moteur démo, l'audit dataset et une première UI — pas
+> encore reflété ligne à ligne ci-dessous. Les sections §0.2 et §0.3 ont été
+> corrigées pour refléter l'état réel ; le reste (phases 1-5) reste à
+> recaler sur ce qui existe déjà en code (doc 18) avant de servir à nouveau
+> de plan d'exécution fiable.
 
 ## Vue d'ensemble des phases
 
@@ -32,15 +43,24 @@ la phase suivante avec des invariants non tenus.
 ## Phase 0 — Cadrage et dé-risquage (AVANT d'écrire du code produit)
 
 ### 0.1 Décisions et juridique
-- [ ] Relecture/amendement de toute cette documentation par Louis + associé.
-      **Louis : relu (2026-09-02).** Reste l'associé — la case ne se coche
-      qu'une fois les deux faits, condition explicite du README avant
-      d'écrire du code produit. Prochaine étape (démo doc 17) : go donné,
-      démarrage différé — Louis donnera le top départ.
-- [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
+- [x] ~~Relecture/amendement de toute cette documentation par Louis + associé.~~
+      **Annulé (2026-09-07)** : l'associé n'est plus sur ce produit —
+      segmentation actée le week-end du 2026-09-05/06. Louis seul sur le
+      produit (voir hypothèse de capacité en tête de doc). **Louis avait
+      déjà relu (2026-09-02)** ; la condition du README avant "code produit"
+      est donc satisfaite côté relecture — plus d'associé à attendre. Sujet
+      clos, ne pas rouvrir.
+- [ ] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
+      **Prévu le week-end du 2026-09-12/13**, en même temps que la relecture
+      des 500 lignes (§0.2) — les deux nécessitent le même accès aux
+      données du pilote.
 - [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
-- [ ] Token Digifactory fonctionnel — bloquant actuel (401, doc 16 §7). Canal exclusif pour septembre 2026.
+- [ ] Token Digifactory fonctionnel — bloquant actuel (401, doc 16 §7).
+      Canal exclusif pour septembre 2026. **Retesté le 2026-09-07 : toujours
+      401**, mêmes constats qu'au 01/09 (rien de cassé côté client).
+      Document de relance envoyé à Pierre BERTOLA le 2026-09-08 avec tags de
+      trace ([2026-09-07-relance-digifactory.md](2026-09-07-relance-digifactory.md)).
 - [ ] Contrat Bridge direct : pricing, volumes, statut, sandbox — piste parallèle non bloquante, testée après le pilote Digifactory (doc 16 §8).
 - [ ] Contrat Rollee : conditions fleet mode, volumes, API sandbox, pricing.
 - [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign.
@@ -48,17 +68,20 @@ la phase suivante avec des invariants non tenus.
 - [ ] **Écrire les ADR 001-006** (docs/adr/) — templates disponibles, à valider.
 
 ### 0.2 Les données (chemin critique — démarrer immédiatement)
-- [ ] Récupérer un échantillon des 10 ans d'historique.
-- [ ] **Vérifier le risque n° 1** : le lien libellé bancaire ↔ imputation existe-t-il ? (doc 07 §2.1)
-- [ ] Rapport d'audit du dataset (formats, volume, qualité des labels, droits).
-- [ ] Construire la taxonomie du **pack VTC** (~40-80 classes) avec le comptable du client — structurée comme un pack métier dès le départ (doc 03 §3bis).
-- [ ] Table de mapping comptes historiques → taxonomie.
-- [ ] 500 lignes relues à la main = premier jeu de test gelé.
+- [x] Récupérer un échantillon des 10 ans d'historique.
+- [x] **Vérifier le risque n° 1** : le lien libellé bancaire ↔ imputation existe-t-il ? (doc 07 §2.1) — **fait (2026-09-02)** : lien structurel fiable à 100% côté FEC historique, lien sémantique plus faible sur les paiements carte génériques. Détail : `_AUDIT_DONNEES/rapport_audit_dataset.md` §2.
+- [x] Rapport d'audit du dataset (formats, volume, qualité des labels, droits) — **fait (2026-09-02)**, brouillon Claude non relu par Louis ni un comptable (`_AUDIT_DONNEES/rapport_audit_dataset.md`).
+- [x] Construire la taxonomie du **pack VTC** (~40-80 classes) avec le comptable du client — structurée comme un pack métier dès le départ (doc 03 §3bis). **Fait (2026-09-02) côté brouillon algorithmique** (`_AUDIT_DONNEES/packs_vtc/taxonomie.md`, 30 catégories) — **pas encore fait avec le comptable du client**, c'est l'écart réel derrière cette case.
+- [x] Table de mapping comptes historiques → taxonomie — **fait (2026-09-02)**, brouillon (`_AUDIT_DONNEES/packs_vtc/mapping_pcg_categorie.csv`), même réserve que ci-dessus.
+- [ ] 500 lignes relues à la main = premier jeu de test gelé. Échantillon
+      généré (`_AUDIT_DONNEES/resultats/echantillon_500_a_relire.csv`),
+      **0/500 relues à ce jour (2026-09-07)**. **Prévu le week-end du
+      2026-09-12/13** par Louis.
 
 ### 0.3 Spike techniques (timeboxés, 2-3 jours chacun)
-- [ ] Spike Digifactory : premier appel réussi (bloqué par 401 à ce jour — doc 16 §7), vérifier présence du SIREN sur `/contacts`, mesurer le poids réel par contact avant chargement des 200 dossiers. Développer contre fixtures en attendant le déblocage.
+- [ ] Spike Digifactory : premier appel réussi (bloqué par 401 à ce jour — doc 16 §7), vérifier présence du SIREN sur `/contacts`, mesurer le poids réel par contact avant chargement des 200 dossiers. Développer contre fixtures en attendant le déblocage. **Toujours bloqué, retesté le 2026-09-07** (doc 16 §7) — relance envoyée à Pierre BERTOLA le 2026-09-08.
 - [ ] Spike Bridge sandbox direct : connexion, récupération transactions, webhooks — piste parallèle non bloquante, après stabilisation du canal Digifactory (doc 16 §8).
-- [ ] Spike baseline ML : TF-IDF + régression logistique **et** embeddings de phrases (`sentence-transformers` multilingue léger) sur le même échantillon → comparer les deux sur le même jeu de test gelé, décider lequel devient le challenger V1 (doc 07 §3.2). Produire en même temps la liste des classes rares et leur politique (doc 07 §3.4).
+- [x] Spike baseline ML : TF-IDF + régression logistique sur le même échantillon — **fait (2026-09-02)**, 79,5% d'exactitude sur dossiers jamais vus (`_AUDIT_DONNEES/rapport_audit_dataset.md` §6). **⚠️ Écart non résolu avec ADR-007** (qui annonçait 94,4% via le compte PCG en feature — suspicion de fuite de données, le compte n'étant pas connu à l'inférence en prod). **À trancher le week-end du 2026-09-12/13**, en même temps que la relecture des 500 lignes — c'est elle qui donnera la vraie mesure de précision. Volet embeddings de phrases (`sentence-transformers`) non fait, pas nécessaire tant que l'écart ci-dessus n'est pas tranché.
 - [ ] Spike OCR : 30 tickets réels dans Tesseract vs PaddleOCR vs Vision LLM (ADR-005).
 - [ ] Spike FEC : générer un FEC minimal et le passer dans « Test Compta Demat ».
 - [ ] Maquettes Figma des 3 écrans clés (doc 11 §3) + retours de 2 utilisateurs cibles.

@@ -175,12 +175,30 @@ Ce qui reste hors scope, comme avant :
 - Matrice complète statut × pack — seulement les 3 profils ci-dessus.
 
 Nouveau, ajouté par ce pivot :
-- **Pas de self-signup public** (doc 19 §3.1) — les comptes de démo sont
-  créés à la main.
+- **Pas de self-signup public** (doc 19 §3.1) — les comptes restent créés
+  sur invitation, jamais par inscription libre. **Mise à jour 2026-09-07** :
+  le flux d'invitation lui-même (gestionnaire invite un chauffeur par
+  email, §9bis) devient un vrai écran à construire, pas un compte créé à la
+  main en base — la nuance porte sur « pas de self-signup », pas sur
+  « pas de vrai flux d'invitation ».
 - **Pas de synchronisation API gestionnaire** (doc 19 §3.3) — prévue,
   documentée, pas construite ici.
 - **Pas de app store réel** — la démo tourne en webapp, l'app native est un
   objectif post-démo (doc 19 §7).
+
+Décidé le 2026-09-07 (voir §9bis pour le détail) :
+- **Comptes réels via Supabase Auth**, pas un login simulé — exception
+  assumée à ADR-003 (« jamais Supabase Auth »), notée dans l'ADR, à
+  reprendre en implémentation maison avant la V1.
+- **Dossier greffe/INPI en format réel** (PDF + données structurées, pas
+  qu'un rendu visuel façon CERFA 2065) — plus proche de doc 02 §6 phase 1
+  que des autres renderers de démo, avec un vrai risque de spike (schéma
+  non documenté dans ce repo à ce jour, cf. §9bis).
+- **Persistance réelle des décisions humaines** — la démo sort du régime
+  « aucune persistance, tout recalculé à chaque requête » (`demo_api.py`
+  actuel) pour les décisions de la file de revue et les comptes : ces deux
+  objets doivent survivre entre deux requêtes. Le reste (transactions,
+  écritures générées, liasse) peut rester recalculé à la volée.
 
 ## 9. Semaines et jalons
 
@@ -285,19 +303,86 @@ zéro, on ajoute les deux interfaces autour du moteur existant.
 > importer `demo_chauffeurs_type.py` directement (règle des composition
 > roots, doc 18), ce que `api/` n'aura jamais le droit de faire.
 
+**Suite décidée le 2026-09-07** (discussion Louis/Claude Code sur le modèle
+de décision humaine, doc 05 §5 précisé en conséquence). Trois blocs, dans
+cet ordre — chacun est un prérequis du suivant :
+
+**A. Persistance des décisions + trace d'audit.** `demo_api.py` sort du
+régime « tout recalculé à chaque requête » pour deux objets précis : la
+décision humaine (dossier, écriture, catégorie choisie, source de la
+proposition d'origine, qui, quand — **immuable une fois posée**, doc 05
+§5) et l'annotation dev associée (juste/faux + note, pour l'entraînement
+ML, ne réécrit jamais la décision). Le reste (transactions, écritures
+générées, liasse) continue d'être recalculé à la volée depuis
+`chauffeurs_demo.py` — pas besoin de tout faire persister pour ça, doc 17
+§3. Stockage minimal (fichier ou table simple), pas la peine de monter
+tout le modèle multi-tenant de la V1 pour 3 dossiers. **Estimation : ~1
+jour.**
+
+**B. Comptes réels (gestionnaire + chauffeur) via Supabase Auth.** Décidé
+le 2026-09-07 : Supabase Auth plutôt qu'un login simulé, pour pouvoir dire
+« ce sont de vrais comptes » — **exception assumée à ADR-003** (qui
+proscrit Supabase Auth au profit d'une implémentation maison), documentée
+dans l'ADR, à reprendre avant la V1. Inclut le flux d'invitation
+gestionnaire → chauffeur (email) et les **deux variantes visibles** selon
+`mode_acces_bancaire` (doc 19 §4) : le chauffeur relie sa propre banque
+(`chauffeur_direct`), ou n'a qu'à accéder à l'app/ses infos sans rien
+connecter (`gestionnaire`, cas pilote). Pas la priorité en soi, mais fait
+maintenant puisque c'est le même chantier que « construire les comptes de
+la démo ». **Estimation : ~1,5-2 jours** (premier vrai système d'auth du
+projet, donc moins de terrain déjà connu que le reste).
+
+**C. Écran de revue réelle sur la dépense de Sophie**, câblé sur A —
+accepter/reclasser déclenche vraiment le `workflow` testé (celui qui
+produit l'écriture 455/108 du golden test doc 17 §11), pas un changement
+d'état côté React seul. **Estimation : ~1 jour**, une fois A fait.
+
 ### Semaine 3 — Interface chauffeur
 
-- Parcours mobile de Karim (doc 19 §5) : transactions, une question de
-  catégorisation, signature.
-- Connexion bancaire mode `gestionnaire` visible (toggle) ; mode
-  `chauffeur_direct` en construction si le temps le permet (§7).
+Suppose le bloc B (comptes réels) déjà fait — sinon Karim n'a nulle part où
+se connecter.
 
-### Semaine 4 — Clôture, liasse, tampon, répétition
+- Parcours mobile de Karim (doc 19 §5, sous-ensemble démo — pas les 8
+  étapes du doc, uniquement celles utiles à la démo) : connexion (compte
+  Supabase Auth créé via l'invitation du bloc B), transactions
+  catégorisées, une question de catégorisation, photo de justificatif
+  (attachée à la transaction, pas d'OCR — doc 17 §8), signature **mockée**
+  (décidé 2026-09-07 : « vrai faux », pas de prestataire réel).
+- Connexion bancaire mode `gestionnaire` visible (toggle) ; mode
+  `chauffeur_direct` en construction si le temps le permet (§7) — l'écran
+  d'invitation des deux modes est déjà fait au bloc B, ici c'est le
+  parcours chauffeur qui en découle qui reste à construire.
+
+**Estimation : ~1,5 jour.**
+
+### Semaine 4 — Clôture, liasse, dossier greffe, répétition
 
 - Clôture + liasse + CERFA 2065 + FEC/grand livre/balance sur les 3
-  dossiers (déjà fait au niveau moteur, §12 — reste à les exposer dans
-  l'interface gestionnaire plutôt qu'un export PDF isolé).
+  dossiers (déjà fait au niveau moteur, §12) — exposés dans l'interface
+  gestionnaire plutôt qu'un export PDF isolé. **Estimation : ~1 jour**
+  (réutilise des renderers déjà faits, surtout du branchement front).
+- **Nouveau, décidé 2026-09-07** : dossier de dépôt greffe/INPI en
+  **format réel** (PDF + données structurées, doc 02 §6 phase 1) — pas un
+  simple rendu visuel façon CERFA 2065. **Risque de spike non chiffré** :
+  contrairement au CERFA 2065 (un vrai formulaire officiel PDF existait à
+  overlayer), le schéma exact attendu par l'API formalités INPI/Guichet
+  Unique n'est documenté nulle part dans ce repo aujourd'hui — même
+  situation de départ que Digifactory avant le doc 16. **À timeboxer en
+  spike (1-2 jours) avant de committer une estimation ferme**, plutôt que
+  de traiter ça comme un renderer de plus à côté des autres.
 - Répétition avec un run pré-cuit en secours, comme dans l'ancien plan.
+
+### Estimation globale et mise en garde sur les dates
+
+**~8 à 11 jours de travail effectif** (A+B+C ≈ 3,5-4j, semaine 3 ≈ 1,5j,
+semaine 4 ≈ 2j + 1-2j de spike greffe), pas 3 semaines calendaires — sauf
+si le rythme du sprint du 02-06/09 (qui a abattu l'équivalent en ~5 jours)
+ne se maintient pas maintenant que Louis est seul (doc 12, hypothèse de
+capacité). Les labels « Semaine 3 »/« Semaine 4 » sont conservés pour ne
+pas casser les renvois déjà écrits ailleurs (`demo_api.py`,
+`frontend/README.md`, `workflow/README.md`) mais **ne correspondent à
+aucune semaine calendaire précise** — à traiter comme des jalons de
+contenu, pas des dates.
 
 ## 10. Risques et mitigations
 
@@ -307,6 +392,9 @@ zéro, on ajoute les deux interfaces autour du moteur existant.
 | Vouloir montrer `chauffeur_direct` complet fait déraper le planning | Explicitement en dernier, explicitement optionnel (§7, §9 semaine 3) |
 | La vraie file de revue humaine (nouveau vs `auto_accept`) prend plus de temps que prévu | Fallback : garder `auto_accept` pour Karim/Yanis (cas nominaux), ne construire l'écran de revue que pour le cas Sophie qui le justifie |
 | Dérive de scope vers la matrice complète statut × pack | §8 rappelle explicitement les non-objectifs |
+| Schéma du dossier greffe/INPI inconnu (aucune doc dans ce repo, contrairement au CERFA 2065 qui avait un vrai formulaire à overlayer) | Timeboxer un spike dédié (§9, 1-2j) avant d'estimer le reste — ne pas découvrir le problème en plein codage comme pour Digifactory (doc 16 §7) |
+| Supabase Auth (nouveau, jamais utilisé dans ce projet) prend plus de temps que prévu à intégrer | Fallback : compte unique pré-créé par profil (Karim/Sophie/Yanis) sans vrai flux d'invitation par email si le temps manque — l'essentiel à montrer est « le compte existe et fonctionne », pas le parcours d'inscription complet |
+| Persistance des décisions humaines mal isolée du reste (recalculé à la volée) fait resurgir une décision « oubliée » à la relecture suivante | Tests dédiés sur le stockage (bloc A) avant de brancher l'écran de revue (bloc C) — même logique que les golden tests existants |
 
 ## 11. Golden tests
 
