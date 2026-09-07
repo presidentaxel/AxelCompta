@@ -40,6 +40,13 @@ from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import EcritureId, UserId
 from axelcompta.demo_chauffeurs_type import construire_ledger
+from axelcompta.demo_comptes import (
+    CompteDejaInviteError,
+    CompteRepository,
+    StatutInvitation,
+    SupabaseCompteRepository,
+    SupabaseConfig,
+)
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO, ProfilChauffeurType
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
@@ -70,6 +77,7 @@ class DossierResume(BaseModel):
     tva_a_payer_cts: int
     nb_transactions: int
     nb_a_trancher: int
+    statut_invitation: str | None  # None = "non_invité" (doc 19 §3.2) ; sinon "invité" | "actif"
 
 
 class TransactionVue(BaseModel):
@@ -83,6 +91,16 @@ class TransactionVue(BaseModel):
 
 class DecisionEntree(BaseModel):
     categorie: str  # "usage_personnel" ou toute catégorie du pack (doc 17 §9 bloc C)
+
+
+class InvitationEntree(BaseModel):
+    email: str  # doc 17 §9 bloc B — pas les 3 profils démo, un vrai e-mail entré à la volée
+
+
+class InvitationVue(BaseModel):
+    dossier_id: str
+    email: str
+    statut: str  # "invité" | "actif" — jamais "non_invité" ici, ça n'existe qu'en absence
 
 
 def _profil_par_id(dossier_id: str) -> ProfilChauffeurType:
@@ -118,7 +136,13 @@ def _ledger_avec_decisions(
     return resultat
 
 
-def _resume(profil: ProfilChauffeurType, decisions: DecisionRepository) -> DossierResume:
+def _statut_invitation_vue(statut: StatutInvitation) -> str:
+    return {StatutInvitation.INVITE: "invité", StatutInvitation.ACTIF: "actif"}[statut]
+
+
+def _resume(
+    profil: ProfilChauffeurType, decisions: DecisionRepository, comptes: CompteRepository
+) -> DossierResume:
     ledger = _ledger_avec_decisions(profil, decisions)
     ecritures = ledger.grand_livre(profil.dossier_id)
     liasse = ClotureSimplifieeService(ledger).cloturer(
@@ -127,6 +151,7 @@ def _resume(profil: ProfilChauffeurType, decisions: DecisionRepository) -> Dossi
     nb_a_trancher = sum(
         1 for e in ecritures if any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
     )
+    invitation = comptes.statut(profil.dossier_id)
     return DossierResume(
         dossier_id=profil.dossier_id,
         nom=profil.nom,
@@ -141,6 +166,7 @@ def _resume(profil: ProfilChauffeurType, decisions: DecisionRepository) -> Dossi
         tva_a_payer_cts=liasse.cases.get("TVA_A_PAYER", 0),
         nb_transactions=len(ecritures),
         nb_a_trancher=nb_a_trancher,
+        statut_invitation=_statut_invitation_vue(invitation.statut) if invitation else None,
     )
 
 
@@ -190,6 +216,25 @@ def get_decisions() -> DecisionRepository:
 
 
 DecisionsDep = Annotated[DecisionRepository, Depends(get_decisions)]
+
+
+_CLIENT_COMPTES: SupabaseCompteRepository | None = None
+
+
+def get_comptes() -> CompteRepository:
+    """Dépendance FastAPI — même idiome que `get_decisions` : le client
+    Supabase se construit à la première requête réelle, jamais à l'import
+    (`SupabaseConfig.depuis_env()` échouerait sinon sans
+    SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY). Les tests surchargent avec
+    `InMemoryCompteRepository` (doc 17 §9 bloc B — Louis, 2026-09-07 :
+    « je ne veux pas dépendre de Supabase pour tous les tests »)."""
+    global _CLIENT_COMPTES
+    if _CLIENT_COMPTES is None:
+        _CLIENT_COMPTES = SupabaseCompteRepository(SupabaseConfig.depuis_env())
+    return _CLIENT_COMPTES
+
+
+ComptesDep = Annotated[CompteRepository, Depends(get_comptes)]
 
 
 def _trancher(
@@ -249,12 +294,14 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/dossiers", response_model=list[DossierResume])
-    def lister_dossiers(decisions: DecisionsDep) -> list[DossierResume]:
-        return [_resume(profil, decisions) for profil in PROFILS_DEMO]
+    def lister_dossiers(decisions: DecisionsDep, comptes: ComptesDep) -> list[DossierResume]:
+        return [_resume(profil, decisions, comptes) for profil in PROFILS_DEMO]
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
-    def obtenir_dossier(dossier_id: str, decisions: DecisionsDep) -> DossierResume:
-        return _resume(_profil_par_id(dossier_id), decisions)
+    def obtenir_dossier(
+        dossier_id: str, decisions: DecisionsDep, comptes: ComptesDep
+    ) -> DossierResume:
+        return _resume(_profil_par_id(dossier_id), decisions, comptes)
 
     @app.get("/dossiers/{dossier_id}/transactions", response_model=list[TransactionVue])
     def lister_transactions(dossier_id: str, decisions: DecisionsDep) -> list[TransactionVue]:
@@ -275,6 +322,24 @@ def create_app() -> FastAPI:
         profil = _profil_par_id(dossier_id)
         ecriture = _trancher(profil, ecriture_id, entree.categorie, decisions)
         return _transaction_vue(ecriture)
+
+    @app.post("/dossiers/{dossier_id}/inviter", response_model=InvitationVue)
+    def inviter_chauffeur(
+        dossier_id: str, entree: InvitationEntree, comptes: ComptesDep
+    ) -> InvitationVue:
+        """doc 17 §9 bloc B, doc 19 §3.1 : le gestionnaire invite, jamais
+        de self-signup (disable_signup, vérifié 2026-09-07). Envoie un
+        vrai e-mail via Supabase Auth — pas un simulateur."""
+        profil = _profil_par_id(dossier_id)
+        try:
+            invitation = comptes.inviter(profil.dossier_id, entree.email)
+        except CompteDejaInviteError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return InvitationVue(
+            dossier_id=invitation.dossier_id,
+            email=invitation.email,
+            statut=_statut_invitation_vue(invitation.statut),
+        )
 
     return app
 

@@ -128,11 +128,13 @@ forbidden_modules = [
 testpaths = ["tests"]
 markers = [
     "integration: nécessite un vrai Postgres (`docker compose up -d db`), doc 09 §4",
+    "supabase: nécessite un vrai projet Supabase (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY), doc 17 §9 bloc B",
 ]
 # importlib (plutôt que le mode "prepend" par défaut) : permet des noms de
 # fichiers de test identiques dans des dossiers différents (tests/ miroir de
 # axelcompta/, doc 08 §3) sans nécessiter de __init__.py dans chaque dossier.
-# -m "not integration" : la suite rapide par défaut (doc 08 §4 étape 5) ne
-# dépend jamais d'un Postgres démarré ; l'intégration (étape 6) se lance à
-# part avec `pytest -m integration`.
-addopts = '--import-mode=importlib -m "not integration"'
+# -m "not integration and not supabase" : la suite rapide par défaut (doc 08
+# §4 étape 5) ne dépend jamais d'un Postgres démarré ni d'un accès réseau à
+# Supabase ; ces deux-là se lancent à part (`pytest -m integration`,
+# `pytest -m supabase`).
+addopts = '--import-mode=importlib -m "not integration and not supabase"'

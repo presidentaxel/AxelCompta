@@ -390,11 +390,62 @@ projet, donc moins de terrain déjà connu que le reste).
 >      public `/signup`, jamais les routes admin. Utilisateur de test créé
 >      puis supprimé immédiatement après (projet resté vide).
 >
-> **Pas encore fait** : tout le code applicatif — aucune dépendance
-> Supabase dans `backend/`/`frontend/`, aucun modèle de compte, aucune
-> table `users`/liaison `dossier ↔ compte`, aucun écran de connexion, pas
-> de flux d'invitation. Ce qui précède est de l'infra vérifiée, pas une
-> fonctionnalité.
+> **Pas encore fait (à cette date)** : tout le code applicatif — aucune
+> dépendance Supabase dans `backend/`/`frontend/`, aucun modèle de compte,
+> aucune table `users`/liaison `dossier ↔ compte`, aucun écran de
+> connexion, pas de flux d'invitation. Ce qui précède est de l'infra
+> vérifiée, pas une fonctionnalité.
+
+> **Fait (2026-09-08) — flux d'invitation gestionnaire → chauffeur, un
+> premier morceau du bloc B, pas tout le bloc.**
+>
+> - `demo_comptes.py` : `CompteRepository` (frontière), `Invitation`/
+>   `StatutInvitation` (2 états modélisés — `invité`/`actif` ; `non_invité`
+>   représenté par l'absence, `compte_créé`/`inactif` de doc 19 §3.2 pas
+>   modélisés, demanderaient un suivi applicatif que Supabase seul ne
+>   fournit pas), `SupabaseCompteRepository` (Supabase est la seule source
+>   de vérité — chaque utilisateur invité porte `user_metadata.dossier_id`,
+>   pas de table séparée à synchroniser).
+> - `demo_comptes_memory.py` : `InMemoryCompteRepository`, pour que la
+>   suite rapide ne dépende jamais de Supabase (Louis, 2026-09-07).
+> - **Placé délibérément hors du découpage doc 03 §3** (composition root
+>   de démo, comme `demo_api.py`) plutôt que dans `tenants`/`api` : ce
+>   sont ces deux modules qui accueilleront le vrai système de comptes en
+>   V1 (implémentation maison, pas Supabase, ADR-003) — étendre leur
+>   graphe de dépendances maintenant pour du code appelé à être jeté
+>   aurait été une vraie décision de structure, pas prise ici.
+> - `demo_api.py` : `POST /dossiers/{id}/inviter` (envoie un vrai e-mail
+>   via Supabase, pas de simulateur) + `statut_invitation` sur
+>   `DossierResume`. Même idiome que `get_decisions` (bloc A) :
+>   `get_comptes` construit le client Supabase à la première requête
+>   réelle, jamais à l'import.
+> - Écran : `InvitationActions.tsx` sur le tableau de bord (doc 19 §3.2 :
+>   « écran de premier rang », pas la fiche dossier) — badge si
+>   invité/actif, formulaire e-mail sinon.
+> - Testé : 8 tests unitaires (mémoire) + 4 tests contre le **vrai**
+>   projet Supabase (`tests/integration/test_comptes_supabase.py`,
+>   marqueur `supabase`, skip sans credentials) qui créent un utilisateur
+>   via `/admin/users` (jamais d'e-mail envoyé par cette route) pour
+>   vérifier `statut()`, plus la garde anti-double-invitation. **Un
+>   cinquième test existe mais reste désactivé exprès**
+>   (`test_inviter_envoie_une_vraie_invitation`) : c'est le seul qui
+>   appelle réellement `/invite` et consomme un envoi du quota e-mail
+>   Supabase (très limité sur le tier gratuit) — à lancer manuellement
+>   quand Louis est d'accord, pas en routine.
+> - **Pas fait, bloqué par l'environnement, pas par le code** : la
+>   vérification en vrai navigateur (comme pour le bloc C) — corruption
+>   disque confirmée sur cette machine pendant la session (`errno 117
+>   "structure needs cleaning"` sur le paquet `uvicorn` et quelques
+>   métadonnées d'autres paquets du `.venv` backend), empêchant de
+>   démarrer un vrai serveur `uvicorn` ce soir. N'affecte pas les tests
+>   (FastAPI `TestClient` ne dépend pas d'`uvicorn`, les 170 tests
+>   unitaires + 12 d'intégration passent) — juste la démonstration live.
+>   À refaire dès que l'environnement est sain ; un `fsck` du disque est
+>   probablement nécessaire côté machine, pas une action côté code.
+> - **Pas fait, reste du bloc B** : la connexion chauffeur elle-même
+>   (écran de login, session, parcours mobile doc 19 §5), les deux
+>   variantes de `mode_acces_bancaire` (doc 19 §4), et le remplacement de
+>   `UTILISATEUR_DEMO` (stub, bloc C) par une vraie identité connectée.
 
 **C. Écran de revue réelle sur la dépense de Sophie — fait (2026-09-07).**
 `workflow/revue.py` (reclassification 471 → compte réel, 455 pour « usage

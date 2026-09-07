@@ -10,6 +10,7 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 # L'import seul enregistre les tables de chaque module sur metadata partagée
@@ -27,6 +28,13 @@ def engine() -> Iterator[Engine]:
     moteur = engine_depuis_env()
     yield moteur
     metadata.drop_all(moteur)  # nettoyage après chaque test, no-op si rien à supprimer
+    # `alembic_version` n'est pas dans `metadata` (bookkeeping propre à
+    # Alembic) : sans ce DROP, un test suivant qui utilise Alembic
+    # directement (test_migrations.py) croit être déjà à `head` et ne
+    # recrée rien — trouvé le 2026-09-08 en enchaînant plusieurs tests
+    # d'intégration dans la même session.
+    with moteur.begin() as connexion:
+        connexion.execute(text("DROP TABLE IF EXISTS alembic_version"))
 
 
 @pytest.fixture

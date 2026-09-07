@@ -1,28 +1,32 @@
-"""Teste l'API démo (doc 17 §9). `get_decisions` est surchargée avec
-`InMemoryDecisionRepository` (`dependency_overrides`, idiome FastAPI) : la
-suite rapide vérifie le contrat HTTP sans jamais construire d'engine
-Postgres — `tests/integration/test_decisions_repository.py` prouve
-séparément que `PostgresDecisionRepository` respecte le même contrat.
+"""Teste l'API démo (doc 17 §9). `get_decisions`/`get_comptes` sont
+surchargées avec les implémentations en mémoire (`dependency_overrides`,
+idiome FastAPI) : la suite rapide vérifie le contrat HTTP sans jamais
+construire d'engine Postgres ni appeler Supabase —
+`tests/integration/test_decisions_repository.py` et
+`tests/integration/test_comptes_supabase.py` prouvent séparément que les
+implémentations réelles respectent le même contrat.
 """
 
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from axelcompta.demo_api import create_app, get_decisions
+from axelcompta.demo_api import create_app, get_comptes, get_decisions
+from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
 
 
 def _client() -> TestClient:
     app = create_app()
-    # Même instance à chaque requête (pas `InMemoryDecisionRepository` seul,
-    # qui en recréerait une neuve — et donc vide — par requête) : une
-    # décision postée doit rester visible sur les GET suivants du même
-    # client, comme le fait la vraie dépendance Postgres via son engine
-    # partagé.
-    stub = InMemoryDecisionRepository()
-    app.dependency_overrides[get_decisions] = lambda: stub
+    # Même instance à chaque requête (pas juste la classe : une nouvelle
+    # instance par requête serait vide à chaque fois) — une décision ou une
+    # invitation doit rester visible sur les GET suivants du même client,
+    # comme le font les vraies dépendances via leur connexion partagée.
+    decisions_stub = InMemoryDecisionRepository()
+    comptes_stub = InMemoryCompteRepository()
+    app.dependency_overrides[get_decisions] = lambda: decisions_stub
+    app.dependency_overrides[get_comptes] = lambda: comptes_stub
     return TestClient(app)
 
 
@@ -168,3 +172,36 @@ def test_trancher_vers_une_categorie_inconnue_est_un_400() -> None:
         json={"categorie": "categorie_qui_nexiste_pas"},
     )
     assert reponse.status_code == 400
+
+
+def test_dossier_jamais_invite_a_un_statut_invitation_null() -> None:
+    reponse = _client().get("/dossiers/DEMO_karim")
+    assert reponse.json()["statut_invitation"] is None
+
+
+def test_inviter_chauffeur_renvoie_le_statut_invite() -> None:
+    client = _client()
+    reponse = client.post("/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"})
+    assert reponse.status_code == 200
+    corps = reponse.json()
+    assert corps == {"dossier_id": "DEMO_karim", "email": "karim@example.com", "statut": "invité"}
+
+
+def test_inviter_est_reflete_par_un_get_ulterieur() -> None:
+    """doc 19 §3.2 : le statut d'invitation doit apparaître au dashboard,
+    pas seulement dans la réponse du POST."""
+    client = _client()
+    client.post("/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"})
+
+    reponse = client.get("/dossiers/DEMO_karim")
+
+    assert reponse.json()["statut_invitation"] == "invité"
+
+
+def test_inviter_deux_fois_le_meme_dossier_est_refuse() -> None:
+    client = _client()
+    client.post("/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"})
+
+    reponse = client.post("/dossiers/DEMO_karim/inviter", json={"email": "autre@example.com"})
+
+    assert reponse.status_code == 409
