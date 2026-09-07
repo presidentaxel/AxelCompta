@@ -342,6 +342,60 @@ maintenant puisque c'est le même chantier que « construire les comptes de
 la démo ». **Estimation : ~1,5-2 jours** (premier vrai système d'auth du
 projet, donc moins de terrain déjà connu que le reste).
 
+> **Fait, préparation infra (2026-09-07)** — le projet Supabase existe et
+> communique, aucun code applicatif encore écrit :
+>
+> - Projet Supabase créé par Louis (`axelcompta-demo`), lié à aucun repo
+>   GitHub (décision : le lien sert au branching Supabase, incompatible
+>   avec nos migrations Alembic — pas de valeur ajoutée pour l'instant, et
+>   ça aurait donné à un tiers déjà noté comme risque (ADR-003, CLOUD Act)
+>   un accès de plus). Compute au plus bas (ajustable plus tard sans
+>   recréer le projet).
+> - Sécurité projet : **Data API désactivée**, **Auto expose new table
+>   désactivé** (cohérent avec ADR-003 : « jamais Supabase Auth/PostgREST »
+>   — confirmé, le point 4 ci-dessous), **Auto RLS activé** (toute nouvelle
+>   table verrouillée par défaut).
+> - **Base applicative toujours séparée du projet Supabase** (décision du
+>   2026-09-07, ci-dessus) : `DATABASE_URL` (docker-compose local) reste la
+>   base de `workflow.decisions_humaines` etc. — Supabase n'héberge que
+>   l'auth (schéma `auth`, propre au projet). Pas de risque de ralentir la
+>   suite de tests : les tests rapides n'appellent déjà jamais Postgres
+>   (`dependency_overrides`, bloc C), et la suite d'intégration reste sur
+>   le Postgres local.
+> - 4 clés dans `.env`/`.env.example` (non versionné pour les valeurs
+>   réelles) : `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+>   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`.
+> - **Connectivité vérifiée en réel** (pas en théorie) :
+>   1. Les deux clés décodent avec le bon `role` (`anon`/`service_role`) et
+>      le bon `ref` de projet.
+>   2. `GET /auth/v1/health` répond (service GoTrue vivant).
+>   3. `anon` refusé sur les routes admin (403 `not_admin`) — la clé
+>      publique n'a pas de pouvoir d'admin.
+>   4. `service_role` a un vrai accès admin (`GET /admin/users` → 200,
+>      liste vide sur un projet neuf).
+>   5. `SUPABASE_JWT_SECRET` vérifié en le faisant vraiment servir : un
+>      token signé à la main avec ce secret est accepté par Supabase
+>      (erreur `user_not_found` — la signature est validée, seul
+>      l'utilisateur inventé n'existe pas). Preuve que le futur backend
+>      pourra vérifier des tokens Supabase sans rappeler l'API à chaque
+>      requête.
+>   6. `disable_signup` mis à `true` par Louis dans le dashboard
+>      (Authentication → Sign In / Providers) — **vérifié** : `POST
+>      /auth/v1/signup` en `anon` renvoie maintenant `422
+>      signup_disabled` (doc 19 §3.1 : pas de self-signup public).
+>   7. **Vérifié séparément que ça ne bloque pas le flux d'invitation
+>      futur** : une création d'utilisateur via `service_role`
+>      (`POST /admin/users`, sans email envoyé) réussit malgré
+>      `disable_signup: true` — ce réglage ne gouverne que l'endpoint
+>      public `/signup`, jamais les routes admin. Utilisateur de test créé
+>      puis supprimé immédiatement après (projet resté vide).
+>
+> **Pas encore fait** : tout le code applicatif — aucune dépendance
+> Supabase dans `backend/`/`frontend/`, aucun modèle de compte, aucune
+> table `users`/liaison `dossier ↔ compte`, aucun écran de connexion, pas
+> de flux d'invitation. Ce qui précède est de l'infra vérifiée, pas une
+> fonctionnalité.
+
 **C. Écran de revue réelle sur la dépense de Sophie — fait (2026-09-07).**
 `workflow/revue.py` (reclassification 471 → compte réel, 455 pour « usage
 personnel » selon la forme juridique, doc 06 §3.6) + endpoint
