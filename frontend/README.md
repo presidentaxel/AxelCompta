@@ -10,11 +10,16 @@ aucun accès direct à la base ou aux modules métier.
 
 ## Démarrer en local (démo)
 
-Deux process, dans deux terminaux :
+**Changement 2026-09-07** : l'API démo a maintenant besoin d'un Postgres
+démarré (persistance réelle des décisions humaines, doc 17 §9 bloc A) —
+avant, elle tournait entièrement en mémoire.
 
 ```bash
+# 0. La base (une fois) : depuis backend/
+docker compose up -d db
+source .venv/bin/activate && alembic upgrade head
+
 # 1. L'API démo (backend/)
-cd backend && source .venv/bin/activate
 uvicorn axelcompta.demo_api:app --reload --port 8000
 
 # 2. Le frontend (frontend/)
@@ -33,14 +38,16 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
 
 ## Statuts
 
-- **Démo (doc 17 §9, pivot 2026-09-06)** : **une vraie UI**, plus un rapport
-  HTML statique — Next.js + Tailwind, tokens `DESIGN.md`, consomme
-  `axelcompta.demo_api` (lecture seule) en direct. Fait : tableau de bord
-  (3 dossiers) + fiche dossier (liste des transactions, badge « à
-  trancher » sur le compte d'attente 471). **Pas fait** : la vraie décision
-  humaine sur la file de revue (accepter/reclasser, doc 11 §3.1/§3.2) —
-  l'API ne sert que du GET pour l'instant (doc 17 §9 semaine 2, suite) ;
-  l'interface chauffeur (mobile, doc 19).
+- **Démo (doc 17 §9)** : **une vraie UI**, plus un rapport HTML statique —
+  Next.js + Tailwind, tokens `DESIGN.md`, consomme `axelcompta.demo_api`
+  en direct. Fait côté back (2026-09-07) : `POST .../decision` accepte/
+  reclasse une écriture « à trancher » pour de vrai (workflow testé,
+  persistance Postgres réelle, doc 17 §9 bloc A/C) — testé en HTTP réel
+  (`curl`), pas seulement en unitaire. **Pas fait côté front** : aucun
+  écran ni bouton n'appelle encore cet endpoint — la fiche dossier reste
+  un affichage en lecture, l'action de trancher n'existe que côté API pour
+  l'instant. C'est la suite immédiate. L'interface chauffeur (mobile, doc
+  19) n'est pas commencée non plus.
 - **V1 (doc 12, phase 3-4)** : Next.js complet sur `api/` (le vrai backend,
   auth/MFA, multi-tenant), design system (`DESIGN.md`), maquettes Figma
   validées avec 2 utilisateurs cibles (doc 12 §0.3).

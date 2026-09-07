@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/Badge";
+import { TrancherActions } from "@/components/TrancherActions";
 import { listerTransactions, obtenirDossier } from "@/lib/api";
 import { formatMontant } from "@/lib/format";
 import type { TransactionVue } from "@/lib/types";
@@ -39,7 +40,11 @@ export default async function DossierPage({ params }: { params: { id: string } }
           </thead>
           <tbody>
             {transactions.map((transaction) => (
-              <TransactionRow key={transaction.ecriture_id} transaction={transaction} />
+              <TransactionRow
+                key={transaction.ecriture_id}
+                dossierId={params.id}
+                transaction={transaction}
+              />
             ))}
           </tbody>
         </table>
@@ -48,7 +53,13 @@ export default async function DossierPage({ params }: { params: { id: string } }
   );
 }
 
-function TransactionRow({ transaction }: { transaction: TransactionVue }) {
+function TransactionRow({
+  dossierId,
+  transaction,
+}: {
+  dossierId: string;
+  transaction: TransactionVue;
+}) {
   const negatif = transaction.montant_cts < 0;
   const aTrancher = transaction.statut === "à trancher";
   return (
@@ -64,7 +75,11 @@ function TransactionRow({ transaction }: { transaction: TransactionVue }) {
         {formatMontant(transaction.montant_cts)}
       </td>
       <td className="px-4 py-2">
-        <Badge variant={aTrancher ? "pending" : "validated"}>{transaction.statut}</Badge>
+        {aTrancher ? (
+          <TrancherActions dossierId={dossierId} ecritureId={transaction.ecriture_id} />
+        ) : (
+          <Badge variant="validated">{transaction.statut}</Badge>
+        )}
       </td>
     </tr>
   );

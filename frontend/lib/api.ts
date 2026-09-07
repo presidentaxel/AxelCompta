@@ -12,6 +12,38 @@ async function getJSON<T>(path: string): Promise<T> {
   return (await reponse.json()) as T;
 }
 
+// Erreur typée plutôt qu'un message générique : le composant appelant
+// affiche `detail` tel quel (400 catégorie inconnue, 409 déjà tranchée,
+// doc 17 §9 bloc C) au lieu d'un "une erreur est survenue" muet.
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+export async function trancherTransaction(
+  dossierId: string,
+  ecritureId: string,
+  categorie: string,
+): Promise<TransactionVue> {
+  const reponse = await fetch(
+    `${API_BASE_URL}/dossiers/${dossierId}/transactions/${ecritureId}/decision`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categorie }),
+    },
+  );
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as TransactionVue;
+}
+
 export function listerDossiers(): Promise<DossierResume[]> {
   return getJSON<DossierResume[]>("/dossiers");
 }
