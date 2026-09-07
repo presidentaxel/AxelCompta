@@ -16,6 +16,7 @@ from sqlalchemy.engine import Engine
 # (doc 03 §3) : nécessaire pour que create_all/drop_all les voient.
 import axelcompta.ledger.orm  # noqa: F401
 import axelcompta.tenants.orm  # noqa: F401
+import axelcompta.workflow.orm  # noqa: F401
 from axelcompta.core.db import engine_depuis_env, metadata
 
 

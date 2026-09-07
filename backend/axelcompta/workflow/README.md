@@ -23,12 +23,18 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   le réentraînement — ne remplace pas `auto_accept.py`, prépare le
   branchement de l'écran de revue (bloc C) par-dessus.
 - `decisions_memory.py` — `InMemoryDecisionRepository` (**fait,
-  2026-09-07**) : implémentation en mémoire pour les tests et pour brancher
-  `demo_api.py` rapidement. **Pas encore fait** : l'implémentation Postgres
-  (même pattern que `ledger/repository.py`) — c'est le point de vigilance
-  du bloc A (doc 17 §10) : la démo veut une vraie persistance, un
-  dictionnaire en mémoire de process ne suffit pas au-delà des tests et
-  d'un premier branchement.
+  2026-09-07**) : implémentation en mémoire, pour les tests unitaires
+  rapides — comme `ledger/memory.py` pour le ledger.
+- `orm.py` / `decisions_postgres.py` — `PostgresDecisionRepository`
+  (**fait, 2026-09-07**) : la vraie persistance (doc 17 §9 bloc A). Deux
+  tables (`decisions_humaines`, `annotations_dev`), append-only, **sans
+  FK** vers `dossiers`/`ecritures` — ces deux-là restent recalculés à la
+  volée pour la démo (`demo_chauffeurs_type.py`), jamais écrits en
+  Postgres ; contraindre une FK contre des tables jamais peuplées ferait
+  échouer tout `INSERT` (détail dans `orm.py`). Migration
+  `55cf8c93e5bf` (`migrations/versions/`). Testé contre un vrai conteneur
+  (`tests/integration/test_decisions_repository.py`, comme
+  `test_ledger_repository.py` pour le ledger).
 
 ## Contenu prévu (V1)
 
@@ -42,9 +48,14 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
 ## Statuts
 
 - **Démo (doc 17 §9, en cours)** : `auto_accept.py` reste actif pour les
-  cas nominaux (Karim, Yanis). `decisions.py`/`decisions_memory.py` posent
-  le modèle de la vraie décision humaine pour le cas Sophie — **pas encore
-  branché** à un écran ni à `demo_api.py` (prochaine étape, bloc C).
+  cas nominaux (Karim, Yanis). Bloc A (persistance des décisions) **fini**
+  — modèle, implémentation mémoire et Postgres, testées. **Pas encore
+  fait** : le branchement à un écran ni à `demo_api.py` (bloc C) — nécessite
+  d'abord d'exposer, pour chaque écriture « à trancher », la proposition
+  d'origine (`ProposedEntry`) que `construire_ledger()`
+  (`demo_chauffeurs_type.py`) calcule puis jette aujourd'hui plutôt que de
+  la retourner. Petit refactor à faire avant de coder l'endpoint, pas
+  juste un branchement direct.
 - **V1 (doc 12, phase 3)** : actif, prestataire de signature tranché,
   persistance Postgres (pas la version mémoire).
 

@@ -15,6 +15,7 @@ from sqlalchemy import engine_from_config, pool
 # l'import seul suffit à les enregistrer, pas besoin d'utiliser les noms.
 import axelcompta.ledger.orm  # noqa: F401
 import axelcompta.tenants.orm  # noqa: F401
+import axelcompta.workflow.orm  # noqa: F401
 from axelcompta.core.db import metadata
 
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")

@@ -307,17 +307,27 @@ zéro, on ajoute les deux interfaces autour du moteur existant.
 de décision humaine, doc 05 §5 précisé en conséquence). Trois blocs, dans
 cet ordre — chacun est un prérequis du suivant :
 
-**A. Persistance des décisions + trace d'audit.** `demo_api.py` sort du
-régime « tout recalculé à chaque requête » pour deux objets précis : la
-décision humaine (dossier, écriture, catégorie choisie, source de la
-proposition d'origine, qui, quand — **immuable une fois posée**, doc 05
-§5) et l'annotation dev associée (juste/faux + note, pour l'entraînement
-ML, ne réécrit jamais la décision). Le reste (transactions, écritures
-générées, liasse) continue d'être recalculé à la volée depuis
-`chauffeurs_demo.py` — pas besoin de tout faire persister pour ça, doc 17
-§3. Stockage minimal (fichier ou table simple), pas la peine de monter
-tout le modèle multi-tenant de la V1 pour 3 dossiers. **Estimation : ~1
-jour.**
+**A. Persistance des décisions + trace d'audit — fait (2026-09-07).**
+`workflow/decisions.py` (`DecisionHumaine` immuable, `AnnotationDev`
+séparée, doc 05 §5), `decisions_memory.py` (tests rapides) et
+`orm.py`/`decisions_postgres.py` (persistance réelle, deux tables
+append-only, migration `55cf8c93e5bf`) — testé contre un vrai Postgres
+(`tests/integration/test_decisions_repository.py`). Détail dans
+`backend/axelcompta/workflow/README.md`.
+
+**Pas encore fait, trouvé en cours de route** : `construire_ledger()`
+(`demo_chauffeurs_type.py`) calcule la `ProposedEntry` de chaque
+transaction catégorisée puis la jette une fois l'écriture construite — il
+faut la retourner (ou l'exposer autrement) pour que le futur endpoint de
+décision (bloc C) sache quoi mettre dans `etage_origine`/
+`confiance_origine`. Refactor mineur mais réel, pas juste un branchement
+direct — à faire au début du bloc C, pas oublié.
+
+**Bug corrigé en marge** : `.env` pointait vers des identifiants Postgres
+(`axel:axel`) qui ne correspondent pas à ceux du conteneur réellement
+initialisé (`user:password`, doc 09 §4) — la connexion échouait
+silencieusement tant que personne n'avait testé contre un vrai Postgres
+depuis la démo. Corrigé dans `.env` (non versionné).
 
 **B. Comptes réels (gestionnaire + chauffeur) via Supabase Auth.** Décidé
 le 2026-09-07 : Supabase Auth plutôt qu'un login simulé, pour pouvoir dire
