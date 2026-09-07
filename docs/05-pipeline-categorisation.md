@@ -131,6 +131,18 @@ Détails d'entraînement dans doc 07. Ici, le contrat d'intégration :
 - **Chaque correction humaine est de l'or** : stockée comme label
   (`PROPOSITION.source = HUMAN`), elle alimente le réentraînement et le minage de
   règles. C'est la boucle de fine-tuning par client demandée.
+- **La décision humaine est immuable une fois posée dans le ledger — personne
+  chez AxeL ne la modifie a posteriori** (conséquence directe du
+  positionnement légal, doc 02 §2.3 : ce serait rendre la décision à sa
+  place). Le fine-tuning se fait sur un objet séparé, une **annotation dev**
+  (juste/faux + note libre) posée sur la décision existante, jamais en
+  écrivant par-dessus. Un dev qui repasse sur une correction humaine peut la
+  juger discutable pour l'entraînement du modèle sans jamais y toucher dans
+  le ledger — deux pistes d'audit distinctes : « ce que le client a décidé »
+  (source de vérité comptable/légale) et « ce que AxeL en pense pour
+  l'algo » (signal ML interne, jamais exposé côté client comme une
+  correction). Précisé le 2026-09-07, suite à une discussion sur la démo
+  (doc 17) mais s'applique à l'architecture cible, pas qu'à la démo.
 
 ## 6. Détection d'anomalies et d'abus (module `anomaly`)
 

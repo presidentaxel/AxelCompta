@@ -12,3 +12,4 @@ TenantId = NewType("TenantId", str)
 DossierId = NewType("DossierId", str)
 EcritureId = NewType("EcritureId", str)
 TransactionId = NewType("TransactionId", str)
+UserId = NewType("UserId", str)  # doc 17 §9 bloc B : compte gestionnaire ou chauffeur
