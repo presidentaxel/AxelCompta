@@ -116,6 +116,9 @@ class ProfilChauffeurType:
     date_debut: date
     nb_jours_actifs: int
     graine: int
+    # "gestionnaire" | "chauffeur_direct" (doc 19 §4) — qui connecte la
+    # banque. Défaut "gestionnaire" : c'est le cas pilote actuel.
+    mode_acces_bancaire: str = "gestionnaire"
     courses_par_jour: tuple[int, int] = (2, 6)  # Louis (2026-09-06) : « jusqu'à 5/6 »
     prix_course_cts: tuple[int, int] = (9_00, 25_00)
     probabilite_pourboire: float = 0.18
@@ -362,6 +365,10 @@ PROFIL_KARIM = ProfilChauffeurType(
     date_debut=date(2025, 1, 6),
     nb_jours_actifs=200,
     graine=1001,
+    # doc 17 §6/§7 : Karim est le profil retenu pour le parcours chauffeur
+    # (connexion bancaire directe visible) — Sophie/Yanis restent en mode
+    # gestionnaire (cas pilote), les deux modes sont donc représentés.
+    mode_acces_bancaire="chauffeur_direct",
     courses_par_jour=(3, 6),
     depenses_recurrentes=(
         DepenseRecurrente("CB TOTAL ACCESS A6", (55_00, 72_00), 4),

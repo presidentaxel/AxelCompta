@@ -439,20 +439,73 @@ projet, donc moins de terrain déjà connu que le reste).
 >   appelle réellement `/invite` et consomme un envoi du quota e-mail
 >   Supabase (très limité sur le tier gratuit) — à lancer manuellement
 >   quand Louis est d'accord, pas en routine.
-> - **Pas fait, bloqué par l'environnement, pas par le code** : la
->   vérification en vrai navigateur (comme pour le bloc C) — corruption
->   disque confirmée sur cette machine pendant la session (`errno 117
->   "structure needs cleaning"` sur le paquet `uvicorn` et quelques
->   métadonnées d'autres paquets du `.venv` backend), empêchant de
->   démarrer un vrai serveur `uvicorn` ce soir. N'affecte pas les tests
->   (FastAPI `TestClient` ne dépend pas d'`uvicorn`, les 170 tests
->   unitaires + 12 d'intégration passent) — juste la démonstration live.
->   À refaire dès que l'environnement est sain ; un `fsck` du disque est
->   probablement nécessaire côté machine, pas une action côté code.
-> - **Pas fait, reste du bloc B** : la connexion chauffeur elle-même
->   (écran de login, session, parcours mobile doc 19 §5), les deux
->   variantes de `mode_acces_bancaire` (doc 19 §4), et le remplacement de
->   `UTILISATEUR_DEMO` (stub, bloc C) par une vraie identité connectée.
+> - **Corrigé (2026-09-08)** : la corruption disque (`errno 117`) qui
+>   bloquait `uvicorn` a été traitée en reconstruisant `backend/.venv` à
+>   neuf (`rm -rf .venv && python3 -m venv .venv && pip install -e
+>   ".[dev]"`) plutôt qu'en rafistolant les paquets touchés — aucun autre
+>   artefact trouvé ailleurs dans le repo (`_AUDIT_DONNEES/.venv`,
+>   `frontend/node_modules` sains). La vérification en vrai navigateur,
+>   bloquée depuis, a pu être faite (voir bloc ci-dessous).
+>
+> **Connexion chauffeur, `mode_acces_bancaire`, et retrait partiel du
+> stub — fait (2026-09-08).**
+> - `demo_auth.py` (nouveau, composition root comme `demo_comptes.py`) :
+>   vérifie les jetons Supabase côté chauffeur. **Découverte en testant
+>   contre un vrai jeton de connexion** : ce projet Supabase signe en
+>   **ES256 via les « JWT Signing Keys » (JWKS)**, pas en HS256 avec
+>   `SUPABASE_JWT_SECRET` — la vérification du 2026-09-07 (« un jeton
+>   signé à la main avec ce secret est accepté par Supabase ») testait
+>   autre chose (que Supabase accepte ce secret comme preuve d'identité
+>   envers ses propres routes admin), pas que les jetons *émis* par
+>   Supabase soient signés avec. `SUPABASE_JWT_SECRET` n'est donc plus
+>   utilisée par ce module — la vérification se fait contre la clé
+>   publique du JWKS (`jwt.PyJWKClient`), aucun secret à connaître côté
+>   serveur. Détail dans le commentaire de module de `demo_auth.py`.
+> - `GET /dossiers/{id}` et `GET /dossiers/{id}/transactions` acceptent
+>   maintenant un en-tête `Authorization: Bearer` optionnel : absent →
+>   comportement inchangé (cas gestionnaire, pas de login) ; présent et
+>   valide mais pour un autre dossier → 403 (doc 19 §4 : un chauffeur ne
+>   voit que son propre dossier) ; invalide/expiré → 401.
+> - `mode_acces_bancaire` ajouté à `ProfilChauffeurType` et à
+>   `DossierResume` — Karim en `chauffeur_direct`, Sophie/Yanis en
+>   `gestionnaire` : les deux modes doc 19 §4 sont donc représentés dans
+>   la démo, visibles en badge sur le dashboard (doc 17 §7).
+> - Frontend : `app/chauffeur/{login,accepter-invitation,[dossierId]}` +
+>   `lib/auth-chauffeur.ts` (appels REST directs à Supabase Auth, jamais
+>   le SDK `@supabase/supabase-js` — même choix que le backend, ADR-003).
+>   Restructuration du routage en groupe `app/(gestionnaire)/` pour que
+>   l'habillage gestionnaire (Sidebar/TopBar) ne s'applique plus qu'aux
+>   routes gestionnaire (doc 19 §7 : « même socle, deux habillages ») —
+>   sans effet sur les URLs existantes.
+> - **Vérifié en vrai navigateur** (pas seulement en test) : utilisateur
+>   chauffeur créé via `/admin/users` (pas `/invite`, pas de coût quota
+>   e-mail) puis supprimé après coup — connexion réelle, transactions de
+>   Karim affichées via le vrai moteur, tentative d'accès au dossier de
+>   Sophie renvoyée vers son propre dossier, déconnexion puis nouvelle
+>   tentative renvoyée vers `/login`. Dashboard gestionnaire et fiche
+>   dossier (bloc C) revérifiés sans régression après la restructuration
+>   du routage.
+> - **Décision prise avec Louis (2026-09-08) sur la portée de
+>   `UTILISATEUR_DEMO`** : le stub n'est retiré que côté chauffeur.
+>   L'action de tranchage (bloc C) reste gestionnaire, et le dashboard
+>   gestionnaire n'a délibérément pas de login pour l'instant — ce n'est
+>   pas dans ce lot. `UTILISATEUR_DEMO` reste donc en place pour
+>   `_trancher()`, avec un commentaire explicite (pas un oubli). Un
+>   chantier d'auth gestionnaire séparé serait nécessaire pour le retirer
+>   complètement.
+> - Parcours mobile complet (transactions détaillées avec vocabulaire
+>   dédié, question de catégorisation, photo, signature — doc 19 §5
+>   points 5-8) : **toujours la Semaine 3**, pas ce lot. Ce qui est fait
+>   ici (login, session, une vue transactions minimale en lecture) en est
+>   le prérequis direct.
+> - Découvert en passant, pré-existant, pas causé par ce lot : `mypy
+>   axelcompta tests migrations` (commande documentée dans backend/README)
+>   a 16 erreurs dans des fichiers de test jamais touchés ici
+>   (`test_chauffeurs_demo.py`, `test_demo_chauffeurs_type.py`), et `ruff
+>   format --check .` a 4 fichiers non formatés — le README affirme
+>   « tout passe à 0 erreur » depuis le 2026-09-05, ce n'est plus vrai. Ni
+>   l'un ni l'autre n'a été corrigé ici (hors scope de ce lot) — à traiter
+>   séparément.
 
 **C. Écran de revue réelle sur la dépense de Sophie — fait (2026-09-07).**
 `workflow/revue.py` (reclassification 471 → compte réel, 455 pour « usage

@@ -9,12 +9,49 @@ implémentations réelles respectent le même contrat.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
+import jwt
+import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
 
+import axelcompta.demo_auth as demo_auth
 from axelcompta.demo_api import create_app, get_comptes, get_decisions
 from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
+
+# ES256 (JWT Signing Keys), pas HS256 : ce qu'émet le vrai projet Supabase
+# (découvert 2026-09-08, voir le commentaire de module de demo_auth.py).
+_CLE_PRIVEE_TEST = ec.generate_private_key(ec.SECP256R1())
+
+
+def _jeton_chauffeur(dossier_id: str) -> str:
+    charge_utile = {
+        "sub": "user-123",
+        "email": "chauffeur@example.com",
+        "aud": "authenticated",
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+        "user_metadata": {"dossier_id": dossier_id},
+    }
+    return jwt.encode(charge_utile, _CLE_PRIVEE_TEST, algorithm="ES256")
+
+
+@pytest.fixture(autouse=True)
+def _jwks_factice(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bouchon de résolution JWKS pour toute la suite — pas d'appel réseau
+    à Supabase (même logique que les autres dépendances de démo)."""
+    monkeypatch.setenv("SUPABASE_URL", "https://exemple.supabase.co")
+    cle_publique = _CLE_PRIVEE_TEST.public_key()
+    monkeypatch.setattr(
+        demo_auth,
+        "_jwks_client",
+        lambda url: SimpleNamespace(
+            get_signing_key_from_jwt=lambda jeton: SimpleNamespace(key=cle_publique)
+        ),
+    )
 
 
 def _client() -> TestClient:
@@ -205,3 +242,34 @@ def test_inviter_deux_fois_le_meme_dossier_est_refuse() -> None:
     reponse = client.post("/dossiers/DEMO_karim/inviter", json={"email": "autre@example.com"})
 
     assert reponse.status_code == 409
+
+
+def test_karim_est_en_mode_chauffeur_direct_les_autres_en_gestionnaire() -> None:
+    """doc 19 §4 : les deux modes doivent être représentés dans la démo."""
+    corps = {p["dossier_id"]: p for p in _client().get("/dossiers").json()}
+    assert corps["DEMO_karim"]["mode_acces_bancaire"] == "chauffeur_direct"
+    assert corps["DEMO_sophie"]["mode_acces_bancaire"] == "gestionnaire"
+    assert corps["DEMO_yanis"]["mode_acces_bancaire"] == "gestionnaire"
+
+
+def test_transactions_sans_en_tete_reste_ouvert() -> None:
+    """Comportement actuel inchangé : le dashboard gestionnaire n'a pas de
+    login, aucun en-tête n'est envoyé, l'accès reste ouvert."""
+    reponse = _client().get("/dossiers/DEMO_sophie/transactions")
+    assert reponse.status_code == 200
+
+
+def test_chauffeur_authentifie_voit_son_propre_dossier() -> None:
+    jeton = _jeton_chauffeur("DEMO_karim")
+    reponse = _client().get(
+        "/dossiers/DEMO_karim/transactions", headers={"Authorization": f"Bearer {jeton}"}
+    )
+    assert reponse.status_code == 200
+
+
+def test_chauffeur_authentifie_ne_voit_pas_un_autre_dossier() -> None:
+    jeton = _jeton_chauffeur("DEMO_karim")
+    reponse = _client().get(
+        "/dossiers/DEMO_sophie/transactions", headers={"Authorization": f"Bearer {jeton}"}
+    )
+    assert reponse.status_code == 403

@@ -41,6 +41,13 @@ function DossierCard({ dossier }: { dossier: DossierResume }) {
               {plateforme}
             </Badge>
           ))}
+          {/* doc 19 §4 : les deux modes doivent être visibles à l'écran,
+           * pas cachés dans un réglage — même logique que les autres badges. */}
+          <Badge variant="neutral">
+            {dossier.mode_acces_bancaire === "chauffeur_direct"
+              ? "Banque : chauffeur"
+              : "Banque : gestionnaire"}
+          </Badge>
         </div>
         <dl className="space-y-1.5 text-sm">
           <AmountRow label="CA HT" cents={dossier.ca_ht_cts} />

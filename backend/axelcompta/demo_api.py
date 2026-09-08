@@ -39,6 +39,7 @@ from sqlalchemy.engine import Engine
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import EcritureId, UserId
+from axelcompta.demo_auth import IdentiteAuthentifiee, identite_chauffeur_optionnelle
 from axelcompta.demo_chauffeurs_type import construire_ledger
 from axelcompta.demo_comptes import (
     CompteDejaInviteError,
@@ -57,9 +58,12 @@ from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_
 
 COMPTE_ATTENTE = "471"  # doc 06 §2 : compte d'attente par défaut, "à trancher"
 ORIGINE_FRONTEND_DEV = "http://localhost:3000"
-# doc 17 §9 bloc B (comptes réels) pas encore fait : toute décision de la
-# démo est attribuée à cet utilisateur unique en attendant. À retirer dès
-# que Supabase Auth est branché — pas un choix d'architecture, un stub.
+# doc 17 §9 bloc B : la connexion chauffeur est faite (demo_auth.py), mais
+# cette action (trancher une écriture) est une action **gestionnaire**, et
+# le dashboard gestionnaire n'a délibérément pas de login pour l'instant
+# (décidé avec Louis, 2026-09-08 — pas dans le périmètre de ce lot). Ce
+# n'est donc pas un oubli : le retrait de ce stub attend un chantier d'auth
+# gestionnaire séparé, pas encore planifié.
 UTILISATEUR_DEMO = UserId("gestionnaire_demo")
 
 
@@ -78,6 +82,7 @@ class DossierResume(BaseModel):
     nb_transactions: int
     nb_a_trancher: int
     statut_invitation: str | None  # None = "non_invité" (doc 19 §3.2) ; sinon "invité" | "actif"
+    mode_acces_bancaire: str  # "gestionnaire" | "chauffeur_direct" (doc 19 §4)
 
 
 class TransactionVue(BaseModel):
@@ -167,7 +172,24 @@ def _resume(
         nb_transactions=len(ecritures),
         nb_a_trancher=nb_a_trancher,
         statut_invitation=_statut_invitation_vue(invitation.statut) if invitation else None,
+        mode_acces_bancaire=profil.mode_acces_bancaire,
     )
+
+
+def _verifier_acces_dossier(dossier_id: str, identite: IdentiteAuthentifiee | None) -> None:
+    """doc 19 §4 : un chauffeur authentifié ne voit que son propre dossier.
+    Aucune identité (cas gestionnaire actuel, pas de login) → pas de
+    restriction, comportement inchangé."""
+    if identite is not None and identite.dossier_id != dossier_id:
+        raise HTTPException(status_code=403, detail="Ce dossier ne vous appartient pas.")
+
+
+def _transactions_dossier(dossier_id: str, decisions: DecisionRepository) -> list[TransactionVue]:
+    """Extrait de la route (doc 08 §2 : longueur de fonction), même logique
+    qu'avant l'ajout de la vérification d'accès chauffeur."""
+    profil = _profil_par_id(dossier_id)
+    ledger = _ledger_avec_decisions(profil, decisions)
+    return [_transaction_vue(e) for e in ledger.grand_livre(profil.dossier_id)]
 
 
 def _montant_512(ecriture: Ecriture) -> int:
@@ -236,6 +258,8 @@ def get_comptes() -> CompteRepository:
 
 ComptesDep = Annotated[CompteRepository, Depends(get_comptes)]
 
+IdentiteDep = Annotated[IdentiteAuthentifiee | None, Depends(identite_chauffeur_optionnelle)]
+
 
 def _trancher(
     profil: ProfilChauffeurType, ecriture_id: str, categorie: str, decisions: DecisionRepository
@@ -284,8 +308,7 @@ def _trancher(
     return next(e for e in ledger_a_jour.grand_livre(profil.dossier_id) if e.id == ecriture_id)
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
+def _configurer_cors(app: FastAPI) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[ORIGINE_FRONTEND_DEV],
@@ -293,21 +316,31 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
+    _configurer_cors(app)
+
     @app.get("/dossiers", response_model=list[DossierResume])
     def lister_dossiers(decisions: DecisionsDep, comptes: ComptesDep) -> list[DossierResume]:
         return [_resume(profil, decisions, comptes) for profil in PROFILS_DEMO]
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
     def obtenir_dossier(
-        dossier_id: str, decisions: DecisionsDep, comptes: ComptesDep
+        dossier_id: str,
+        decisions: DecisionsDep,
+        comptes: ComptesDep,
+        identite: IdentiteDep,
     ) -> DossierResume:
+        _verifier_acces_dossier(dossier_id, identite)
         return _resume(_profil_par_id(dossier_id), decisions, comptes)
 
     @app.get("/dossiers/{dossier_id}/transactions", response_model=list[TransactionVue])
-    def lister_transactions(dossier_id: str, decisions: DecisionsDep) -> list[TransactionVue]:
-        profil = _profil_par_id(dossier_id)
-        ledger = _ledger_avec_decisions(profil, decisions)
-        return [_transaction_vue(e) for e in ledger.grand_livre(profil.dossier_id)]
+    def lister_transactions(
+        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+    ) -> list[TransactionVue]:
+        _verifier_acces_dossier(dossier_id, identite)
+        return _transactions_dossier(dossier_id, decisions)
 
     @app.post(
         "/dossiers/{dossier_id}/transactions/{ecriture_id}/decision",

@@ -107,9 +107,15 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/pytest -q -m integration
 ```
 
-Tout passe à 0 erreur (dernière vérification : 2026-09-05, 97 tests rapides
-+ 3 d'intégration, y compris contre un conteneur Postgres fraîchement
-recréé).
+**Mise à jour 2026-09-08** : `pytest`, `ruff check .` et `lint-imports`
+passent à 0 erreur (182 tests rapides). **Deux écarts pré-existants
+trouvés en vérifiant, non corrigés ici (hors scope du lot en cours)** :
+`mypy axelcompta tests migrations` remonte 16 erreurs dans des fichiers de
+test non liés à ce lot (`test_chauffeurs_demo.py`,
+`test_demo_chauffeurs_type.py` — `mypy axelcompta` seul, sans `tests`,
+reste propre) ; `ruff format --check .` remonte 4 fichiers jamais
+reformatés. La mention « 0 erreur » ci-dessous date du 2026-09-05 et
+n'est plus exacte sur ces deux points précis — à traiter séparément.
 
 ## Tests : un dossier miroir par module (doc 08 §3)
 

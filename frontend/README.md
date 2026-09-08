@@ -30,6 +30,12 @@ Puis ouvrir `http://localhost:3000`. `NEXT_PUBLIC_API_BASE_URL` (défaut
 `http://localhost:8000`) est configurable via `.env.local` (voir
 `.env.example`).
 
+**Pour tester la connexion chauffeur** (`/chauffeur/login`, doc 17 §9
+bloc B) : `.env.local` a aussi besoin de `NEXT_PUBLIC_SUPABASE_URL` et
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` (mêmes valeurs que `backend/.env`, la clé
+anon est faite pour être publique). Sans ça, le dashboard gestionnaire
+fonctionne normalement — seule la partie chauffeur en a besoin.
+
 ## Les trois écrans clés (V1, doc 11 §3)
 
 Détail complet dans [doc 11](../docs/11-ux-ui.md) — l'UI s'adapte de 1 à 200
@@ -40,14 +46,19 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
 
 - **Démo (doc 17 §9)** : **une vraie UI**, plus un rapport HTML statique —
   Next.js + Tailwind, tokens `DESIGN.md`, consomme `axelcompta.demo_api`
-  en direct. Fait côté back (2026-09-07) : `POST .../decision` accepte/
-  reclasse une écriture « à trancher » pour de vrai (workflow testé,
-  persistance Postgres réelle, doc 17 §9 bloc A/C) — testé en HTTP réel
-  (`curl`), pas seulement en unitaire. **Pas fait côté front** : aucun
-  écran ni bouton n'appelle encore cet endpoint — la fiche dossier reste
-  un affichage en lecture, l'action de trancher n'existe que côté API pour
-  l'instant. C'est la suite immédiate. L'interface chauffeur (mobile, doc
-  19) n'est pas commencée non plus.
+  en direct. Fait côté gestionnaire : dashboard, fiche dossier, file de
+  revue réelle sur la dépense de Sophie (bloc C), invitation chauffeur
+  (bloc B). **Interface chauffeur faite en partie (2026-09-08)** :
+  `app/chauffeur/{login,accepter-invitation,[dossierId]}` — connexion
+  réelle via Supabase Auth (appels REST directs, pas le SDK JS), session
+  en `localStorage`, vue transactions simplifiée en lecture seule. Routage
+  restructuré en groupe `app/(gestionnaire)/` pour que la Sidebar/TopBar
+  ne s'applique qu'aux routes gestionnaire (doc 19 §7 : « même socle, deux
+  habillages ») — sans effet sur les URLs. **Pas fait** : le parcours
+  mobile complet (question de catégorisation, photo, signature — Semaine
+  3 du doc 17), et la connexion bancaire directe `chauffeur_direct`
+  elle-même (le réglage est visible en badge, pas encore d'écran de
+  connexion bancaire chauffeur).
 - **V1 (doc 12, phase 3-4)** : Next.js complet sur `api/` (le vrai backend,
   auth/MFA, multi-tenant), design system (`DESIGN.md`), maquettes Figma
   validées avec 2 utilisateurs cibles (doc 12 §0.3).

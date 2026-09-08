@@ -16,6 +16,7 @@ export type DossierResume = {
   nb_transactions: number;
   nb_a_trancher: number;
   statut_invitation: "invité" | "actif" | null; // null = "non_invité" (doc 19 §3.2)
+  mode_acces_bancaire: "gestionnaire" | "chauffeur_direct"; // doc 19 §4
 };
 
 export type StatutTransaction = "validé" | "à trancher";
