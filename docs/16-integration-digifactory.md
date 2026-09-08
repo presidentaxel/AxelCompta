@@ -230,6 +230,12 @@ authentification serveur) — rien n'a changé en un mois. Document de
 relance envoyé à Pierre BERTOLA avec tags de trace :
 [2026-09-07-relance-digifactory.md](2026-09-07-relance-digifactory.md).
 
+**Statut au 2026-09-08 : mail envoyé, en attente de réponse.** Pierre
+BERTOLA est basé au Japon — décalage horaire important, délai de réponse
+normal de quelques jours à compter de là, pas un signe que la relance s'est
+perdue. Ne pas relancer une deuxième fois avant d'avoir laissé passer ce
+délai.
+
 ---
 
 ## 8. Accès Bridge direct (piste parallèle, non bloquante, après le pilote Digifactory)

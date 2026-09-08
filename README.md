@@ -11,11 +11,17 @@ compta), statut juridique et régime fiscal configurés **par dossier** (EURL ic
 SASU là, micro demain), et des « packs métier » par secteur dont le VTC n'est que
 le premier.
 
-**Statut du projet : phase de cadrage.** Ces documents sont des brouillons à
-relire, amender et valider avant d'écrire la première ligne de code produit.
-L'arborescence `backend/` et `frontend/` existe déjà (dossiers + `README.md`
-par module, aucun code) pour que l'organisation soit prête dès le top départ —
-voir [doc 18 — Organisation du code](docs/18-organisation-code.md).
+**Statut du projet : cadrage relu (Louis, 2026-09-02), sprint démo en cours.**
+Ces documents restent la référence à amender au fil de l'eau, mais ce ne sont
+plus des brouillons pré-code : le moteur comptable, l'ingestion, la
+catégorisation et une première interface (gestionnaire + comptes via
+Supabase Auth) tournent déjà en vrai sur des dossiers synthétiques, avec
+suite de tests, lint et vérification des frontières de modules en continu
+(doc 08). **L'état réel du code, module par module, se lit dans
+[doc 18 — Organisation du code](docs/18-organisation-code.md) ; le plan de
+sprint actif est [doc 17](docs/17-plan-demo-backend.md), le plan V1 est
+[doc 12](docs/12-roadmap-todo.md).** Ces trois docs peuvent être en avance
+sur ce paragraphe — s'y fier plutôt qu'à ce résumé en cas de doute.
 
 ## Sommaire
 

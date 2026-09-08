@@ -1,7 +1,7 @@
 # ADR-003 — Hébergement et base de données
 
-**Date :** 2026-06-16 — Mise à jour : 2026-06-16
-**Statut :** partiellement accepté — base de données tranchée, compute à décider quand le code est stable
+**Date :** 2026-06-16 — Mise à jour : 2026-09-08
+**Statut :** partiellement accepté — base de données et auth tranchées (Supabase, y compris pour la V1, voir mise à jour 2026-09-08), compute à décider quand le code est stable
 **Décideurs :** Louis Vedovato
 
 ## Contexte
@@ -73,10 +73,32 @@ Quelle que soit la décision finale sur le compute :
 
 Ces trois règles garantissent que changer de provider = changer des variables d'environnement, pas réécrire du code.
 
-**Exception assumée pour la démo (doc 17, décidée 2026-09-07)** : les
-comptes gestionnaire/chauffeur de la démo utilisent **Supabase Auth**
-(rapidité de mise en œuvre, premier vrai système de comptes du projet).
-C'est une entorse consciente à la règle ci-dessus, pas un changement de
-décision — **la V1 doit repasser sur l'implémentation maison** avant le
-pilote, sous peine du lock-in que cette règle existe pour éviter. Ne pas
-laisser Supabase Auth s'installer par défaut faute d'y revenir.
+**Mise à jour 2026-09-08 — Supabase Auth passe d'exception démo à décision
+assumée (Louis) :** l'entorse ouverte le 2026-09-07 pour la démo est
+maintenue au-delà, y compris pour la V1. Différence avec la règle
+transverse ci-dessus, actée en connaissance de cause plutôt que révertée :
+
+- **Le coût de migration n'est pas symétrique avec celui de la base.** La
+  migration base (ligne 32-38 ci-dessus) est un `pg_dump`/`pg_restore` d'une
+  demi-journée parce qu'on n'utilise que la connection string standard.
+  Migrer hors de Supabase Auth plus tard (schéma `auth`/GoTrue, sessions,
+  flux d'invitation `service_role`) demanderait de réécrire l'auth
+  applicative elle-même, pas de rejouer une migration — ce n'est pas la
+  même classe de coût, et ADR-003 doit le dire explicitement plutôt que
+  laisser le lecteur croire que « connection string standard » couvre
+  aussi l'auth.
+- **Le déclencheur de réexamen de la base (ligne 45) doit donc couvrir
+  l'auth aussi, pas seulement la base** : si le questionnaire sécurité d'un
+  client exclut les prestataires soumis au CLOUD Act, la bascule concerne
+  Supabase dans son ensemble (base **et** auth) — pas la base seule suivie
+  d'un auth qui resterait en place faute d'avoir été listé. L'auth porte en
+  plus des données d'identité (email, éventuellement téléphone) des
+  chauffeurs, pas seulement des données bancaires/fiscales.
+- Reste inchangé : stockage fichiers toujours via SDK S3 standard, jamais
+  Supabase Storage.
+
+Décision : accepté, pas un pense-bête « à corriger avant V1 » — mais le
+risque CLOUD Act qui s'appliquait déjà à la base s'étend maintenant à
+l'identité des utilisateurs, et le jour où ce risque se matérialise
+(déclencheur ci-dessus), la facture de sortie sera plus lourde côté auth que
+côté base. À rouvrir cet ADR si ce compromis change.

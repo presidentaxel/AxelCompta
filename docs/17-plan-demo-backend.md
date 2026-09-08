@@ -333,7 +333,11 @@ depuis la démo. Corrigé dans `.env` (non versionné).
 le 2026-09-07 : Supabase Auth plutôt qu'un login simulé, pour pouvoir dire
 « ce sont de vrais comptes » — **exception assumée à ADR-003** (qui
 proscrit Supabase Auth au profit d'une implémentation maison), documentée
-dans l'ADR, à reprendre avant la V1. Inclut le flux d'invitation
+dans l'ADR. **Mise à jour 2026-09-08 : Louis confirme rester sur Supabase
+Auth au-delà de la démo, y compris pour la V1** — ce n'est plus une entorse
+à reprendre, voir ADR-003 mise à jour du 2026-09-08 pour le compromis retenu
+(le risque CLOUD Act de la base s'étend à l'auth, coût de sortie plus lourd
+qu'un `pg_dump`). Inclut le flux d'invitation
 gestionnaire → chauffeur (email) et les **deux variantes visibles** selon
 `mode_acces_bancaire` (doc 19 §4) : le chauffeur relie sa propre banque
 (`chauffeur_direct`), ou n'a qu'à accéder à l'app/ses infos sans rien
@@ -409,11 +413,14 @@ projet, donc moins de terrain déjà connu que le reste).
 > - `demo_comptes_memory.py` : `InMemoryCompteRepository`, pour que la
 >   suite rapide ne dépende jamais de Supabase (Louis, 2026-09-07).
 > - **Placé délibérément hors du découpage doc 03 §3** (composition root
->   de démo, comme `demo_api.py`) plutôt que dans `tenants`/`api` : ce
->   sont ces deux modules qui accueilleront le vrai système de comptes en
->   V1 (implémentation maison, pas Supabase, ADR-003) — étendre leur
->   graphe de dépendances maintenant pour du code appelé à être jeté
->   aurait été une vraie décision de structure, pas prise ici.
+>   de démo, comme `demo_api.py`) plutôt que dans `tenants`/`api` — cette
+>   séparation reste valable même après la mise à jour du 2026-09-08
+>   (Supabase Auth confirmé pour la V1, ADR-003) : `tenants`/`api`
+>   accueilleront le vrai système de comptes en V1 (toujours via Supabase,
+>   pas réécrit maison), mais le câblage démo (`demo_comptes.py`) reste une
+>   composition root de démo, pas le code cible — étendre leur graphe de
+>   dépendances maintenant pour du code de démo aurait été une vraie
+>   décision de structure, pas prise ici.
 > - `demo_api.py` : `POST /dossiers/{id}/inviter` (envoie un vrai e-mail
 >   via Supabase, pas de simulateur) + `statut_invitation` sur
 >   `DossierResume`. Même idiome que `get_decisions` (bloc A) :
