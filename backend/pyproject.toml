@@ -16,6 +16,7 @@ dependencies = [
     "scikit-learn>=1.4",
     "pypdf>=4.0",
     "pyjwt[crypto]>=2.9",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

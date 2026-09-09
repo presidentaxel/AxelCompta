@@ -18,8 +18,10 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
 
 import axelcompta.demo_auth as demo_auth
-from axelcompta.demo_api import create_app, get_comptes, get_decisions
+from axelcompta.core.ids import DossierId, EcritureId
+from axelcompta.demo_api import create_app, get_comptes, get_decisions, get_justificatifs
 from axelcompta.demo_comptes_memory import InMemoryCompteRepository
+from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
 
@@ -54,7 +56,9 @@ def _jwks_factice(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _client() -> TestClient:
+def _client_et_stubs() -> tuple[
+    TestClient, InMemoryDecisionRepository, InMemoryJustificatifRepository
+]:
     app = create_app()
     # Même instance à chaque requête (pas juste la classe : une nouvelle
     # instance par requête serait vide à chaque fois) — une décision ou une
@@ -62,9 +66,15 @@ def _client() -> TestClient:
     # comme le font les vraies dépendances via leur connexion partagée.
     decisions_stub = InMemoryDecisionRepository()
     comptes_stub = InMemoryCompteRepository()
+    justificatifs_stub = InMemoryJustificatifRepository()
     app.dependency_overrides[get_decisions] = lambda: decisions_stub
     app.dependency_overrides[get_comptes] = lambda: comptes_stub
-    return TestClient(app)
+    app.dependency_overrides[get_justificatifs] = lambda: justificatifs_stub
+    return TestClient(app), decisions_stub, justificatifs_stub
+
+
+def _client() -> TestClient:
+    return _client_et_stubs()[0]
 
 
 def test_lister_dossiers_retourne_les_3_chauffeurs_type() -> None:
@@ -270,4 +280,164 @@ def test_chauffeur_authentifie_ne_voit_pas_un_autre_dossier() -> None:
     reponse = _client().get(
         "/dossiers/DEMO_sophie/transactions", headers={"Authorization": f"Bearer {jeton}"}
     )
+    assert reponse.status_code == 403
+
+
+# --- doc 17 §9 Semaine 3 : le chauffeur peut trancher sa propre écriture
+# (doc 19 §5.6, « question de catégorisation ») — ouvert au chauffeur le
+# 2026-09-09, restait gestionnaire-only jusque-là.
+
+
+def test_chauffeur_authentifie_peut_trancher_sa_propre_ecriture() -> None:
+    client, _decisions, _justificatifs = _client_et_stubs()
+    ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
+    jeton = _jeton_chauffeur("DEMO_sophie")
+
+    reponse = client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
+        json={"categorie": "usage_personnel"},
+        headers={"Authorization": f"Bearer {jeton}"},
+    )
+
+    assert reponse.status_code == 200
+    assert reponse.json()["statut"] == "validé"
+
+
+def test_chauffeur_authentifie_ne_peut_pas_trancher_un_autre_dossier() -> None:
+    client, _decisions, _justificatifs = _client_et_stubs()
+    ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
+    jeton = _jeton_chauffeur("DEMO_karim")  # un autre dossier que Sophie
+
+    reponse = client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
+        json={"categorie": "usage_personnel"},
+        headers={"Authorization": f"Bearer {jeton}"},
+    )
+
+    assert reponse.status_code == 403
+
+
+def test_decision_chauffeur_est_attribuee_a_sa_vraie_identite() -> None:
+    """Pas UTILISATEUR_DEMO : `decide_par` doit refléter le compte qui a
+    vraiment répondu, pas le stub gestionnaire (doc 05 §5 : traçabilité)."""
+    client, decisions, _justificatifs = _client_et_stubs()
+    ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
+    jeton = _jeton_chauffeur("DEMO_sophie")
+
+    client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
+        json={"categorie": "usage_personnel"},
+        headers={"Authorization": f"Bearer {jeton}"},
+    )
+
+    decision = decisions.decision_courante(DossierId("DEMO_sophie"), EcritureId(ecriture_id))
+    assert decision is not None
+    assert decision.decide_par == "user-123"  # sub du jeton (_jeton_chauffeur)
+
+
+def test_decision_gestionnaire_reste_attribuee_a_utilisateur_demo() -> None:
+    """Comportement inchangé quand personne n'est authentifié (dashboard
+    gestionnaire, pas de login pour l'instant)."""
+    client, decisions, _justificatifs = _client_et_stubs()
+    ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
+
+    client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
+        json={"categorie": "usage_personnel"},
+    )
+
+    decision = decisions.decision_courante(DossierId("DEMO_sophie"), EcritureId(ecriture_id))
+    assert decision is not None
+    assert decision.decide_par == "gestionnaire_demo"
+
+
+# --- doc 17 §9 Semaine 3, doc 19 §5.7 : photo de justificatif, pas d'OCR.
+
+
+def test_joindre_justificatif_image_valide_marque_la_transaction() -> None:
+    client = _client()
+    ecriture_id = client.get("/dossiers/DEMO_karim/transactions").json()[0]["ecriture_id"]
+
+    reponse = client.post(
+        f"/dossiers/DEMO_karim/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+    )
+
+    assert reponse.status_code == 200
+    assert reponse.json()["a_justificatif"] is True
+
+
+def test_justificatif_est_reflete_par_un_get_ulterieur() -> None:
+    client = _client()
+    ecriture_id = client.get("/dossiers/DEMO_karim/transactions").json()[0]["ecriture_id"]
+    client.post(
+        f"/dossiers/DEMO_karim/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+    )
+
+    transactions = client.get("/dossiers/DEMO_karim/transactions").json()
+    ecriture = next(t for t in transactions if t["ecriture_id"] == ecriture_id)
+    assert ecriture["a_justificatif"] is True
+
+
+def test_autres_transactions_restent_sans_justificatif() -> None:
+    client = _client()
+    transactions = client.get("/dossiers/DEMO_karim/transactions").json()
+    ecriture_id = transactions[0]["ecriture_id"]
+    client.post(
+        f"/dossiers/DEMO_karim/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+    )
+
+    apres = client.get("/dossiers/DEMO_karim/transactions").json()
+    autres = [t for t in apres if t["ecriture_id"] != ecriture_id]
+    assert autres  # sinon le test ne prouve rien
+    assert all(t["a_justificatif"] is False for t in autres)
+
+
+def test_joindre_justificatif_type_invalide_est_refuse() -> None:
+    client = _client()
+    ecriture_id = client.get("/dossiers/DEMO_karim/transactions").json()[0]["ecriture_id"]
+
+    reponse = client.post(
+        f"/dossiers/DEMO_karim/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("notes.txt", b"pas une photo", "text/plain")},
+    )
+
+    assert reponse.status_code == 400
+
+
+def test_joindre_justificatif_ecriture_inconnue_est_un_404() -> None:
+    reponse = _client().post(
+        "/dossiers/DEMO_karim/transactions/ecriture-inconnue/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+    )
+    assert reponse.status_code == 404
+
+
+def test_chauffeur_peut_joindre_justificatif_a_sa_propre_transaction() -> None:
+    client = _client()
+    ecriture_id = client.get("/dossiers/DEMO_karim/transactions").json()[0]["ecriture_id"]
+    jeton = _jeton_chauffeur("DEMO_karim")
+
+    reponse = client.post(
+        f"/dossiers/DEMO_karim/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+        headers={"Authorization": f"Bearer {jeton}"},
+    )
+
+    assert reponse.status_code == 200
+
+
+def test_chauffeur_ne_peut_pas_joindre_justificatif_a_un_autre_dossier() -> None:
+    client = _client()
+    ecriture_id = client.get("/dossiers/DEMO_sophie/transactions").json()[0]["ecriture_id"]
+    jeton = _jeton_chauffeur("DEMO_karim")  # un autre dossier que Sophie
+
+    reponse = client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+        headers={"Authorization": f"Bearer {jeton}"},
+    )
+
     assert reponse.status_code == 403

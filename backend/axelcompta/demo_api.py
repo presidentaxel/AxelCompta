@@ -29,9 +29,10 @@ backend/ (nécessite `pip install -e ".[dev]"` pour uvicorn).
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.engine import Engine
@@ -48,6 +49,10 @@ from axelcompta.demo_comptes import (
     SupabaseCompteRepository,
     SupabaseConfig,
 )
+from axelcompta.demo_justificatifs import (
+    FichierJustificatifRepository,
+    JustificatifRepository,
+)
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO, ProfilChauffeurType
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
@@ -56,14 +61,24 @@ from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
 from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
 
+# doc 17 §9 Semaine 3 : racine de stockage des justificatifs de démo — pas
+# le stockage WORM réel (V1, doc 04 §1), juste de quoi prouver que la photo
+# s'attache vraiment à la transaction.
+RACINE_JUSTIFICATIFS_DEMO = (
+    Path(__file__).resolve().parent.parent / "_demo_output" / "justificatifs"
+)
+_TYPES_IMAGE_ACCEPTES = ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
+
 COMPTE_ATTENTE = "471"  # doc 06 §2 : compte d'attente par défaut, "à trancher"
 ORIGINE_FRONTEND_DEV = "http://localhost:3000"
-# doc 17 §9 bloc B : la connexion chauffeur est faite (demo_auth.py), mais
-# cette action (trancher une écriture) est une action **gestionnaire**, et
-# le dashboard gestionnaire n'a délibérément pas de login pour l'instant
-# (décidé avec Louis, 2026-09-08 — pas dans le périmètre de ce lot). Ce
-# n'est donc pas un oubli : le retrait de ce stub attend un chantier d'auth
-# gestionnaire séparé, pas encore planifié.
+# doc 17 §9 bloc B/Semaine 3 : le dashboard gestionnaire reste sans login
+# (décidé avec Louis, 2026-09-08 — chantier d'auth gestionnaire séparé, pas
+# encore planifié) — UTILISATEUR_DEMO reste donc le `decide_par` pour tout
+# appel sans en-tête `Authorization` (cas gestionnaire actuel). **Ouvert
+# au chauffeur authentifié le 2026-09-09** (doc 19 §5.6 : « répondre à une
+# question de catégorisation ») : un chauffeur qui tranche sa propre
+# écriture (`_verifier_acces_dossier` déjà en place) est enregistré sous sa
+# vraie identité (`identite.user_id`), pas sous ce stub.
 UTILISATEUR_DEMO = UserId("gestionnaire_demo")
 
 
@@ -92,6 +107,7 @@ class TransactionVue(BaseModel):
     montant_cts: int  # signé : positif = argent reçu, négatif = argent sorti (ligne 512)
     compte: str
     statut: str  # "validé" | "à trancher" — vocabulaire unique de badge (doc 11 §4)
+    a_justificatif: bool  # doc 17 §9 Semaine 3 : une photo a été jointe (contenu non lu)
 
 
 class DecisionEntree(BaseModel):
@@ -183,12 +199,17 @@ def _verifier_acces_dossier(dossier_id: str, identite: IdentiteAuthentifiee | No
         raise HTTPException(status_code=403, detail="Ce dossier ne vous appartient pas.")
 
 
-def _transactions_dossier(dossier_id: str, decisions: DecisionRepository) -> list[TransactionVue]:
+def _transactions_dossier(
+    dossier_id: str, decisions: DecisionRepository, justificatifs: JustificatifRepository
+) -> list[TransactionVue]:
     """Extrait de la route (doc 08 §2 : longueur de fonction), même logique
     qu'avant l'ajout de la vérification d'accès chauffeur."""
     profil = _profil_par_id(dossier_id)
     ledger = _ledger_avec_decisions(profil, decisions)
-    return [_transaction_vue(e) for e in ledger.grand_livre(profil.dossier_id)]
+    return [
+        _transaction_vue(e, justificatifs.a_un_justificatif(dossier_id, e.id))
+        for e in ledger.grand_livre(profil.dossier_id)
+    ]
 
 
 def _montant_512(ecriture: Ecriture) -> int:
@@ -208,7 +229,7 @@ def _compte_affiche(ecriture: Ecriture) -> str:
     return autres[0] if len(autres) == 1 else "règlement plateforme"
 
 
-def _transaction_vue(ecriture: Ecriture) -> TransactionVue:
+def _transaction_vue(ecriture: Ecriture, a_justificatif: bool) -> TransactionVue:
     a_trancher = any(ligne.compte == COMPTE_ATTENTE for ligne in ecriture.lignes)
     return TransactionVue(
         ecriture_id=ecriture.id,
@@ -217,6 +238,7 @@ def _transaction_vue(ecriture: Ecriture) -> TransactionVue:
         montant_cts=_montant_512(ecriture),
         compte=_compte_affiche(ecriture),
         statut="à trancher" if a_trancher else "validé",
+        a_justificatif=a_justificatif,
     )
 
 
@@ -260,13 +282,34 @@ ComptesDep = Annotated[CompteRepository, Depends(get_comptes)]
 IdentiteDep = Annotated[IdentiteAuthentifiee | None, Depends(identite_chauffeur_optionnelle)]
 
 
+_REPO_JUSTIFICATIFS: FichierJustificatifRepository | None = None
+
+
+def get_justificatifs() -> JustificatifRepository:
+    """Dépendance FastAPI — même idiome que `get_decisions`/`get_comptes` :
+    construite à la première requête réelle. Les tests surchargent avec
+    `InMemoryJustificatifRepository` (jamais de fichier réel écrit)."""
+    global _REPO_JUSTIFICATIFS
+    if _REPO_JUSTIFICATIFS is None:
+        _REPO_JUSTIFICATIFS = FichierJustificatifRepository(RACINE_JUSTIFICATIFS_DEMO)
+    return _REPO_JUSTIFICATIFS
+
+
+JustificatifsDep = Annotated[JustificatifRepository, Depends(get_justificatifs)]
+
+
 def _trancher(
-    profil: ProfilChauffeurType, ecriture_id: str, categorie: str, decisions: DecisionRepository
+    profil: ProfilChauffeurType,
+    ecriture_id: str,
+    categorie: str,
+    decisions: DecisionRepository,
+    decide_par: UserId,
 ) -> Ecriture:
     """doc 17 §9 bloc C : la décision humaine, pour de vrai — déclenche le
     `workflow` testé (doc 05 §5), pas un changement d'état côté React seul.
     Extrait de la route (doc 08 §2 : longueur de fonction) plutôt que fait
-    inline."""
+    inline. `decide_par` est `UTILISATEUR_DEMO` (gestionnaire, pas de login)
+    ou l'identité réelle du chauffeur (Semaine 3, doc 19 §5.6)."""
     ledger, propositions = construire_ledger(profil)
     ecriture = next((e for e in ledger.grand_livre(profil.dossier_id) if e.id == ecriture_id), None)
     if ecriture is None:
@@ -297,12 +340,45 @@ def _trancher(
             categorie=categorie,
             etage_origine=proposition.etage,
             confiance_origine=proposition.confiance,
-            decide_par=UTILISATEUR_DEMO,
+            decide_par=decide_par,
             decide_le=datetime.now(UTC),
         )
     )
     ledger_a_jour = _ledger_avec_decisions(profil, decisions)
     return next(e for e in ledger_a_jour.grand_livre(profil.dossier_id) if e.id == ecriture_id)
+
+
+def _joindre_justificatif(
+    profil: ProfilChauffeurType,
+    ecriture_id: str,
+    fichier: UploadFile,
+    decisions: DecisionRepository,
+    justificatifs: JustificatifRepository,
+) -> Ecriture:
+    """doc 17 §9 Semaine 3, doc 19 §5.7 : « photo de justificatif au fil de
+    l'eau, associée automatiquement à la transaction » — le contenu n'est
+    jamais lu (pas d'OCR, doc 17 §8). Extrait de la route (doc 08 §2),
+    même logique que `_trancher`.
+
+    Lecture synchrone (`fichier.file.read()`, pas `await fichier.read()`) :
+    `_ledger_avec_decisions` appelle `asyncio.run()` en interne
+    (`construire_ledger`, doc 17 §9 bloc A) — une route `async def`
+    tournerait déjà dans une boucle asyncio et ferait échouer ce `run()`
+    imbriqué. `fichier.file` est un objet fichier synchrone standard
+    (`SpooledTemporaryFile`), pas une coroutine — lecture bloquante, mais un
+    JPEG de démo tient en mémoire sans souci."""
+    ledger = _ledger_avec_decisions(profil, decisions)
+    ecriture = next((e for e in ledger.grand_livre(profil.dossier_id) if e.id == ecriture_id), None)
+    if ecriture is None:
+        raise HTTPException(status_code=404, detail=f"Écriture inconnue : {ecriture_id}")
+    if fichier.content_type not in _TYPES_IMAGE_ACCEPTES:
+        raise HTTPException(
+            status_code=400, detail="Seules les photos sont acceptées (jpeg/png/webp/heic)."
+        )
+    contenu = fichier.file.read()
+    extension = Path(fichier.filename or "").suffix or ".jpg"
+    justificatifs.enregistrer(profil.dossier_id, ecriture_id, contenu, extension)
+    return ecriture
 
 
 def _configurer_cors(app: FastAPI) -> None:
@@ -314,10 +390,7 @@ def _configurer_cors(app: FastAPI) -> None:
     )
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
-    _configurer_cors(app)
-
+def _enregistrer_routes_dossiers(app: FastAPI) -> None:
     @app.get("/dossiers", response_model=list[DossierResume])
     def lister_dossiers(decisions: DecisionsDep, comptes: ComptesDep) -> list[DossierResume]:
         return [_resume(profil, decisions, comptes) for profil in PROFILS_DEMO]
@@ -332,12 +405,17 @@ def create_app() -> FastAPI:
         _verifier_acces_dossier(dossier_id, identite)
         return _resume(_profil_par_id(dossier_id), decisions, comptes)
 
+
+def _enregistrer_routes_transactions(app: FastAPI) -> None:
     @app.get("/dossiers/{dossier_id}/transactions", response_model=list[TransactionVue])
     def lister_transactions(
-        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+        dossier_id: str,
+        decisions: DecisionsDep,
+        justificatifs: JustificatifsDep,
+        identite: IdentiteDep,
     ) -> list[TransactionVue]:
         _verifier_acces_dossier(dossier_id, identite)
-        return _transactions_dossier(dossier_id, decisions)
+        return _transactions_dossier(dossier_id, decisions, justificatifs)
 
     @app.post(
         "/dossiers/{dossier_id}/transactions/{ecriture_id}/decision",
@@ -348,11 +426,39 @@ def create_app() -> FastAPI:
         ecriture_id: str,
         entree: DecisionEntree,
         decisions: DecisionsDep,
+        justificatifs: JustificatifsDep,
+        identite: IdentiteDep,
     ) -> TransactionVue:
+        """Gestionnaire (pas de login, `identite` absente → `UTILISATEUR_DEMO`)
+        ou chauffeur qui tranche sa propre écriture (doc 19 §5.6, Semaine 3)
+        — `_verifier_acces_dossier` refuse déjà l'accès à un autre dossier."""
+        _verifier_acces_dossier(dossier_id, identite)
         profil = _profil_par_id(dossier_id)
-        ecriture = _trancher(profil, ecriture_id, entree.categorie, decisions)
-        return _transaction_vue(ecriture)
+        decide_par = identite.user_id if identite is not None else UTILISATEUR_DEMO
+        ecriture = _trancher(profil, ecriture_id, entree.categorie, decisions, decide_par)
+        return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier_id, ecriture_id))
 
+    @app.post(
+        "/dossiers/{dossier_id}/transactions/{ecriture_id}/justificatif",
+        response_model=TransactionVue,
+    )
+    def joindre_justificatif(
+        dossier_id: str,
+        ecriture_id: str,
+        fichier: UploadFile,
+        decisions: DecisionsDep,
+        justificatifs: JustificatifsDep,
+        identite: IdentiteDep,
+    ) -> TransactionVue:
+        """Chauffeur (sa propre transaction) ou gestionnaire (pas de login,
+        accès ouvert) — `_verifier_acces_dossier` fait la distinction."""
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        ecriture = _joindre_justificatif(profil, ecriture_id, fichier, decisions, justificatifs)
+        return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier_id, ecriture_id))
+
+
+def _enregistrer_routes_invitation(app: FastAPI) -> None:
     @app.post("/dossiers/{dossier_id}/inviter", response_model=InvitationVue)
     def inviter_chauffeur(
         dossier_id: str, entree: InvitationEntree, comptes: ComptesDep
@@ -371,6 +477,13 @@ def create_app() -> FastAPI:
             statut=_statut_invitation_vue(invitation.statut),
         )
 
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
+    _configurer_cors(app)
+    _enregistrer_routes_dossiers(app)
+    _enregistrer_routes_transactions(app)
+    _enregistrer_routes_invitation(app)
     return app
 
 
