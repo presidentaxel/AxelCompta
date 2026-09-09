@@ -107,22 +107,12 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/pytest -q -m integration
 ```
 
-**Mise à jour 2026-09-08** : `pytest`, `ruff check .` et `lint-imports`
-passent à 0 erreur (182 tests rapides). **Un écart pré-existant trouvé en
-vérifiant, non corrigé ici (hors scope du lot en cours)** :
-`mypy axelcompta tests migrations` remonte 16 erreurs dans des fichiers de
-test non liés à ce lot (`test_chauffeurs_demo.py`,
-`test_demo_chauffeurs_type.py` — `mypy axelcompta` seul, sans `tests`,
-reste propre) — annotations manquantes sur un helper de test et sa
-cascade d'appels, un export implicite non déclaré, et un narrowing que
-mypy ne peut pas déduire seul (`ResultatReconciliation.transaction` reste
-`Optional` à ses yeux même après un filtre `etat is RECONCILIE`). La
-mention « 0 erreur » ci-dessous date du 2026-09-05 et n'est plus exacte
-sur ce point précis — à traiter séparément.
-
-**Mise à jour 2026-09-09** : `ruff format --check .` remonte de nouveau
-à 0 fichier — les 4 fichiers jamais reformatés (mentionnés ci-dessus
-jusqu'au 2026-09-08) ont été rattrapés.
+**Mise à jour 2026-09-09** : `pytest`, `mypy axelcompta tests migrations`,
+`ruff check .`, `ruff format --check .` et `lint-imports` passent tous à
+0 erreur (182 tests rapides). Les deux écarts trouvés le 2026-09-08 (16
+erreurs mypy dans des fichiers de test — annotations manquantes,
+export implicite, narrowing `Optional` que mypy ne pouvait pas déduire
+seul ; 4 fichiers jamais reformatés) sont corrigés.
 
 ## Tests : un dossier miroir par module (doc 08 §3)
 
