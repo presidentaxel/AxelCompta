@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { JustificatifPhoto } from "@/components/JustificatifPhoto";
+import { QuestionCategorisation } from "@/components/QuestionCategorisation";
+import { SignatureMock } from "@/components/SignatureMock";
 import { fetchAvecAuthChauffeur, obtenirSession } from "@/lib/auth-chauffeur";
 import { formatMontant } from "@/lib/format";
 import type { DossierResume, TransactionVue } from "@/lib/types";
@@ -12,10 +15,13 @@ type Chargement =
   | { statut: "pret"; dossier: DossierResume; transactions: TransactionVue[] }
   | { statut: "erreur"; message: string };
 
-/** Vue chauffeur minimale (doc 19 §5.5 : « vocabulaire simple, pas le
- * vocabulaire comptable pro de la file de revue gestionnaire ») — lecture
- * seule. Répondre à une question de catégorisation, prendre une photo de
- * justificatif et signer restent la Semaine 3 du doc 17, pas cette page.
+/** Vue chauffeur (doc 19 §5.5 : « vocabulaire simple, pas le vocabulaire
+ * comptable pro de la file de revue gestionnaire »). doc 17 §9 Semaine 3 :
+ * transactions catégorisées, question de catégorisation (usage_personnel
+ * ou non, `QuestionCategorisation`), photo de justificatif
+ * (`JustificatifPhoto`, pas d'OCR) et signature mockée (`SignatureMock`,
+ * « vrai faux », décidé 2026-09-07) — les trois étapes qui manquaient
+ * encore à cette page.
  */
 export default function DossierChauffeurPage({ params }: { params: { dossierId: string } }) {
   const router = useRouter();
@@ -41,6 +47,19 @@ export default function DossierChauffeurPage({ params }: { params: { dossierId: 
       .catch(() => setChargement({ statut: "erreur", message: "Impossible de charger vos données." }));
   }, [params.dossierId, router]);
 
+  function remplacerTransaction(transaction: TransactionVue) {
+    setChargement((etat) =>
+      etat.statut === "pret"
+        ? {
+            ...etat,
+            transactions: etat.transactions.map((t) =>
+              t.ecriture_id === transaction.ecriture_id ? transaction : t,
+            ),
+          }
+        : etat,
+    );
+  }
+
   if (chargement.statut === "en_cours") {
     return <p className="text-sm text-subtle">Chargement…</p>;
   }
@@ -51,34 +70,93 @@ export default function DossierChauffeurPage({ params }: { params: { dossierId: 
   return (
     <div>
       <h1 className="mb-1 text-xl font-bold text-ink">Bonjour {chargement.dossier.nom}</h1>
-      <p className="mb-6 text-sm text-subtle">Voici vos dernières transactions.</p>
-      <ul className="space-y-2">
+      <p className="mb-3 text-sm text-subtle">Voici vos dernières transactions.</p>
+      <ConnexionBancaireBadge mode={chargement.dossier.mode_acces_bancaire} />
+      <ul className="mt-4 space-y-2">
         {chargement.transactions.map((transaction) => (
-          <TransactionLigne key={transaction.ecriture_id} transaction={transaction} />
+          <TransactionLigne
+            key={transaction.ecriture_id}
+            dossierId={params.dossierId}
+            transaction={transaction}
+            onChange={remplacerTransaction}
+          />
         ))}
       </ul>
+      <div className="mt-6">
+        <SignatureMock nomDocument="Liasse de l'exercice en cours" />
+      </div>
     </div>
   );
 }
 
-function TransactionLigne({ transaction }: { transaction: TransactionVue }) {
+function ConnexionBancaireBadge({ mode }: { mode: DossierResume["mode_acces_bancaire"] }) {
+  if (mode === "gestionnaire") {
+    return (
+      <p className="text-xs text-subtle">
+        Connexion bancaire : gérée par votre gestionnaire, rien à faire de votre côté.
+      </p>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 text-xs text-subtle">
+      <span>Connexion bancaire : à relier vous-même.</span>
+      <button
+        type="button"
+        disabled
+        title="Bientôt disponible — doc 19 §4"
+        className="rounded-md border border-border px-2 py-0.5 font-semibold text-subtle opacity-60"
+      >
+        Connecter ma banque (bientôt)
+      </button>
+    </div>
+  );
+}
+
+function TransactionLigne({
+  dossierId,
+  transaction,
+  onChange,
+}: {
+  dossierId: string;
+  transaction: TransactionVue;
+  onChange: (transaction: TransactionVue) => void;
+}) {
   const negatif = transaction.montant_cts < 0;
   const aVerifier = transaction.statut === "à trancher";
   return (
-    <li className="flex items-center justify-between rounded-md border border-border bg-canvas px-3 py-2">
-      <div>
-        <p className="text-sm text-ink">{transaction.libelle}</p>
-        <p className="text-xs text-subtle">
-          {transaction.date} · {aVerifier ? "à vérifier" : "traité"}
-        </p>
+    <li className="rounded-md border border-border bg-canvas px-3 py-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-ink">{transaction.libelle}</p>
+          <p className="text-xs text-subtle">
+            {transaction.date} · {aVerifier ? "à vérifier" : "traité"}
+          </p>
+        </div>
+        <span
+          className={`tabular-nums text-sm font-medium ${
+            negatif ? "text-amount-negative" : "text-amount-positive"
+          }`}
+        >
+          {formatMontant(transaction.montant_cts)}
+        </span>
       </div>
-      <span
-        className={`tabular-nums text-sm font-medium ${
-          negatif ? "text-amount-negative" : "text-amount-positive"
-        }`}
-      >
-        {formatMontant(transaction.montant_cts)}
-      </span>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
+        <JustificatifPhoto
+          dossierId={dossierId}
+          ecritureId={transaction.ecriture_id}
+          aJustificatif={transaction.a_justificatif}
+          onJointe={onChange}
+        />
+        {aVerifier && (
+          <div className="w-full sm:w-auto sm:flex-1">
+            <QuestionCategorisation
+              dossierId={dossierId}
+              ecritureId={transaction.ecriture_id}
+              onResolu={onChange}
+            />
+          </div>
+        )}
+      </div>
     </li>
   );
 }

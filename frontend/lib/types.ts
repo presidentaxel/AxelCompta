@@ -28,4 +28,5 @@ export type TransactionVue = {
   montant_cts: number;
   compte: string;
   statut: StatutTransaction;
+  a_justificatif: boolean; // doc 17 §9 Semaine 3 : photo jointe (contenu non lu)
 };

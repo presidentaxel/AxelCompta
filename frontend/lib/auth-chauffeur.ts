@@ -14,6 +14,9 @@
  * jamais une exception qui casse la page.
  */
 
+import { ApiError } from "./api";
+import type { TransactionVue } from "./types";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const CLE_SESSION = "axelcompta_session_chauffeur";
@@ -169,4 +172,65 @@ export async function fetchAvecAuthChauffeur<T>(path: string): Promise<T> {
     throw new ErreurAuthChauffeur(`API démo (${path}) : HTTP ${reponse.status}`);
   }
   return (await reponse.json()) as T;
+}
+
+/** doc 17 §9 Semaine 3 : le chauffeur tranche sa propre écriture (question
+ * de catégorisation, doc 19 §5.6) — même endpoint que le gestionnaire
+ * (`trancherTransaction`, lib/api.ts), avec le jeton en plus pour que le
+ * serveur attribue la décision à la vraie identité (decide_par). */
+export async function trancherTransactionChauffeur(
+  dossierId: string,
+  ecritureId: string,
+  categorie: string,
+): Promise<TransactionVue> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const reponse = await fetch(
+    `${baseUrl}/dossiers/${dossierId}/transactions/${ecritureId}/decision`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+      body: JSON.stringify({ categorie }),
+    },
+  );
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as TransactionVue;
+}
+
+/** doc 17 §9 Semaine 3, doc 19 §5.7 : photo de justificatif jointe par le
+ * chauffeur — upload multipart, jamais lue côté serveur (pas d'OCR). */
+export async function joindreJustificatifChauffeur(
+  dossierId: string,
+  ecritureId: string,
+  fichier: File,
+): Promise<TransactionVue> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const corpsFormulaire = new FormData();
+  corpsFormulaire.append("fichier", fichier);
+  const reponse = await fetch(
+    `${baseUrl}/dossiers/${dossierId}/transactions/${ecritureId}/justificatif`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      body: corpsFormulaire,
+    },
+  );
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as TransactionVue;
 }
