@@ -123,8 +123,7 @@ def _ledger_avec_decisions(
     seule chose qui doit survivre entre deux requêtes — pas le ledger."""
     ledger, _propositions = construire_ledger(profil)
     dernieres_decisions = {
-        decision.ecriture_id: decision
-        for decision in decisions.lister_decisions(profil.dossier_id)
+        decision.ecriture_id: decision for decision in decisions.lister_decisions(profil.dossier_id)
     }
     if not dernieres_decisions:
         return ledger
@@ -269,9 +268,7 @@ def _trancher(
     Extrait de la route (doc 08 §2 : longueur de fonction) plutôt que fait
     inline."""
     ledger, propositions = construire_ledger(profil)
-    ecriture = next(
-        (e for e in ledger.grand_livre(profil.dossier_id) if e.id == ecriture_id), None
-    )
+    ecriture = next((e for e in ledger.grand_livre(profil.dossier_id) if e.id == ecriture_id), None)
     if ecriture is None:
         raise HTTPException(status_code=404, detail=f"Écriture inconnue : {ecriture_id}")
     if decisions.decision_courante(profil.dossier_id, EcritureId(ecriture_id)) is not None:

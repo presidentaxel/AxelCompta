@@ -452,9 +452,7 @@ PROFIL_YANIS = ProfilChauffeurType(
         # loueur jusqu'au jour 180, nouveau loueur/montant ensuite — les deux
         # matchent la même règle du pack (`\bald\b|arval|...`).
         DepenseRecurrente("PRLV ALD AUTOMOTIVE LOA", (378_00, 378_00), 30, fin_relatif=180),
-        DepenseRecurrente(
-            "PRLV ARVAL LOCATION LOA", (410_00, 410_00), 30, debut_relatif=180
-        ),
+        DepenseRecurrente("PRLV ARVAL LOCATION LOA", (410_00, 410_00), 30, debut_relatif=180),
     ),
     depenses_ponctuelles=(DepensePonctuelle("AMENDE.GOUV.FR", 90_00, jour_relatif=100),),
     conges=(Conges(debut_relatif=120, duree_jours=8),),

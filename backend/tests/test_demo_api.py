@@ -181,9 +181,7 @@ def test_trancher_deux_fois_la_meme_ecriture_est_refuse() -> None:
 def test_trancher_une_ecriture_deja_validee_est_refuse() -> None:
     client = _client()
     validees = [
-        t
-        for t in client.get("/dossiers/DEMO_karim/transactions").json()
-        if t["statut"] == "validé"
+        t for t in client.get("/dossiers/DEMO_karim/transactions").json() if t["statut"] == "validé"
     ]
     reponse = client.post(
         f"/dossiers/DEMO_karim/transactions/{validees[0]['ecriture_id']}/decision",

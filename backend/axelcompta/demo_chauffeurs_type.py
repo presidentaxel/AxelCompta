@@ -139,9 +139,7 @@ def _executer_un_chauffeur(profil: ProfilChauffeurType, racine_sortie: Path) -> 
     # déterministe : pas de coût réel à regénérer une deuxième fois).
     transactions, settlements = asyncio.run(_recuperer_donnees(profil))
     nb_reconcilies = sum(
-        1
-        for r in reconcilier(transactions, settlements)
-        if r.etat is EtatReconciliation.RECONCILIE
+        1 for r in reconcilier(transactions, settlements) if r.etat is EtatReconciliation.RECONCILIE
     )
 
     ledger, _propositions = construire_ledger(profil)
