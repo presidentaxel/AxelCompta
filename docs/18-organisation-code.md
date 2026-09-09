@@ -1,8 +1,8 @@
 # 18 — Organisation du code
 
-> Statut : arborescence et documentation créées, **aucun code produit** —
-> conforme au garde-fou du [README](../README.md) et du [doc 12 §0.1](12-roadmap-todo.md)
-> (relecture doc + top départ de Louis encore à venir). Dernière mise à jour : 2026-09-05.
+> Statut : moteur démo + deux interfaces (gestionnaire, chauffeur) en
+> construction, voir état détaillé ci-dessous. Dernière mise à jour :
+> 2026-09-09.
 
 Ce doc fait le lien entre l'arborescence réelle du repo (`backend/`,
 `frontend/`) et le découpage en modules défini en [doc 03 §3](03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
@@ -34,7 +34,7 @@ AxeLCompta/
 │   ├── ledger/                # ❤️ actif démo — moteur pur, golden test doc 17 §7
 │   ├── closing/                # réduit démo — clôture minimale
 │   ├── filings/                # réduit démo — PDF simplifié (V1 : FEC/EDI/INPI)
-│   ├── workflow/                # non prévu démo (revue humaine, signature — V1 seulement)
+│   ├── workflow/                # actif démo — décisions humaines + revue (doc 17 §9 blocs A/C, V1 : + signature)
 │   ├── api/                    # réduit démo — pas d'auth (V1 : auth/MFA/permissions)
 │   └── ml/                      # non prévu démo — modèle déjà entraîné réutilisé tel quel
 ├── frontend/                   # actif démo (pivot 2026-09-06) — Next.js réel, lecture seule (V1 : écriture + auth)
@@ -184,3 +184,41 @@ Les deux corrections sont des extensions du moteur, pas des contournements —
 testées (`tests/ingestion/test_ecritures_settlement.py`,
 `tests/ingestion/providers/test_chauffeurs_demo.py`), inchangées pour les
 dossiers existants (comportement par défaut identique).
+
+**Rattrapage (2026-09-09) : les blocs A/B/C de la Semaine 2 (doc 17 §9,
+faits entre le 2026-09-06 et le 2026-09-08) manquaient ici — ce doc
+s'était arrêté à la Semaine 1 alors que trois jours de travail supplémentaires
+avaient déjà eu lieu.** Détail complet dans doc 17 §9 ; ce qui change pour
+la correspondance code ↔ modules :
+
+- **`workflow/`** passe de « non prévu démo » à **actif démo** :
+  `decisions.py` (`DecisionHumaine` immuable + `AnnotationDev`),
+  `decisions_memory.py`/`decisions_postgres.py`/`orm.py` (persistance
+  réelle Postgres, migration `55cf8c93e5bf`, doc 17 §9 bloc A) et
+  `revue.py` (reclassification 471 → compte réel, bloc C). `auto_accept.py`
+  reste en place comme fallback (doc 17 §5), plus comme unique chemin.
+- **Comptes et auth** : `demo_comptes.py`/`demo_comptes_memory.py`
+  (invitation gestionnaire → chauffeur via Supabase Auth) et
+  `demo_auth.py` (vérification des jetons chauffeur, JWKS/ES256) —
+  **composition roots de démo**, comme `demo_api.py` et
+  `demo_chauffeurs_type.py`, donc délibérément **hors** du découpage
+  doc 03 §3 et de son graphe de dépendances : `tenants`/`api` restent le
+  point d'entrée V1 pour les vrais comptes (toujours via Supabase, doc
+  ADR-003 mis à jour le 2026-09-08), pas ces fichiers de démo.
+- **`demo_api.py`** gagne `POST /dossiers/{id}/transactions/{ecriture_id}/decision`
+  (bloc C) et `POST /dossiers/{id}/inviter` (bloc B) — toujours une
+  composition root distincte de `axelcompta/api/` (`app.py`, 15 lignes,
+  toujours un squelette, inchangé par ce lot).
+- **`frontend/`** gagne `TrancherActions.tsx` (bouton de revue), 
+  `InvitationActions.tsx` (invitation), et le groupe de routes
+  `app/chauffeur/*` + `lib/auth-chauffeur.ts` (connexion chauffeur,
+  appels REST directs à Supabase Auth, jamais le SDK JS — même règle
+  qu'côté backend).
+
+**Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
+(chantier séparé, pas commencé — `UTILISATEUR_DEMO` reste en dur dans
+`_trancher()` tant qu'il n'existe pas), parcours mobile chauffeur complet
+(photo, question de catégorisation, signature — doc 17 §9 Semaine 3),
+écran `chauffeur_direct` de connexion bancaire (aujourd'hui seulement un
+champ de config + badge), clôture/liasse exposées dans l'UI gestionnaire
+et dossier greffe/INPI (Semaine 4, spike de schéma non fait).

@@ -236,6 +236,13 @@ normal de quelques jours à compter de là, pas un signe que la relance s'est
 perdue. Ne pas relancer une deuxième fois avant d'avoir laissé passer ce
 délai.
 
+**Réponse reçue (2026-09-09).** Pierre doit renvoyer des `curl` (à
+confirmer lesquels — vraisemblablement des appels fonctionnels de son côté,
+ou un jeton/une config à retester) **vendredi 2026-09-11**. Le token reste
+401 jusque-là — rien à retester avant cette date. Session suivante :
+vérifier si les curls sont arrivés et reprendre le retest de ce §7 à partir
+d'eux.
+
 ---
 
 ## 8. Accès Bridge direct (piste parallèle, non bloquante, après le pilote Digifactory)
