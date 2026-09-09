@@ -33,8 +33,8 @@ from axelcompta.filings.fec import exporter_fec
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.ecritures_settlement import construire_ecriture_settlement
 from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
+from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO as PROFILS_DEMO
 from axelcompta.ingestion.providers.chauffeurs_demo import (
-    PROFILS_DEMO,
     ChauffeurTypeProvider,
     ProfilChauffeurType,
 )

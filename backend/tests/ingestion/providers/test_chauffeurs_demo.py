@@ -15,12 +15,14 @@ import pytest
 
 from axelcompta.core.ids import TenantId
 from axelcompta.ingestion.ecritures_settlement import construire_ecriture_settlement
+from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
 from axelcompta.ingestion.providers.chauffeurs_demo import (
     PROFIL_KARIM,
     PROFIL_SOPHIE,
     PROFIL_YANIS,
     PROFILS_DEMO,
     ChauffeurTypeProvider,
+    ProfilChauffeurType,
 )
 from axelcompta.ingestion.reconciliation import EtatReconciliation, reconcilier
 from axelcompta.ledger.invariants import solde
@@ -29,7 +31,9 @@ TENANT_DEMO = TenantId("demo")
 FENETRE_JOURS = 400
 
 
-def _donnees(profil):
+def _donnees(
+    profil: ProfilChauffeurType,
+) -> tuple[tuple[NormalizedTransaction, ...], tuple[PlatformSettlement, ...]]:
     provider = ChauffeurTypeProvider(profil)
     depuis, jusqua = profil.date_debut, profil.date_debut + timedelta(days=FENETRE_JOURS)
     transactions = asyncio.run(
@@ -47,7 +51,7 @@ def test_trois_profils_distincts_avec_dossier_id_uniques() -> None:
 
 
 @pytest.mark.parametrize("profil", PROFILS_DEMO, ids=lambda p: p.nom)
-def test_generation_deterministe(profil) -> None:
+def test_generation_deterministe(profil: ProfilChauffeurType) -> None:
     transactions_1, settlements_1 = _donnees(profil)
     transactions_2, settlements_2 = _donnees(profil)
     assert transactions_1 == transactions_2
@@ -55,7 +59,7 @@ def test_generation_deterministe(profil) -> None:
 
 
 @pytest.mark.parametrize("profil", PROFILS_DEMO, ids=lambda p: p.nom)
-def test_volume_coherent_avec_jusqua_200_jours_actifs(profil) -> None:
+def test_volume_coherent_avec_jusqua_200_jours_actifs(profil: ProfilChauffeurType) -> None:
     """Louis (2026-09-06) : « jusqu'à 5/6 courses/jour ... sur 200 jours »."""
     transactions, settlements = _donnees(profil)
     assert len(settlements) >= 25  # ~200 jours actifs / 7 jours ≈ 28-33 semaines
@@ -63,7 +67,7 @@ def test_volume_coherent_avec_jusqua_200_jours_actifs(profil) -> None:
 
 
 @pytest.mark.parametrize("profil", PROFILS_DEMO, ids=lambda p: p.nom)
-def test_reconciliation_conforme_au_retard_configure(profil) -> None:
+def test_reconciliation_conforme_au_retard_configure(profil: ProfilChauffeurType) -> None:
     """Tous les settlements se réconcilient, **sauf** celui visé par
     `retard_reglement` (Karim, doc 13 §4.2/§4.3) — exercer l'état
     `en_attente_banque` est le but, pas un raté de la génération."""
@@ -77,7 +81,9 @@ def test_reconciliation_conforme_au_retard_configure(profil) -> None:
 
 
 @pytest.mark.parametrize("profil", PROFILS_DEMO, ids=lambda p: p.nom)
-def test_chaque_ecriture_de_settlement_reconciliee_est_equilibree(profil) -> None:
+def test_chaque_ecriture_de_settlement_reconciliee_est_equilibree(
+    profil: ProfilChauffeurType,
+) -> None:
     """Le vrai test demandé : les calculs (pas juste la génération) tiennent
     sur les 3 régimes (assujetti Karim/Sophie, franchise Yanis) — sur tout
     settlement effectivement réconcilié (le retard de Karim n'en produit
@@ -87,6 +93,11 @@ def test_chaque_ecriture_de_settlement_reconciliee_est_equilibree(profil) -> Non
     reconcilies = [r for r in resultats if r.etat is EtatReconciliation.RECONCILIE]
     assert reconcilies  # au moins un, sinon le test ne prouve rien
     for numero, resultat in enumerate(reconcilies, start=1):
+        # resultat.transaction n'est Optional que dans le type de
+        # ResultatReconciliation (rempli seulement si RECONCILIE) — le
+        # filtre ci-dessus garantit qu'il est présent ici, mypy ne peut
+        # pas le déduire lui-même de ce filtre.
+        assert resultat.transaction is not None
         ecriture = construire_ecriture_settlement(
             resultat.transaction,
             resultat.settlement,
@@ -100,8 +111,13 @@ def test_chaque_ecriture_de_settlement_reconciliee_est_equilibree(profil) -> Non
 def test_yanis_est_bien_en_franchise_sans_tva_sur_commission() -> None:
     transactions, settlements = _donnees(PROFIL_YANIS)
     resultats = reconcilier(transactions, settlements)
+    premier_resultat = resultats[0]
+    assert premier_resultat.transaction is not None
     ecriture = construire_ecriture_settlement(
-        resultats[0].transaction, resultats[0].settlement, 1, tva_recettes_regime="franchise"
+        premier_resultat.transaction,
+        premier_resultat.settlement,
+        1,
+        tva_recettes_regime="franchise",
     )
     assert not any(ligne.compte in ("44566", "44571") for ligne in ecriture.lignes)
 

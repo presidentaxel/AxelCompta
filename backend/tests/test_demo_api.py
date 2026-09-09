@@ -111,7 +111,7 @@ def test_montant_settlement_est_signe_positif_cote_encaissement() -> None:
 
 def _premiere_a_trancher(client: TestClient, dossier_id: str) -> str:
     transactions = client.get(f"/dossiers/{dossier_id}/transactions").json()
-    return next(t["ecriture_id"] for t in transactions if t["statut"] == "à trancher")
+    return str(next(t["ecriture_id"] for t in transactions if t["statut"] == "à trancher"))
 
 
 def test_trancher_en_usage_personnel_reclasse_vers_le_compte_455() -> None:
