@@ -1015,6 +1015,14 @@ les colonnes numériques.
 
 ## Known Gaps
 
+- **Ce fichier est une spec de tokens, pas un design system implémenté**
+  (constaté 2026-09-09, doc 17 §9 Semaine 4bis) : `button-*`, `text-input`,
+  les variantes de `card`/`review-card` sont documentées ici mais
+  n'existent comme composants React nulle part — seul `Badge.tsx` existe
+  dans `frontend/components/`. Chaque écran réinvente ses propres classes
+  Tailwind. Une V1 réelle (composants qui implémentent ces tokens) +
+  une passe UX/UI sont demandées par Louis avant la démo — pas encore
+  scopées ni estimées, voir doc 17 pour le détail.
 - Thème sombre (dark mode global) — prévu en phase 5. La sidebar sombre n'est
   pas un dark mode, c'est un choix délibéré de contraste de navigation.
 - États disabled non documentés sur les boutons et inputs — à ajouter quand

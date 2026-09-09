@@ -608,6 +608,49 @@ se connecter.
   de traiter ça comme un renderer de plus à côté des autres.
 - Répétition avec un run pré-cuit en secours, comme dans l'ancien plan.
 
+### Semaine 4bis — Design system V1 + passe UX/UI (ajouté 2026-09-09)
+
+**Demande de Louis (2026-09-09)** : avant la démo, il faut une vraie V1
+d'un design system (pas juste la spec de tokens) et une passe UX/UI pour
+voir ce qu'on peut améliorer — ajouté ici explicitement pour ne pas s'y
+prendre trop tard (« qu'on se mette pas dans le mur »). Pas encore scopé
+en détail ni estimé — cette section capture le constat et l'intention,
+pas un plan d'exécution figé.
+
+**Écart réel trouvé en regardant le code (pas juste supposé)** :
+[DESIGN.md](../DESIGN.md) (v1.0) documente déjà une spec de composants
+complète — `button-primary/secondary/ghost/danger`, `text-input`,
+plusieurs variantes de `card`, `review-card`, tous les `badge-*` — mais
+**aucun composant React ne les implémente**, à une exception près
+(`frontend/components/Badge.tsx`, seul composant partagé qui existe).
+Tout le reste construit cette session (`TrancherActions.tsx`,
+`InvitationActions.tsx`, `QuestionCategorisation.tsx`,
+`JustificatifPhoto.tsx`, `SignatureMock.tsx`) et les pages elles-mêmes
+réinventent chacune leurs propres classes Tailwind au lieu d'importer un
+composant partagé — un bouton "primaire" n'est nulle part le même
+`className` d'un fichier à l'autre. Ce n'est pas une improvisation isolée
+d'aujourd'hui : c'est l'état du frontend depuis le début de la démo,
+juste plus visible maintenant qu'il y a plus d'écrans.
+
+**Ce que ça implique, dans l'ordre** (à confirmer/prioriser avec Louis,
+pas décidé ici) :
+1. **V1 du design system = de vrais composants React** qui implémentent
+   les tokens déjà écrits dans DESIGN.md (`Button.tsx`, `Card.tsx`,
+   `TextInput.tsx`, les variantes de badge manquantes…) — combler l'écart
+   entre la spec et le code, pas réinventer la spec.
+2. Migrer les écrans existants (gestionnaire : dashboard, fiche dossier ;
+   chauffeur : login, transactions) sur ces composants plutôt que sur
+   leurs classes ad hoc actuelles.
+3. **Une fois seulement** la V1 en place : la passe UX/UI proprement dite
+   (revue visuelle des écrans réels, pas des maquettes) — c'est là que
+   « voir ce qu'on peut faire » prend sens, sur une base cohérente plutôt
+   qu'écran par écran sur du code qui sera de toute façon remplacé à
+   l'étape 2.
+
+**Pas fait ici** : aucun composant n'a été créé pour cette section, ni
+estimation chiffrée — l'écart est documenté, la priorisation attend
+Louis (avant Semaine 4 ? en parallèle ? après la démo ?).
+
 ### Estimation globale et mise en garde sur les dates
 
 **~8 à 11 jours de travail effectif** (A+B+C ≈ 3,5-4j, semaine 3 ≈ 1,5j,
@@ -618,7 +661,9 @@ capacité). Les labels « Semaine 3 »/« Semaine 4 » sont conservés pour ne
 pas casser les renvois déjà écrits ailleurs (`demo_api.py`,
 `frontend/README.md`, `workflow/README.md`) mais **ne correspondent à
 aucune semaine calendaire précise** — à traiter comme des jalons de
-contenu, pas des dates.
+contenu, pas des dates. **N'inclut pas la Semaine 4bis** ci-dessus
+(design system V1 + passe UX/UI, ajoutée le 2026-09-09, pas encore
+estimée) — à chiffrer une fois le périmètre précisé avec Louis.
 
 ## 10. Risques et mitigations
 
@@ -631,6 +676,7 @@ contenu, pas des dates.
 | Schéma du dossier greffe/INPI inconnu (aucune doc dans ce repo, contrairement au CERFA 2065 qui avait un vrai formulaire à overlayer) | Timeboxer un spike dédié (§9, 1-2j) avant d'estimer le reste — ne pas découvrir le problème en plein codage comme pour Digifactory (doc 16 §7) |
 | Supabase Auth (nouveau, jamais utilisé dans ce projet) prend plus de temps que prévu à intégrer | Fallback : compte unique pré-créé par profil (Karim/Sophie/Yanis) sans vrai flux d'invitation par email si le temps manque — l'essentiel à montrer est « le compte existe et fonctionne », pas le parcours d'inscription complet |
 | Persistance des décisions humaines mal isolée du reste (recalculé à la volée) fait resurgir une décision « oubliée » à la relecture suivante | Tests dédiés sur le stockage (bloc A) avant de brancher l'écran de revue (bloc C) — même logique que les golden tests existants |
+| Design system V1 + passe UX/UI (§9 Semaine 4bis) pas scopée à temps, découverte en dernière minute avant la démo | Écart déjà documenté maintenant (2026-09-09), pas d'attendre la répétition pour le découvrir — reste à prioriser avec Louis (avant/en parallèle/après le reste de Semaine 4) |
 
 ## 11. Golden tests
 
