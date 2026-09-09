@@ -215,10 +215,18 @@ la correspondance code ↔ modules :
   appels REST directs à Supabase Auth, jamais le SDK JS — même règle
   qu'côté backend).
 
+**Rattrapage (2026-09-09) : Semaine 3 (doc 17 §9) faite** — parcours
+mobile chauffeur complet (question de catégorisation, photo de
+justificatif, signature mockée), voir doc 17 §9 pour le détail. À cette
+occasion, `_trancher()` a été ouvert au chauffeur authentifié (plus
+seulement gestionnaire) : `UTILISATEUR_DEMO` reste en dur uniquement
+pour le chemin gestionnaire (toujours sans login), pas pour le chauffeur
+qui est maintenant identifié par son vrai `user_id` Supabase.
+`demo_justificatifs.py` (nouveau, composition root de démo) tient le
+même rôle que `demo_comptes.py`/`demo_auth.py` — hors doc 03 §3.
+
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
-(chantier séparé, pas commencé — `UTILISATEUR_DEMO` reste en dur dans
-`_trancher()` tant qu'il n'existe pas), parcours mobile chauffeur complet
-(photo, question de catégorisation, signature — doc 17 §9 Semaine 3),
-écran `chauffeur_direct` de connexion bancaire (aujourd'hui seulement un
-champ de config + badge), clôture/liasse exposées dans l'UI gestionnaire
-et dossier greffe/INPI (Semaine 4, spike de schéma non fait).
+(chantier séparé, pas commencé), écran `chauffeur_direct` de connexion
+bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), clôture/
+liasse exposées dans l'UI gestionnaire et dossier greffe/INPI (Semaine 4,
+spike de schéma non fait).

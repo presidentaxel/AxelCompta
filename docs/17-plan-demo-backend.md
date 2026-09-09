@@ -544,6 +544,53 @@ se connecter.
 
 **Estimation : ~1,5 jour.**
 
+> **Fait (2026-09-09)** — question de catégorisation, photo, signature.
+>
+> **Décidé avec Louis avant de coder** : Karim (le profil « sans fausse
+> alerte », doc 17 §4.1) n'a par construction aucune écriture à trancher —
+> démontrer la question de catégorisation sur lui n'aurait rien à
+> montrer. Plutôt que d'ajouter une dépense ambiguë à Karim (aurait
+> contredit son statut documenté de cas nominal), **`trancher()` a été
+> ouvert au chauffeur authentifié** (`demo_api.py` : `_verifier_acces_dossier`
+> déjà en place côté lecture, étendu à cette route ; `decide_par` devient
+> l'identité réelle du chauffeur au lieu de `UTILISATEUR_DEMO` quand il y
+> en a une). C'est **Sophie** (qui a les dépenses ambiguës, §4.2) qu'il
+> faut utiliser pour démontrer ce parcours en vrai, pas Karim — les deux
+> peuvent avoir un compte chauffeur, `mode_acces_bancaire` ne conditionne
+> pas qui a un login (doc 19 §4 vs §3.1, deux notions distinctes).
+>
+> - `QuestionCategorisation.tsx` : « Cette dépense est-elle personnelle ? »
+>   Oui/Non — vocabulaire simple (doc 19 §5.5), même endpoint de décision
+>   que le gestionnaire (`TrancherActions.tsx`), pas un nouveau mécanisme.
+> - `demo_justificatifs.py` (nouveau, composition root de démo comme
+>   `demo_comptes.py`/`demo_auth.py`, hors doc 03 §3) + endpoint
+>   `POST .../justificatif` (upload multipart, content-type validé,
+>   écriture vérifiée) + `JustificatifPhoto.tsx` (input caché,
+>   `capture="environment"` pour ouvrir l'appareil photo mobile). Le
+>   contenu n'est jamais lu (pas d'OCR, doc 17 §8) — `TransactionVue`
+>   gagne juste `a_justificatif: bool`.
+> - `SignatureMock.tsx` : « vrai faux » (décidé 2026-09-07), état local
+>   seulement, pas persisté — ce n'est pas une `DecisionHumaine` à tracer.
+> - Badge de connexion bancaire selon `mode_acces_bancaire` sur la page
+>   chauffeur : message informatif (`gestionnaire`) ou bouton désactivé
+>   « bientôt » (`chauffeur_direct`, toujours pas de vraie connexion —
+>   Digifactory reste bloqué, doc 16 §7).
+>
+> Vérifié en vrai navigateur, pas seulement `tsc`/tests : connexion
+> Sophie (compte Supabase de test créé via `/admin/users`, jamais
+> `/invite`), question résolue en direct (Zara 471→455, `decide_par` =
+> l'UUID Supabase réel de Sophie en base — vérifié en SQL direct, pas
+> `gestionnaire_demo`), photo réellement écrite sur disque (confirmée
+> côté fichier + refus 403 testé sur le dossier de Karim), signature
+> mockée, badge `chauffeur_direct` vérifié sur Karim. Comptes de test
+> supprimés après coup (projet Supabase resté vide, aucun coût d'e-mail).
+>
+> **Pas fait, hors scope de ce lot** : la connexion bancaire
+> `chauffeur_direct` elle-même (le bouton est un stub désactivé, pas un
+> vrai flux — toujours conditionné à Digifactory ou à un canal direct,
+> doc 16 §8) ; gestion des rejets d'upload (taille de fichier, formats
+> exotiques) au-delà de la validation du content-type.
+
 ### Semaine 4 — Clôture, liasse, dossier greffe, répétition
 
 - Clôture + liasse + CERFA 2065 + FEC/grand livre/balance sur les 3

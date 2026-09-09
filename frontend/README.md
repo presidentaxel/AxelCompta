@@ -48,17 +48,20 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
   Next.js + Tailwind, tokens `DESIGN.md`, consomme `axelcompta.demo_api`
   en direct. Fait côté gestionnaire : dashboard, fiche dossier, file de
   revue réelle sur la dépense de Sophie (bloc C), invitation chauffeur
-  (bloc B). **Interface chauffeur faite en partie (2026-09-08)** :
-  `app/chauffeur/{login,accepter-invitation,[dossierId]}` — connexion
-  réelle via Supabase Auth (appels REST directs, pas le SDK JS), session
-  en `localStorage`, vue transactions simplifiée en lecture seule. Routage
-  restructuré en groupe `app/(gestionnaire)/` pour que la Sidebar/TopBar
-  ne s'applique qu'aux routes gestionnaire (doc 19 §7 : « même socle, deux
-  habillages ») — sans effet sur les URLs. **Pas fait** : le parcours
-  mobile complet (question de catégorisation, photo, signature — Semaine
-  3 du doc 17), et la connexion bancaire directe `chauffeur_direct`
-  elle-même (le réglage est visible en badge, pas encore d'écran de
-  connexion bancaire chauffeur).
+  (bloc B). Interface chauffeur : connexion réelle via Supabase Auth
+  (appels REST directs, pas le SDK JS), session en `localStorage`.
+  Routage restructuré en groupe `app/(gestionnaire)/` pour que la
+  Sidebar/TopBar ne s'applique qu'aux routes gestionnaire (doc 19 §7 :
+  « même socle, deux habillages ») — sans effet sur les URLs.
+  **Parcours mobile complet fait (2026-09-09, Semaine 3)** : transactions
+  catégorisées, question de catégorisation (`QuestionCategorisation.tsx`,
+  démontrée sur Sophie plutôt que Karim — lui n'a par construction aucune
+  écriture à trancher, doc 17 §4.1/§9), photo de justificatif
+  (`JustificatifPhoto.tsx`, upload réel, pas d'OCR), signature mockée
+  (`SignatureMock.tsx`, « vrai faux »), badge de connexion bancaire selon
+  `mode_acces_bancaire`. **Pas fait** : la connexion bancaire directe
+  `chauffeur_direct` elle-même (bouton désactivé, stub visuel — toujours
+  conditionnée à un canal bancaire réel, Digifactory ou Bridge, doc 16).
 - **V1 (doc 12, phase 3-4)** : Next.js complet sur `api/` (le vrai backend,
   auth/MFA, multi-tenant), design system (`DESIGN.md`), maquettes Figma
   validées avec 2 utilisateurs cibles (doc 12 §0.3).
