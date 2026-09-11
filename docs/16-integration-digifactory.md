@@ -165,23 +165,38 @@ pas de vraies données clients dans ce fichier (cf. §3.3).
 Liste des contacts. Le champ `nr` est l'identifiant pivot.
 
 **Vérifié par appel réel le 2026-09-11** (§7) : réponse = objet indexé par
-`nr` (pas un tableau), champs par contact : `nr`, `firstname`, `lastname`,
-`companyNr`, `companyName`, `siret`. Le point de jointure attendu est
-présent, mais deux réserves réelles trouvées sur cet appel (5 contacts,
-échantillon non représentatif des ~200 chauffeurs) :
-- Le champ s'appelle `siret` mais toutes les valeurs observées font 9
-  chiffres (longueur SIREN, pas SIRET/14 chiffres). ⚠️ *À confirmer avec
-  Pierre* : nommage trompeur mais valeur exploitable telle quelle, ou
-  troncature/mapping différent à vérifier avant de brancher le mapping
-  `nr → dossier_id` en confiance.
-- Au moins un contact de l'échantillon a `siret: ""` (vide) — confirme
-  que le cas « pas de SIREN » de la réserve ci-dessous est réel, pas
-  hypothétique : le mapping `nr → dossier_id` doit rester une table de
-  correspondance explicite, pas une jointure automatique sur ce champ.
+`nr` (pas un tableau), champs constants par contact : `nr`, `firstname`,
+`lastname`, `companyNr`, `companyName`.
 
-Pas de données réelles de contacts reproduites ici (noms/SIRET de tiers) —
-si besoin de rejouer cet appel, relancer le curl (§7) plutôt que de
-committer une capture.
+**Écart du même jour expliqué et corrigé côté fournisseur (même jour,
+Pierre BERTOLA), reste noté ici pour l'historique et pour qui retombe sur
+une ancienne capture** : le premier appel du 2026-09-11 renvoyait un champ
+unique `siret` contenant en fait soit un SIREN (9 chiffres) soit un SIRET
+(14 chiffres) selon ce qui est saisi côté fiche société Digifactory — **ce
+n'était pas un bug, c'est le fonctionnement normal de leur champ interne**
+(usage double assumé par Digifactory). Corrigé à notre demande : Pierre a
+scindé ça en deux champs distincts, plus un troisième ajouté en bonus.
+**Retesté en réel le 2026-09-11 (même jour, après son mail)** — champs
+optionnels désormais :
+- `siren` (9 chiffres) — présent sur l'échantillon quand la fiche société
+  a un SIREN saisi.
+- `siret` (14 chiffres attendus — ⚠️ pas encore observé dans l'échantillon,
+  aucun des 5 contacts de test n'avait cette variante renseignée).
+- `vatno` — numéro de TVA intracommunautaire, présent seulement s'il est
+  renseigné côté Digifactory. Format observé : `FR` + 11 caractères (13 au
+  total), cohérent avec le format standard FR.
+- Un contact de l'échantillon n'a **aucun** des trois (ni `siren`, ni
+  `siret`, ni `vatno`) — confirme qu'il faut garder le mapping
+  `nr → dossier_id` en table de correspondance explicite, pas une
+  jointure automatique sur ces champs (toujours valable).
+
+Le point de jointure attendu (SIREN/SIRET) est donc bien exploitable, à
+condition de tester la présence de `siren` puis `siret` (pas juste l'un
+des deux) lors du mapping `nr → dossier_id` (doc 16 §9 point 5).
+
+Pas de données réelles de contacts reproduites ici (noms/SIREN/SIRET/TVA
+de tiers) — si besoin de rejouer cet appel, relancer le curl (§7) plutôt
+que de committer une capture.
 
 ### 3.4 `/categories`
 
