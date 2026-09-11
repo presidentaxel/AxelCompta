@@ -4,6 +4,23 @@
 **Statut :** en attente de devis — décision finale à prendre en phase 0
 **Décideurs :** Louis Vedovato
 
+> **Mise à jour 2026-09-11 (doc 20 §4/§6)** : le dépôt des comptes annuels
+> au greffe (Guichet Unique INPI) exige spécifiquement une **signature
+> électronique qualifiée (QES) avec certificat RGS** (C. com. art.
+> R.123-5) — pas seulement le niveau « avancé eIDAS » évalué ci-dessous.
+> **Yousign a été rebrandé Youtrust en 2026** (`developers.yousign.com`
+> redirige vers `developers.youtrust.com`). Écart trouvé : leur doc
+> développeur indique explicitement **« QES cannot be embedded »** — le
+> candidat pressenti ci-dessous ne couvre pas ce cas d'usage précis en
+> restant dans notre app, contrairement à l'hypothèse implicite de ce
+> document. Comparatif complet, avec **Universign** (QES embarquable en
+> iframe d'après leur doc) et **CertEurope/Certigreffe** (certificat
+> individuel par dirigeant, hors de notre app) : [doc 20 §6](../20-integration-inpi-depot-comptes.md#6-comparatif-prestataires-signature-qualifiée-rgs-recherche-2026-09-11).
+> Reste ouvert : la notion de « mandataire » dans l'API INPI pourrait
+> permettre à AxeLCompta de signer pour le compte du dirigeant (un seul
+> certificat) plutôt que d'équiper individuellement ~200 chauffeurs — à
+> trancher avec un juriste/expert-comptable avant la décision finale.
+
 ## Contexte
 
 Le circuit de validation finale (doc 11 §3.3) nécessite une signature électronique qualifiée ou avancée eIDAS pour les liasses fiscales et bilans. La signature est déclenchée côté AxeLCompta et réalisée par le gérant du dossier (chauffeur) sur une page mobile-first sans création de compte.

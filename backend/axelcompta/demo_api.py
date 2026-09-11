@@ -57,6 +57,7 @@ from axelcompta.demo_justificatifs import (
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
 from axelcompta.filings.fec import exporter_fec
+from axelcompta.filings.inpi_depot import PdfDepotInpiRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO, ProfilChauffeurType
 from axelcompta.ledger.memory import InMemoryLedgerService
@@ -65,6 +66,9 @@ from axelcompta.packs.vtc_demo import charger_compte_par_categorie
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
 from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
+from axelcompta.workflow.signature import SignatureRepository
+from axelcompta.workflow.signature_demo import SignatureDemoProvider
+from axelcompta.workflow.signature_memory import InMemorySignatureRepository
 
 # doc 17 §9 Semaine 3 : racine de stockage des justificatifs de démo — pas
 # le stockage WORM réel (V1, doc 04 §1), juste de quoi prouver que la photo
@@ -75,6 +79,7 @@ RACINE_JUSTIFICATIFS_DEMO = (
 _TYPES_IMAGE_ACCEPTES = ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
 
 COMPTE_ATTENTE = "471"  # doc 06 §2 : compte d'attente par défaut, "à trancher"
+TYPE_DOCUMENT_GREFFE_INPI = "greffe_inpi"  # doc 20 : dépôt des comptes annuels
 ORIGINE_FRONTEND_DEV = "http://localhost:3000"
 # doc 17 §9 bloc B/Semaine 3 : le dashboard gestionnaire reste sans login
 # (décidé avec Louis, 2026-09-08 — chantier d'auth gestionnaire séparé, pas
@@ -103,6 +108,9 @@ class DossierResume(BaseModel):
     nb_a_trancher: int
     statut_invitation: str | None  # None = "non_invité" (doc 19 §3.2) ; sinon "invité" | "actif"
     mode_acces_bancaire: str  # "gestionnaire" | "chauffeur_direct" (doc 19 §4)
+    greffe_inpi_signe: (
+        bool  # doc 20 : dossier de dépôt des comptes annuels signé (démo, pas qualifié)
+    )
 
 
 class TransactionVue(BaseModel):
@@ -127,6 +135,13 @@ class InvitationVue(BaseModel):
     dossier_id: str
     email: str
     statut: str  # "invité" | "actif" — jamais "non_invité" ici, ça n'existe qu'en absence
+
+
+class SignatureGreffeVue(BaseModel):
+    dossier_id: str
+    signe: bool
+    signe_le: str
+    qualifie: bool  # doc 20 §4 : toujours False en démo, jamais une vraie signature RGS
 
 
 def _profil_par_id(dossier_id: str) -> ProfilChauffeurType:
@@ -177,7 +192,10 @@ def _construire_liasse(profil: ProfilChauffeurType, ledger: InMemoryLedgerServic
 
 
 def _resume(
-    profil: ProfilChauffeurType, decisions: DecisionRepository, comptes: CompteRepository
+    profil: ProfilChauffeurType,
+    decisions: DecisionRepository,
+    comptes: CompteRepository,
+    signatures: SignatureRepository,
 ) -> DossierResume:
     ledger = _ledger_avec_decisions(profil, decisions)
     ecritures = ledger.grand_livre(profil.dossier_id)
@@ -186,6 +204,7 @@ def _resume(
         1 for e in ecritures if any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
     )
     invitation = comptes.statut(profil.dossier_id)
+    document_greffe = signatures.dernier(profil.dossier_id, TYPE_DOCUMENT_GREFFE_INPI)
     return DossierResume(
         dossier_id=profil.dossier_id,
         nom=profil.nom,
@@ -202,6 +221,7 @@ def _resume(
         nb_a_trancher=nb_a_trancher,
         statut_invitation=_statut_invitation_vue(invitation.statut) if invitation else None,
         mode_acces_bancaire=profil.mode_acces_bancaire,
+        greffe_inpi_signe=document_greffe is not None,
     )
 
 
@@ -312,6 +332,24 @@ def get_justificatifs() -> JustificatifRepository:
 JustificatifsDep = Annotated[JustificatifRepository, Depends(get_justificatifs)]
 
 
+_SIGNATURES_INPI = InMemorySignatureRepository()
+
+
+def get_signatures_inpi() -> SignatureRepository:
+    """Dépendance FastAPI — en mémoire seulement, contrairement à
+    `get_decisions` (doc 20 : pas de vraie signature qualifiée possible en
+    démo de toute façon, la persistance Postgres n'apporterait rien
+    aujourd'hui ; graduera vers une vraie persistance le jour où le
+    prestataire réel — ADR-004 — sera branché). Instance de niveau module
+    directement (pas de connexion externe à retarder comme pour
+    Postgres/Supabase). Les tests surchargent avec une instance fraîche
+    pour s'isoler les uns des autres."""
+    return _SIGNATURES_INPI
+
+
+SignaturesInpiDep = Annotated[SignatureRepository, Depends(get_signatures_inpi)]
+
+
 def _trancher(
     profil: ProfilChauffeurType,
     ecriture_id: str,
@@ -406,18 +444,21 @@ def _configurer_cors(app: FastAPI) -> None:
 
 def _enregistrer_routes_dossiers(app: FastAPI) -> None:
     @app.get("/dossiers", response_model=list[DossierResume])
-    def lister_dossiers(decisions: DecisionsDep, comptes: ComptesDep) -> list[DossierResume]:
-        return [_resume(profil, decisions, comptes) for profil in PROFILS_DEMO]
+    def lister_dossiers(
+        decisions: DecisionsDep, comptes: ComptesDep, signatures: SignaturesInpiDep
+    ) -> list[DossierResume]:
+        return [_resume(profil, decisions, comptes, signatures) for profil in PROFILS_DEMO]
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
     def obtenir_dossier(
         dossier_id: str,
         decisions: DecisionsDep,
         comptes: ComptesDep,
+        signatures: SignaturesInpiDep,
         identite: IdentiteDep,
     ) -> DossierResume:
         _verifier_acces_dossier(dossier_id, identite)
-        return _resume(_profil_par_id(dossier_id), decisions, comptes)
+        return _resume(_profil_par_id(dossier_id), decisions, comptes, signatures)
 
 
 def _enregistrer_routes_transactions(app: FastAPI) -> None:
@@ -560,6 +601,59 @@ def _enregistrer_routes_cloture(app: FastAPI) -> None:
         return _fichier(exporter_balance(ecritures), "text/csv", f"balance-{dossier_id}.csv")
 
 
+def _document_greffe_inpi(profil: ProfilChauffeurType, decisions: DecisionRepository) -> bytes:
+    """doc 20 §4 : le PDF non signé (« document de synthèse » de démo, pas
+    celui que le Guichet Unique génère réellement — on ne peut pas
+    l'appeler sans compte e-procédures)."""
+    liasse = _construire_liasse(profil, _ledger_avec_decisions(profil, decisions))
+    return PdfDepotInpiRenderer().rendre(liasse)
+
+
+def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
+    """doc 20 §4/§5, Louis 2026-09-11 : signature fictive pour la démo
+    (jamais qualifiée RGS, `qualifie=False`), mais une vraie zone de
+    signature qui finit le document — pas juste un badge React. Le vrai
+    dépôt (appel API + signature qualifiée réelle) reste bloqué sur
+    ADR-004 (prestataire, doc 20 §7)."""
+
+    @app.get("/dossiers/{dossier_id}/greffe-inpi.pdf")
+    def telecharger_greffe_inpi(
+        dossier_id: str,
+        decisions: DecisionsDep,
+        signatures: SignaturesInpiDep,
+        identite: IdentiteDep,
+    ) -> Response:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        document_signe = signatures.dernier(profil.dossier_id, TYPE_DOCUMENT_GREFFE_INPI)
+        pdf = (
+            document_signe.contenu_pdf
+            if document_signe is not None
+            else _document_greffe_inpi(profil, decisions)
+        )
+        return _fichier(pdf, "application/pdf", f"greffe-inpi-{dossier_id}.pdf")
+
+    @app.post("/dossiers/{dossier_id}/greffe-inpi/signature", response_model=SignatureGreffeVue)
+    def signer_greffe_inpi(
+        dossier_id: str,
+        decisions: DecisionsDep,
+        signatures: SignaturesInpiDep,
+        identite: IdentiteDep,
+    ) -> SignatureGreffeVue:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        pdf_non_signe = _document_greffe_inpi(profil, decisions)
+        signataire = identite.user_id if identite is not None else UTILISATEUR_DEMO
+        document = SignatureDemoProvider().signer(pdf_non_signe, signataire)
+        signatures.enregistrer(profil.dossier_id, TYPE_DOCUMENT_GREFFE_INPI, document)
+        return SignatureGreffeVue(
+            dossier_id=dossier_id,
+            signe=True,
+            signe_le=document.signe_le.isoformat(),
+            qualifie=document.qualifie,
+        )
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
     _configurer_cors(app)
@@ -567,6 +661,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_transactions(app)
     _enregistrer_routes_invitation(app)
     _enregistrer_routes_cloture(app)
+    _enregistrer_routes_greffe_inpi(app)
     return app
 
 

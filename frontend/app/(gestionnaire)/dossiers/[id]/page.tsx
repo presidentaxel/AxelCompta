@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/Badge";
 import { ClotureSection } from "@/components/ClotureSection";
+import { GreffeInpiSection } from "@/components/GreffeInpiSection";
 import { TrancherActions } from "@/components/TrancherActions";
 import { listerTransactions, obtenirDossier } from "@/lib/api";
 import { formatMontant } from "@/lib/format";
@@ -29,6 +30,7 @@ export default async function DossierPage({ params }: { params: { id: string } }
       </p>
 
       <ClotureSection dossier={dossier} />
+      <GreffeInpiSection dossier={dossier} />
 
       <div className="overflow-hidden rounded-lg border border-border bg-canvas">
         <table className="w-full text-sm">

@@ -17,6 +17,7 @@ export type DossierResume = {
   nb_a_trancher: number;
   statut_invitation: "invité" | "actif" | null; // null = "non_invité" (doc 19 §3.2)
   mode_acces_bancaire: "gestionnaire" | "chauffeur_direct"; // doc 19 §4
+  greffe_inpi_signe: boolean; // doc 20 : dossier de dépôt signé (démo, jamais qualifié RGS)
 };
 
 // doc 17 §9 Semaine 4 : les 5 exports de clôture, servis en téléchargement

@@ -170,8 +170,8 @@ Détail complet de la correspondance arbre ↔ docs : [docs/18-organisation-code
 | [`anomaly/`](axelcompta/anomaly/README.md) | Détection d'abus / anomalies | Non prévu | Actif |
 | [`ledger/`](axelcompta/ledger/README.md) | ❤️ Moteur comptable pur | Actif | Actif |
 | [`closing/`](axelcompta/closing/README.md) | Clôture d'exercice, états financiers | Actif (compte de résultat + bilan simplifiés) | Actif |
-| [`filings/`](axelcompta/filings/README.md) | Renderers FEC, PDF, EDI-TDFC, INPI | Actif (liasse simplifiée + overlay CERFA 2065 partiel) | Actif |
-| [`workflow/`](axelcompta/workflow/README.md) | Validation, revue, signature électronique | Réduit (auto-accept, pas de revue) | Actif |
+| [`filings/`](axelcompta/filings/README.md) | Renderers FEC, PDF, EDI-TDFC, INPI | Actif (liasse simplifiée, overlay CERFA 2065 partiel, dossier greffe/INPI démo — doc 20) | Actif |
+| [`workflow/`](axelcompta/workflow/README.md) | Validation, revue, signature électronique | Actif (décisions humaines, revue, signature démo — doc 17 §9, doc 20) | Actif |
 | [`api/`](axelcompta/api/README.md) | Routes FastAPI, auth, permissions | Réduit (pas d'auth) | Actif |
 | [`ml/`](axelcompta/ml/README.md) | Entraînement, évaluation, registry modèles | Non prévu (modèle déjà entraîné réutilisé) | Actif |
 

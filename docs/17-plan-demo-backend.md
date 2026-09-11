@@ -636,11 +636,20 @@ se connecter.
 > signature, toujours en devis, doc 12 §0.1). Tant qu'aucun prestataire
 > qualifié n'est retenu, le dépôt réel via API n'est pas possible — seule
 > la génération du dossier prêt à déposer **manuellement** (PDF + JSON,
-> doc 02 §6 phase 1) reste réaliste à court terme. **Pas construit dans ce
-> spike** (question posée : « qu'est-ce qu'il faut construire », pas
-> « construisons-le ») — estimation ~0,5-1 jour pour ce renderer une fois
-> priorisé avec Louis, le dictionnaire de données INPI (détail champ par
-> champ) restant à dépouiller avant une implémentation réelle.
+> doc 02 §6 phase 1) reste réaliste à court terme.
+>
+> **Construit le même jour, suite immédiate décidée avec Louis** : « on
+> fait la démo en pensant à la prod » — signature **fictive** en démo,
+> mais une vraie abstraction (`workflow/signature.py`, `SignatureProvider`)
+> que le futur prestataire (comparatif doc 20 §6) branchera sans réécrire
+> le reste. `filings/inpi_depot.py` (payload JSON réel + PDF marqué
+> « DOCUMENT FICTIF »), `demo_api.py` (`GET .../greffe-inpi.pdf`, `POST
+> .../greffe-inpi/signature`), `GreffeInpiSection.tsx` (bouton « Signer
+> (démo) » + badge). Vérifié en vrai navigateur sur Karim : clic réel,
+> badge → « signé », PDF retéléchargé effectivement différent (filigrane
+> rouge diagonal + ligne signataire/horodatage). 18 tests ajoutés, tout
+> vert (232 tests backend, `next lint`/`build`). Détail complet :
+> [doc 20 §5](20-integration-inpi-depot-comptes.md#5-ce-que-ça-change-pour-le-plan-doc-17-§9-semaine-4-doc-12).
 
 - Répétition avec un run pré-cuit en secours, comme dans l'ancien plan.
 

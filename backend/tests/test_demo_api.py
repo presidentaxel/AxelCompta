@@ -19,11 +19,18 @@ from fastapi.testclient import TestClient
 
 import axelcompta.demo_auth as demo_auth
 from axelcompta.core.ids import DossierId, EcritureId
-from axelcompta.demo_api import create_app, get_comptes, get_decisions, get_justificatifs
+from axelcompta.demo_api import (
+    create_app,
+    get_comptes,
+    get_decisions,
+    get_justificatifs,
+    get_signatures_inpi,
+)
 from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
+from axelcompta.workflow.signature_memory import InMemorySignatureRepository
 
 # ES256 (JWT Signing Keys), pas HS256 : ce qu'émet le vrai projet Supabase
 # (découvert 2026-09-08, voir le commentaire de module de demo_auth.py).
@@ -67,9 +74,14 @@ def _client_et_stubs() -> tuple[
     decisions_stub = InMemoryDecisionRepository()
     comptes_stub = InMemoryCompteRepository()
     justificatifs_stub = InMemoryJustificatifRepository()
+    # `get_signatures_inpi` retourne par défaut un singleton de niveau
+    # module (demo_api.py) — surchargé ici pour isoler chaque test, sinon
+    # une signature posée par un test resterait visible dans les suivants.
+    signatures_stub = InMemorySignatureRepository()
     app.dependency_overrides[get_decisions] = lambda: decisions_stub
     app.dependency_overrides[get_comptes] = lambda: comptes_stub
     app.dependency_overrides[get_justificatifs] = lambda: justificatifs_stub
+    app.dependency_overrides[get_signatures_inpi] = lambda: signatures_stub
     return TestClient(app), decisions_stub, justificatifs_stub
 
 
@@ -507,3 +519,59 @@ def test_fec_reflete_une_decision_tranchee_pas_le_ledger_brut() -> None:
 
     apres = client.get("/dossiers/DEMO_sophie/fec.txt").text
     assert "455" in apres
+
+
+# --- Greffe/INPI (doc 20, Louis 2026-09-11) --------------------------------
+
+
+def test_dossier_resume_greffe_inpi_signe_est_faux_par_defaut() -> None:
+    corps = _client().get("/dossiers/DEMO_karim").json()
+    assert corps["greffe_inpi_signe"] is False
+
+
+def test_telecharger_greffe_inpi_renvoie_un_pdf_non_signe_par_defaut() -> None:
+    reponse = _client().get("/dossiers/DEMO_karim/greffe-inpi.pdf")
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"] == "application/pdf"
+    assert reponse.content.startswith(b"%PDF")
+
+
+def test_signer_greffe_inpi_renvoie_une_signature_non_qualifiee() -> None:
+    """doc 20 §4 : jamais une vraie signature qualifiée RGS en démo."""
+    reponse = _client().post("/dossiers/DEMO_karim/greffe-inpi/signature")
+    assert reponse.status_code == 200
+    corps = reponse.json()
+    assert corps["signe"] is True
+    assert corps["qualifie"] is False
+
+
+def test_signer_greffe_inpi_est_reflete_par_un_get_ulterieur() -> None:
+    client = _client()
+    client.post("/dossiers/DEMO_karim/greffe-inpi/signature")
+
+    corps = client.get("/dossiers/DEMO_karim").json()
+    assert corps["greffe_inpi_signe"] is True
+
+
+def test_telecharger_greffe_inpi_apres_signature_renvoie_le_pdf_signe() -> None:
+    client = _client()
+    avant = client.get("/dossiers/DEMO_karim/greffe-inpi.pdf").content
+    client.post("/dossiers/DEMO_karim/greffe-inpi/signature")
+    apres = client.get("/dossiers/DEMO_karim/greffe-inpi.pdf").content
+
+    assert apres != avant
+    assert apres.startswith(b"%PDF")
+
+
+def test_telecharger_greffe_inpi_dossier_inconnu_est_un_404() -> None:
+    reponse = _client().get("/dossiers/DEMO_inconnu/greffe-inpi.pdf")
+    assert reponse.status_code == 404
+
+
+def test_chauffeur_ne_peut_pas_signer_le_greffe_inpi_dun_autre_dossier() -> None:
+    jeton = _jeton_chauffeur("DEMO_karim")
+    reponse = _client().post(
+        "/dossiers/DEMO_sophie/greffe-inpi/signature",
+        headers={"Authorization": f"Bearer {jeton}"},
+    )
+    assert reponse.status_code == 403

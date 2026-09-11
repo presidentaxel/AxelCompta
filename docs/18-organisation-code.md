@@ -34,7 +34,7 @@ AxeLCompta/
 │   ├── ledger/                # ❤️ actif démo — moteur pur, golden test doc 17 §7
 │   ├── closing/                # réduit démo — clôture minimale
 │   ├── filings/                # réduit démo — PDF simplifié (V1 : FEC/EDI/INPI)
-│   ├── workflow/                # actif démo — décisions humaines + revue (doc 17 §9 blocs A/C, V1 : + signature)
+│   ├── workflow/                # actif démo — décisions humaines + revue + signature démo (doc 20)
 │   ├── api/                    # réduit démo — pas d'auth (V1 : auth/MFA/permissions)
 │   └── ml/                      # non prévu démo — modèle déjà entraîné réutilisé tel quel
 ├── frontend/                   # actif démo (pivot 2026-09-06) — Next.js réel, lecture seule (V1 : écriture + auth)
@@ -236,8 +236,21 @@ vrais appels HTTP) rejoint aussi `ingestion/providers/digifactory.py` —
 toujours pas branché sur `fetch_transactions` (mapping `contact_nr →
 dossier_id` manquant, doc 16 §9 point 5).
 
+**Dossier greffe/INPI fait le même jour (doc 20, doc 17 §9)** :
+`filings/inpi_depot.py` (`construire_payload_comptes_annuels` — vraie
+forme de l'API INPI ; `PdfDepotInpiRenderer`, stand-in démo marqué
+FICTIF) et un nouveau module `workflow/signature.py`
+(`SignatureProvider`/`DocumentSigne`/`SignatureRepository`, l'abstraction
+pour le futur prestataire réel, comparatif doc 20 §6) +
+`signature_demo.py`/`signature_memory.py`. `workflow` passe ainsi de
+« Réduit démo (auto-accept, pas de revue) » à couvrir aussi la signature,
+comme annoncé de longue date dans le tableau ci-dessus (« Validation,
+revue, signature électronique »). `demo_api.py` gagne les routes
+`GET/POST .../greffe-inpi{.pdf,/signature}` ; `frontend/components/GreffeInpiSection.tsx`
+sur la fiche dossier.
+
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
 (chantier séparé, pas commencé), écran `chauffeur_direct` de connexion
-bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), dossier
-greffe/INPI (Semaine 4, spike de schéma non fait), répétition avec run
-pré-cuit.
+bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), appel réel
+à l'API INPI (bloqué sur ADR-004, pas un problème de schéma, doc 20 §5),
+répétition avec run pré-cuit.

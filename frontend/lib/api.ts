@@ -78,3 +78,27 @@ export function listerTransactions(dossierId: string): Promise<TransactionVue[]>
 export function urlTelechargementCloture(dossierId: string, document: DocumentCloture): string {
   return `${API_BASE_URL}/dossiers/${dossierId}/${document}`;
 }
+
+// doc 20 : dossier de dépôt greffe/INPI — même lien direct, le PDF reflète
+// automatiquement l'état signé/non signé côté serveur (demo_api.py).
+export function urlGreffeInpi(dossierId: string): string {
+  return `${API_BASE_URL}/dossiers/${dossierId}/greffe-inpi.pdf`;
+}
+
+export type SignatureGreffeVue = {
+  dossier_id: string;
+  signe: boolean;
+  signe_le: string;
+  qualifie: boolean; // doc 20 §4 : toujours false en démo
+};
+
+export async function signerGreffeInpi(dossierId: string): Promise<SignatureGreffeVue> {
+  const reponse = await fetch(`${API_BASE_URL}/dossiers/${dossierId}/greffe-inpi/signature`, {
+    method: "POST",
+  });
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as SignatureGreffeVue;
+}

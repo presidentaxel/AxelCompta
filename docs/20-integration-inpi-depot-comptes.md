@@ -1,11 +1,13 @@
 # 20 — Dépôt des comptes annuels (Guichet Unique INPI)
 
-> **Statut : spike fait le 2026-09-11** (doc 17 §9 Semaine 4, doc 17 §10 —
-> risque « schéma du dossier greffe/INPI inconnu »). Contrairement à
-> Digifactory (doc 16) avant le doc 16, le schéma **est** documenté
-> publiquement par l'INPI — pas besoin d'attendre un contact fournisseur
-> pour commencer à coder. Le vrai blocage trouvé n'est pas technique, voir
-> §5.
+> **Statut : spike fait, renderer démo construit, le 2026-09-11** (doc 17
+> §9 Semaine 4, doc 17 §10 — risque « schéma du dossier greffe/INPI
+> inconnu »). Contrairement à Digifactory (doc 16) avant le doc 16, le
+> schéma **est** documenté publiquement par l'INPI — pas besoin d'attendre
+> un contact fournisseur pour commencer à coder. Le vrai blocage trouvé
+> n'est pas technique, voir §5. **Louis (même jour) : signature fictive
+> pour la démo, comparatif de prestataires pour la vraie signature qualifiée
+> en V1** — voir §5 (code) et §6 (comparatif).
 > Dernière mise à jour : 2026-09-11.
 
 ## 1. Contexte et décision
@@ -149,22 +151,90 @@ pour de vrai.
 
 **Ce qui reste possible et utile sans lever ce blocage** (phase 1 de doc
 02 §6, confirmée réaliste) : générer le dossier complet — PDF bilan/compte
-de résultat déjà produit par le moteur existant (`filings/`, doc 18) +
-le payload JSON `content.comptesAnnuels` prêt à poster — pour un dépôt
-**manuel** par le client sur `procedures.inpi.fr`, sans jamais appeler
-l'API nous-mêmes. C'est un renderer de plus dans `filings/`, pas un
-nouveau risque de schéma — **pas construit dans ce spike**, décision de
-priorité à prendre avec Louis (le spike répondait à « est-ce qu'on sait
-ce qu'il faut construire », pas à « construisons-le »).
+de résultat + le payload JSON `content.comptesAnnuels` prêt à poster —
+pour un dépôt **manuel** par le client sur `procedures.inpi.fr`, sans
+jamais appeler l'API nous-mêmes.
 
-**Estimation** (une fois le dictionnaire de données vérifié en détail,
-non fait ici) : construire le JSON `comptesAnnuels` + réutiliser le PDF
-existant ~0,5-1 jour, du même ordre que les autres renderers `filings/`
-(CERFA 2065, FEC). L'intégration API complète (dépôt réel + signature
+**Construit le même jour, décidé avec Louis** : signature **fictive** en
+démo (jamais qualifiée RGS), mais un vrai parcours technique pensé pour
+la prod, pas un système à refaire (« on fait la démo en pensant à la
+prod »). Ajouté :
+- `axelcompta/filings/inpi_depot.py` — `construire_payload_comptes_annuels`
+  (la vraie forme `content.comptesAnnuels` du §3, prête à poster telle
+  quelle le jour où l'appel API est câblé) et `PdfDepotInpiRenderer` (tient
+  lieu du document de synthèse que le Guichet Unique génère normalement
+  lui-même, doc 08 §5 : filigrane **« DOCUMENT FICTIF — NE PAS DÉPOSER »**
+  sans ambiguïté).
+- `axelcompta/workflow/signature.py` — `SignatureProvider`/`DocumentSigne`/
+  `SignatureRepository`, l'abstraction que branchera le vrai prestataire
+  choisi (§7) sans changer la forme des appels ailleurs dans le code (même
+  principe que `DataProvider`, doc 13 §2). `signature_demo.py` :
+  `SignatureDemoProvider`, tamponne le PDF (« SIGNÉ — DÉMO AXELCOMPTA,
+  DOCUMENT FICTIF » en diagonale rouge + mention signataire/horodatage) —
+  `qualifie=False` toujours, signal explicite qu'aucun document produit
+  par ce provider ne doit être déposé pour de vrai.
+- `demo_api.py` : `GET /dossiers/{id}/greffe-inpi.pdf` (non signé par
+  défaut, signé après action) et `POST
+  /dossiers/{id}/greffe-inpi/signature` (« zone de signature qui finit le
+  document », pas juste un badge React — persisté en mémoire, `dernier`
+  reflète la dernière signature). `DossierResume` gagne
+  `greffe_inpi_signe`.
+- Frontend : `GreffeInpiSection.tsx` sur la fiche dossier — lien de
+  téléchargement + bouton « Signer (démo) » + badge signé/non signé.
+- **Vérifié en vrai navigateur** (pas juste tests) : clic réel sur Karim,
+  badge passe à « signé », PDF retéléchargé différent (filigrane rouge en
+  diagonale + ligne signataire/horodatage visibles), état persiste sur un
+  GET ultérieur. 18 tests ajoutés (`tests/filings/test_inpi_depot.py`,
+  `tests/workflow/test_signature.py`, 7 nouveaux dans
+  `tests/test_demo_api.py`), mypy/ruff/import-linter/pytest tous verts
+  (232 tests backend), `next lint`/`build` verts.
+
+**Estimation retenue a posteriori** : ~2-3h pour le renderer + l'abstraction
+signature + le câblage API + front + tests — dans l'ordre de grandeur
+de l'estimation initiale (~0,5-1 jour), plutôt en dessous grâce à la
+réutilisation directe des patterns déjà établis (`DataProvider`,
+`DecisionRepository`). L'intégration API complète (dépôt réel + signature
 qualifiée) reste hors de portée tant qu'ADR-004 n'a pas de prestataire
-retenu — ne pas l'estimer avant.
+retenu.
 
-## 6. Pas fait dans ce spike
+## 6. Comparatif prestataires signature qualifiée RGS (recherche 2026-09-11)
+
+Demande de Louis : une liste de partenaires possibles pour la vraie
+signature qualifiée en V1, avec sa préférence explicite — **rester le
+plus possible dans notre app**, quitte à renvoyer le chauffeur/gérant vers
+le prestataire seulement si c'est techniquement impossible autrement.
+Recherche faite sur documentation publique des prestataires (pas de devis
+demandé, pas de contact pris) — **à valider par un vrai devis avant toute
+décision ADR-004**, ceci est un défrichage, pas une recommandation
+contractuelle.
+
+| Prestataire | Parcours QES intégrable dans notre app ? | Modèle | Notes |
+|---|---|---|---|
+| **Universign** | **Oui** — leur doc technique dit explicitement que la vérification de pièce d'identité (étape bloquante pour Yousign, ligne suivante) se déroule **dans l'iframe**, sans redirection obligatoire. | API + iframe, paiement à l'usage a priori (pricing non confirmé, à demander) | Le candidat le plus proche de la préférence de Louis d'après cette recherche — **premier à recontacter pour un devis**. |
+| **Yousign** (rebrandé **Youtrust** en 2026 — `developers.yousign.com` redirige vers `developers.youtrust.com`, ADR-004 à mettre à jour sur ce nom) | **Non pour la QES** — leur doc développeur le dit noir sur blanc : *« Signature levels: SES and AES. QES cannot be embedded »*. Bon pour de l'AES embarqué (si un usage futur du produit s'en contente), mais pour ce cas précis (dépôt INPI, QES obligatoire) il faut renvoyer l'utilisateur vers leur propre parcours (vérification vidéo, 100% à distance et asynchrone). | API-first, très orienté SaaS, pricing public | Écarter pour ce cas d'usage précis (dépôt greffe/INPI) tant que la QES reste non-embarquable chez eux — reste un candidat valable pour d'autres besoins de signature (AES) du produit. |
+| **CertEurope / infocert-sign** (groupe Tinexta InfoCert) | **Non** — a un produit dédié **« Certificat de signature électronique qualifiée pour INPI »**, mais le modèle est : chaque signataire (le dirigeant du dossier) obtient son propre certificat individuel (~30 € HT, appel vidéo ~10 min), puis signe via leur appli desktop/web séparée (`infocert-sign`), pas via une intégration dans notre app. | Certificat **par personne physique**, 30 € HT one-shot | Modèle historiquement « natif » pour ce cas d'usage (page produit dédiée INPI), mais le coût est par dirigeant — sur ~200 chauffeurs/dirigeants SASU-EURL, ça chiffre vite (voir point ouvert ci-dessous) et le parcours sort systématiquement de notre app. |
+| **Certigreffe** (Infogreffe, également via CertEurope) | **Non**, et pire : clé **USB physique**, retrait obligatoire dans un greffe de tribunal de commerce. | Certificat par personne, 119 €HT/an ou 249 €HT/3 ans | Écarté d'office pour un produit mobile-first sur 200 chauffeurs — logistique physique incompatible avec l'onboarding à distance (doc 14). Mentionné pour mémoire, c'est l'option « historique ». |
+
+**Point ouvert, pas résolu ici, à traiter avant tout choix ferme** : dans
+le contrat d'interface INPI (§3), il existe une notion de `declarant`
+distincte de `personnePhysique`/`personneMorale` — cohérent avec le fait
+que l'API s'appelle « API mandataire de dépôt ». **Si AxeLCompta peut
+agir comme mandataire avec son propre certificat (via une procuration/
+mandat du dirigeant) plutôt que de faire obtenir un certificat individuel
+à chacun des ~200 chauffeurs**, le modèle économique et UX change
+complètement (un seul certificat côté AxeLCompta vs. 200 certificats
+individuels). **Question juridique/business, pas technique** — à
+clarifier avec un expert-comptable ou juriste avant de trancher ADR-004,
+pas supposée ici.
+
+**Recommandation de ce spike** (pas une décision) : demander un devis à
+**Universign** en premier (seul candidat trouvé où la QES reste dans
+notre app, aligné sur la préférence de Louis), en clarifiant en parallèle
+la question du mandataire ci-dessus — elle peut rendre le modèle
+CertEurope (moins bon pour l'UX mais avec un produit INPI déjà taillé)
+plus intéressant que prévu si un seul certificat AxeLCompta suffit.
+
+## 7. Pas fait dans ce spike
 
 - Compte e-procédures INPI créé/testé en réel (aucun appel HTTP réel,
   contrairement à Digifactory — tout ce doc vient de la lecture du
