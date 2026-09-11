@@ -48,9 +48,20 @@ Lecture correcte de l'arrêt — et c'est important de ne pas le sur-interpréte
 
 Conséquences concrètes, à implémenter dans le produit :
 
+> **Précisé le 2026-09-11 (doc 19) : l'« utilisateur professionnel » qui
+> valide, c'est l'indiv (le dirigeant du dossier), pas le gestionnaire
+> portefeuille.** Le gestionnaire n'a jamais accès aux transactions/
+> justificatifs/documents d'un dossier — c'est l'indiv qui dépense, qui
+> sait, qui valide. Le gestionnaire signe un contrat avec nous, pas avec
+> chaque dossier ; il gère l'onboarding (invitations) et voit un état des
+> lieux agrégé (doc 19 §6), jamais le détail. Ce n'est pas un simple choix
+> UX — ça renforce directement cette ligne : faire valider par le bon
+> « utilisateur professionnel » (celui qui a l'information réelle), pas un
+> tiers qui ne peut que faire confiance aux chiffres qu'on lui montre.
+
 | Règle produit | Implémentation |
 |---------------|----------------|
-| L'utilisateur professionnel (client gestionnaire, son service compta ou son EC) **valide** chaque période avant production des états | Étape de validation obligatoire et non contournable dans le workflow ; journalisée. |
+| L'utilisateur professionnel — **l'indiv, propriétaire du dossier**, pas le gestionnaire portefeuille — **valide** chaque période avant production des états | Étape de validation obligatoire et non contournable dans le workflow (côté indiv, doc 19) ; journalisée. **Deux signatures distinctes** (doc 20 §4bis) : une validation qui nous protège (l'indiv atteste que les comptes sont exacts), une signature qualifiée RGS sur les documents effectivement déposés — pas la même chose, pas le même prestataire nécessairement. |
 | La responsabilité de la comptabilité reste celle du client | CGV/CGU explicites ; mention sur chaque document généré (« Document préparé via AxeLCompta, validé par [utilisateur] le [date] »). |
 | Les propositions automatiques sont des **propositions** | UI : statut « proposé » vs « validé » ; les écritures non validées ne sortent jamais dans un état définitif. |
 | AxeL n'analyse pas, ne surveille pas, ne redresse pas *en son nom* | Les alertes (anomalies, abus potentiels) sont adressées à l'utilisateur, qui décide. Pas de rapport signé AxeL. |
@@ -228,3 +239,12 @@ Voir doc 10 pour le volet technique. Points juridiques :
 - [ ] Chaîne de sous-traitance RGPD à 3 (chauffeur → Bridge → Digifactory → nous) : le consentement DSP2 couvre-t-il la retransmission à Digifactory ? (doc 10 §3, doc 16 §6)
 - [ ] Vérifier le droit d'usage des 10 ans de données historiques pour l'entraînement.
 - [ ] Registre des traitements + désignation DPO (externe possible).
+- [ ] **Nouveau (2026-09-11, doc 19 §3.4)** : le gestionnaire portefeuille
+      peut-il légalement voir « documents déposés : oui/non » par dossier
+      (sans le détail) ? C'est une donnée dérivée de la comptabilité d'un
+      tiers (l'indiv), pas juste un statut technique — Louis n'est pas sûr
+      que ce soit conforme RGPD/monopole (doc 02 §2). **Par défaut :
+      désactivé** (le gestionnaire ne voit rien de dossier-spécifique au-delà
+      des agrégats déjà prévus), à activer explicitement seulement après
+      confirmation juridique. Ne pas coder l'option activée par défaut en
+      attendant cette réponse.

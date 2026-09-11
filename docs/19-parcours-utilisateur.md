@@ -1,12 +1,26 @@
 # 19 — Parcours utilisateur : gestionnaire et chauffeur
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-06.
+> Statut : brouillon à valider — Dernière mise à jour : 2026-09-11.
 > Né d'une discussion Louis / Claude Code le 2026-09-06 : décision de
 > cadrer et documenter l'accès chauffeur en libre-service **avant** tout
 > code, conformément à ce que prévoyait déjà [doc 12 §2.7](12-roadmap-todo.md).
-> Ce doc complète [doc 11](11-ux-ui.md) (reste la référence pour l'interface
-> gestionnaire PC) et [doc 14](14-onboarding-offboarding.md) (reste la
-> référence pour l'onboarding du tenant côté AxeL) — il ne les remplace pas.
+> Ce doc complète [doc 11](11-ux-ui.md) et [doc 14](14-onboarding-offboarding.md)
+> — il ne les remplace pas, mais **corrige une hypothèse fausse qu'ils
+> partageaient tous les deux jusqu'ici** (§2.1 ci-dessous).
+>
+> **Révision structurante du 2026-09-11 (Louis)** : nos deux catégories de
+> client ne sont pas au même niveau. Le **client interface** — celui qui
+> utilise vraiment le produit, dossier par dossier — c'est **l'indiv**
+> (le chauffeur/dirigeant). Le **client de gestion globale** — celui avec
+> qui on signe un contrat — c'est la **plateforme** (le gestionnaire
+> portefeuille). Conséquence directe, qui corrige §2.1 telle qu'écrite au
+> 2026-09-06 : la file de revue, l'instruction d'alerte, la clôture et la
+> signature **ne sont plus des écrans gestionnaire** — ce sont des écrans
+> indiv, parce que c'est l'indiv qui a dépensé, qui sait, et dont c'est la
+> donnée. Le gestionnaire garde un état des lieux agrégé et l'onboarding,
+> rien de plus (§6 refaite). Recoupe doc 02 §2.3 (« l'utilisateur
+> professionnel valide ») : c'est l'indiv, cet utilisateur professionnel,
+> pas le gestionnaire.
 
 ## 1. Pourquoi ce doc
 
@@ -20,14 +34,26 @@ un lien ponctuel. Ce doc décrit ce parcours, celui du gestionnaire tel qu'il
 
 ## 2. Les deux comptes
 
-### 2.1 Le gestionnaire (PC / web) — inchangé dans son principe, doc 11 reste la référence
+### 2.1 Le gestionnaire (PC / web) — **corrigé le 2026-09-11** : état des lieux, pas cockpit détaillé
 
-Rien ne change sur l'interface portefeuille elle-même (dashboard, fiche
-dossier, file de revue, clôture — doc 11 §2-3). Ce qui s'ajoute : le
-gestionnaire doit avoir une **visibilité de premier rang** sur l'état
-d'onboarding de ses chauffeurs — il ne doit jamais être « dans le noir » sur
-qui a un compte actif, qui a été invité et n'a pas encore répondu, qui n'a
-toujours pas de compte (§3.2).
+**Ce que ce doc disait avant (2026-09-06) était faux sur un point
+important** : « rien ne change sur l'interface portefeuille, file de
+revue et clôture incluses ». En fait si — la file de revue (doc 11 §3.1),
+l'instruction d'alerte (doc 11 §3.2), la clôture (doc 06 §5) et la
+signature (doc 11 §3.3, doc 20) **deviennent des écrans indiv**, pas
+gestionnaire (§2.4 explique pourquoi). Ce qui reste vraiment côté
+gestionnaire :
+
+- Dashboard portefeuille : **agrégats seulement** (CA/charges/résultat par
+  dossier, nombre de dossiers actifs, régime TVA/statut) — pas le détail
+  d'une transaction, jamais.
+- **Visibilité de premier rang sur l'onboarding** de ses indivs : qui a un
+  compte actif, qui a été invité et n'a pas répondu, qui n'a toujours pas
+  de compte (§3.2, inchangé).
+- Invitation, individuelle ou en masse (§3.1, étendu le 2026-09-11).
+- **Peut-être** un indicateur « documents de clôture déposés : oui/non »
+  par dossier — **désactivé par défaut, en attente de confirmation
+  juridique** (§2.4, doc 02 §10).
 
 ### 2.2 Le chauffeur (mobile) — nouveau
 
@@ -56,6 +82,30 @@ En clair : il n'y a que **deux UI**, pas trois — web (gestionnaire ou mono)
 et mobile (chauffeur ou usage quotidien du mono) — et le mobile n'a jamais
 vocation à tout gérer.
 
+> ⚠️ **Tension non résolue, introduite par la révision du 2026-09-11** :
+> ce paragraphe suppose que clôture/revue/signature restent « côté web »
+> pour le mono — cohérent avec l'ancien modèle (gestionnaire = web =
+> détail), plus avec le nouveau (indiv = propriétaire de ces écrans,
+> quel que soit le support). En mono, l'indiv est son propre gestionnaire
+> ET son propre indiv : est-ce que ça veut dire que le mono utilise
+> l'interface indiv (§2.2) pour tout, sans couche portefeuille du tout —
+> plus radicalement « pas trois UI » que prévu ici ? Pas tranché,
+> à trancher avec Louis avant le code de ce mode (hors scope démo de
+> toute façon, doc 17 §8).
+
+### 2.4 Ce que le gestionnaire ne voit jamais (et ce qui reste à confirmer légalement)
+
+Le gestionnaire n'a **aucun accès** aux transactions, justificatifs,
+détail des écritures ou documents d'un dossier — c'est la donnée de
+l'indiv, générée par ses propres dépenses, pas celle du gestionnaire.
+Même le fait de savoir si une pièce a été signée ou déposée est **une
+donnée dérivée de la comptabilité d'un tiers**, pas un simple statut
+technique anodin — Louis n'est pas certain que même *ça* soit conforme
+RGPD/monopole d'expertise comptable (doc 02 §2, doc 02 §10). Tant que ce
+n'est pas confirmé par un juriste : **le gestionnaire ne voit rien de
+dossier-spécifique au-delà des agrégats de §2.1** — pas d'option cachée
+activée par défaut en attendant.
+
 ## 3. Modèle de compte et onboarding
 
 ### 3.1 Qui crée quoi
@@ -67,7 +117,15 @@ juste une ligne en base créée par CSV (doc 14 §1.2/1.4). Deux façons d'y
 arriver, non exclusives :
 
 - **Le gestionnaire invite lui-même ses chauffeurs** depuis son interface
-  (self-service à ce niveau-là, pas au niveau tenant).
+  (self-service à ce niveau-là, pas au niveau tenant) — soit **au lien
+  individuel** (un email à la fois, déjà construit), soit **en masse
+  depuis une base clients** (nouveau, précisé 2026-09-11 : import d'une
+  liste — CSV a minima — qui déclenche une invitation par ligne, avec
+  rapport d'envoi succès/erreur par ligne, même logique que l'import de
+  dossiers doc 14 §1.4 mais pour des invitations, pas des configurations
+  comptables). **Distinct** du CSV dossiers (doc 14 §1.4) : celui-ci crée
+  des comptes utilisables, l'autre configure des dossiers — un gestionnaire
+  peut avoir besoin des deux, dans n'importe quel ordre.
 - **AxeL peut assister** le gestionnaire pour cette étape s'il en a besoin
   (mêmes principes que l'aide à l'onboarding déjà prévue doc 14).
 
@@ -114,16 +172,19 @@ champ de configuration, au même niveau que `regime_imposition` ou
 
 | `mode_acces_bancaire` | Qui connecte | Cas d'usage |
 |---|---|---|
-| `gestionnaire` | Le gestionnaire, via Digifactory (doc 16) | Cas pilote actuel — le chauffeur n'a rien à faire |
-| `chauffeur_direct` | Le chauffeur lui-même, depuis son app | Chauffeur autonome, ou gestionnaire qui préfère déléguer |
+| `gestionnaire` | Le gestionnaire, via Digifactory (doc 16) | Cas pilote actuel — l'indiv n'a rien à connecter : soit les transactions arrivent directement dans son app (déjà remontées côté Digifactory), soit un écran « ça arrive bientôt » tant qu'elles n'y sont pas encore — jamais de bouton Bridge affiché dans ce mode. |
+| `chauffeur_direct` | L'indiv lui-même, depuis son app, **via Bridge en direct** (précisé 2026-09-11, doc 16 §8) | Indiv autonome sans agrégateur côté gestionnaire — le bouton de connexion bancaire dans l'app **est** Bridge Connect, pas un choix parmi d'autres. |
 
 Les deux passent par la même interface `DataProvider` (doc 13 §2) — aucun
 changement dans le moteur selon le mode retenu, seule la configuration du
-dossier change. Le dashboard de consentements (doc 14 §2.2) s'étend pour
-couvrir les deux : quand c'est le chauffeur qui connecte lui-même, c'est lui
-qui reçoit les relances d'expiration de consentement (et non le
-gestionnaire) — cohérent avec le mode de relance déjà configurable par
-dossier.
+dossier change. **`chauffeur_direct` reste bloqué techniquement** tant que
+`BridgeProvider` (doc 16 §8, doc 12 §1.2) n'est pas construit — c'est un
+vrai prérequis, pas du réagencement d'écran ; le bouton actuel (doc 17 §9)
+est un stub visuel volontaire en attendant. Le dashboard de consentements
+(doc 14 §2.2) s'étend pour couvrir les deux : quand c'est l'indiv qui
+connecte lui-même, c'est lui qui reçoit les relances d'expiration de
+consentement (et non le gestionnaire) — cohérent avec le mode de relance
+déjà configurable par dossier.
 
 **Pour la démo (doc 17)** : les deux modes sont visibles à l'écran (le
 réglage existe, l'UI existe). Le mode `gestionnaire` (Digifactory) est
@@ -132,39 +193,93 @@ est un objectif « si le temps le permet » (§6), pas un bloquant — Louis
 relance Digifactory sur le token (doc 16 §7) pour que ce chemin fonctionne
 réellement avant la fin du mois.
 
-## 5. Parcours détaillé — le chauffeur (mobile)
+## 5. Parcours détaillé — l'indiv (mobile/webapp) — **réécrit le 2026-09-11**
+
+**Ce parcours porte maintenant tout ce qui touche à ses propres données** :
+transactions, revue, justificatifs, clôture, signature. Rien de tout ça
+n'existe plus côté gestionnaire (§2.1, §2.4).
+
+### 5.1 Onboarding
 
 1. **Réception de l'invitation** (email/SMS) envoyée par le gestionnaire ou AxeL.
 2. **Création de compte** — email + mot de passe (ou lien magique), pas de
-   self-signup libre, mais un vrai compte personnel.
+   self-signup libre, mais un vrai compte personnel. **Option de changer
+   son mot de passe** (précisé 2026-09-11) — pour la confidentialité, le
+   mot de passe initial (lien d'invitation) ne doit pas rester le seul.
 3. **Complément de profil** si nécessaire (une partie est déjà pré-remplie
    depuis la fiche dossier créée côté gestionnaire).
-4. **Connexion bancaire** — soit rien à faire (`mode_acces_bancaire:
-   gestionnaire`), soit connexion directe (`chauffeur_direct`, §4).
+4. **Connexion bancaire** — trois cas concrets selon `mode_acces_bancaire`
+   (§4, précisé 2026-09-11) :
+   - `chauffeur_direct` : il relie sa banque **via Bridge**, dans l'app.
+   - `gestionnaire`, transactions déjà remontées : il les voit directement,
+     rien à connecter.
+   - `gestionnaire`, rien encore remonté : écran d'attente explicite
+     (« vos transactions arrivent bientôt »), pas un vide silencieux.
+
+### 5.2 Traitement au fil de l'eau — pas une revue de fin d'année
+
+**Principe central, précisé 2026-09-11** : dès qu'une transaction arrive et
+que le pipeline (règles/ML/LLM) ne sait pas trancher, l'indiv reçoit une
+**notification** pour la traiter au plus vite — pas une pile qui s'accumule
+jusqu'à la clôture. Bénéfice double : plus simple pour l'indiv (petit flux
+continu, pas une session marathon en fin d'exercice), et ça répartit la
+charge de notre côté (support, LLM, instruction) sur l'année plutôt que de
+tout concentrer sur la période de clôture — risque déjà identifié doc 09
+§7 (charge, clôtures groupées).
+
 5. **Vue de ses transactions** : ce qui a été catégorisé, ce qui reste à
    trancher — version simplifiée, langage clair, pas le vocabulaire
-   comptable pro de la file de revue gestionnaire.
-6. **Petites questions de catégorisation** quand le système hésite
-   (« repas ou autre ? ») — la même logique que la file de revue (doc 11
-   §3.1) mais présentée simplement.
+   comptable pro.
+6. **Notification + petite question de catégorisation** quand le système
+   hésite (« repas ou autre ? », « personnelle ou pro ? ») — dès que la
+   transaction arrive, pas en lot différé. Même logique que l'ancienne
+   « file de revue » (doc 11 §3.1) — **cet écran est maintenant ici, plus
+   côté gestionnaire** (§2.1).
 7. **Photo de justificatif** au fil de l'eau, associée automatiquement à la
    transaction correspondante quand c'est possible.
-8. **Signature des documents** le moment venu (doc 11 §3.3, inchangé dans
-   son fonctionnement, intégré comme une étape du parcours plutôt que le
-   point d'entrée unique).
 
-## 6. Parcours détaillé — le gestionnaire (PC / web)
+**Système de notification : entièrement à construire, rien n'existe
+aujourd'hui** (pas d'email transactionnel, pas de notif in-app/push) — un
+vrai chantier technique, pas une case UI à ajouter (à chiffrer, doc 12).
 
-Rappel de ce qui existe déjà (doc 11, inchangé) + un écran qui s'ajoute :
+### 5.3 Clôture — la boucle de complétude bancaire
 
-1. Réception du tenant configuré par AxeL (doc 14 §1.3).
+8. **Demande de clôture** en fin d'exercice : l'indiv confirme que la
+   dernière écriture connue correspond bien à sa vraie banque (doc 06 §5bis
+   — c'est cette confirmation, pas une date, qui fait foi). Tant que ce
+   n'est pas confirmé, chaque nouvelle synchro Bridge/Digifactory qui
+   remonte de nouvelles écritures redemande cette confirmation.
+9. Une fois confirmé (et comme le traitement s'est fait au fil de l'eau,
+   §5.2 — pas de gros arriéré à traiter d'un coup) : génération des
+   documents (greffe, INPI, TVA, liasse — doc 06 §6, doc 20).
+10. **Première signature — la validation** (notification dédiée) : l'indiv
+    atteste être d'accord avec les comptes tels que produits. **Cette
+    signature nous protège** (doc 02 §2.3 : « l'utilisateur professionnel
+    valide ») — elle n'a pas besoin d'être qualifiée RGS, ce n'est pas la
+    même chose que la signature légale de dépôt (doc 20 §4bis).
+11. **Envoi** vers les organismes concernés (impôts, greffe, INPI, TVA…).
+12. **Seconde signature — la légale** : certains organismes renvoient des
+    documents à signer après coup (ex. le document de synthèse INPI,
+    doc 20 §4) — c'est là qu'intervient la vraie signature qualifiée RGS,
+    par indiv, jamais par AxeLCompta (doc 20 §6, tranché 2026-09-11).
+
+## 6. Parcours détaillé — le gestionnaire (PC / web) — **réécrit le 2026-09-11**
+
+**Beaucoup plus court qu'avant** : plus de file de revue, plus de clôture,
+plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
+
+1. Réception du tenant configuré par AxeL (doc 14 §1.3) — AxeL signe avec
+   le gestionnaire (contrat B2B), pas avec chaque dossier individuellement.
 2. Import en masse des dossiers (CSV, doc 14 §1.4) — configuration
-   comptable de chaque chauffeur.
-3. **Nouveau** : invitation des chauffeurs (un par un ou en masse) et suivi
-   de leur statut d'onboarding (§3.2) — écran de premier rang, comme le
-   dashboard consentements.
-4. Dashboard portefeuille, file de revue, clôture, liasse, envoi pour
-   signature — inchangé (doc 11 §2-3).
+   comptable de chaque indiv.
+3. **Invitation des indivs** — lien individuel ou **import en masse depuis
+   une base clients** (§3.1, précisé 2026-09-11) — et suivi de leur statut
+   d'onboarding (§3.2), écran de premier rang, comme le dashboard
+   consentements.
+4. **Dashboard portefeuille — état des lieux agrégé seulement** (§2.1) :
+   CA/charges/résultat par dossier, statut d'onboarding, éventuellement
+   « documents déposés » si la confirmation juridique arrive (§2.4). Jamais
+   le détail d'une transaction, d'un justificatif ou d'une signature.
 
 ## 7. Portée technique
 
@@ -186,3 +301,26 @@ Rappel de ce qui existe déjà (doc 11, inchangé) + un écran qui s'ajoute :
   laissé pour plus tard.
 - Seuil d'inactivité pour le statut `inactif` (§3.2) — à définir avec Louis
   à l'usage, pas bloquant pour la démo.
+
+**Ajoutés le 2026-09-11, chantiers réels pas encore scopés** :
+
+- **Système de notification** (§5.2) — canal (email transactionnel ? push ?
+  in-app seulement ?), déclencheurs, fréquence. Rien n'existe.
+- **Import en masse des invitations** (§3.1, §6) — parsing, validation,
+  rapport d'erreurs, format accepté (CSV a minima) ; distinct du CSV
+  dossiers déjà spécifié doc 14 §1.4.
+- **Boucle de clôture/complétude bancaire** (§5.3, doc 06 §5bis) — durée du
+  délai de battement et politique CCA/FNP précise à valider avec un
+  expert-comptable ; mécanique de redemande de confirmation à chaque
+  nouvelle écriture pas encore détaillée techniquement.
+- **`BridgeProvider` direct** (§4, doc 16 §8, doc 12 §1.2) — prérequis
+  technique du mode `chauffeur_direct`, pas commencé.
+- **Confirmation juridique sur la visibilité gestionnaire** (§2.4, doc 02
+  §10) — bloquant pour savoir si même « documents déposés : oui/non » est
+  affichable au gestionnaire.
+- **Rework de ce qui a été construit le 2026-09-11 avant cette révision**
+  (doc 17 §9 Semaine 4, greffe/INPI) : `ClotureSection.tsx` et
+  `GreffeInpiSection.tsx` sont aujourd'hui sur la fiche dossier
+  **gestionnaire** — à déplacer côté indiv une fois qu'on code ce parcours.
+  Pas fait dans cette révision de doc (Louis : « on fera du code plus
+  tard ») — noté pour ne pas l'oublier.

@@ -1,6 +1,18 @@
 # 11 — UX / UI : interface B2B
 
 > Statut : brouillon à valider — Dernière mise à jour : 2026-06-16
+>
+> **⚠️ Révisé le 2026-09-11 (doc 19)** : ce doc a été écrit avant la
+> décision du 2026-09-11 sur qui voit quoi. **La file de revue (§3.1),
+> l'instruction d'alerte (§3.2) et la clôture (§2, listée dans l'arbre
+> portefeuille) ne sont plus des écrans gestionnaire — ce sont des écrans
+> indiv** (doc 19 §5). Les patterns d'interaction décrits ici (raccourcis
+> clavier, présentation d'une transaction, ton neutre) restent valables
+> tels quels — c'est le **propriétaire de l'écran** qui change, pas
+> l'écran. La page de signature (§3.3) était déjà correcte dans son
+> principe (« chauffeur/gérant »), juste incomplète (doc 19 en fait un
+> parcours complet, pas un écran isolé). Lire doc 19 avant de construire
+> quoi que ce soit depuis ce doc.
 
 > **Design system** : tous les tokens (couleurs, typo, spacing, composants,
 > breakpoints) sont dans [`DESIGN.md`](../DESIGN.md) à la racine du projet.
@@ -55,6 +67,16 @@ fonctions qui « ne marchent pas pour ce dossier ».
 
 ## 2. Architecture de l'information (mode portefeuille, V1)
 
+> **Périmètre gestionnaire réduit depuis le 2026-09-11 (doc 19 §2.1/§2.4)** :
+> l'arbre ci-dessous mélange encore écrans gestionnaire et écrans indiv tels
+> qu'imaginés au 2026-06-16. Côté **gestionnaire**, ne restent que : santé
+> du portefeuille (agrégats), statut d'onboarding des indivs, santé des
+> connexions bancaires **si légalement affichable** (doc 02 §10). Tout le
+> reste de l'arbre — dossier en détail, transactions, justificatifs,
+> comptabilité, clôture, file de revue, alertes, documents & signatures —
+> est **côté indiv** (doc 19 §5). Arbre laissé tel quel ci-dessous comme
+> inventaire des écrans à répartir, pas comme plan d'IA gestionnaire.
+
 ```text
 ├── Tableau de bord (par tenant)
 │   ├── Santé du portefeuille : dossiers à jour / en retard / bloqués
@@ -74,6 +96,10 @@ fonctions qui « ne marchent pas pour ce dossier ».
 ```
 
 ## 3. Les trois écrans qui font le produit
+
+> **Les trois, désormais côté indiv (doc 19 §5), pas gestionnaire** —
+> notamment §3.1/§3.2 déclenchées par notification au fil de l'eau, pas
+> en session de revue groupée (doc 19 §5.2).
 
 ### 3.1 La file de revue (l'écran le plus utilisé)
 

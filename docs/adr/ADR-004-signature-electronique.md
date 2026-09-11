@@ -27,10 +27,18 @@
 > l'intérêt d'un prestataire dont le parcours QES individuel reste
 > embarquable dans notre app (Universign) plutôt qu'un qui renvoie chaque
 > utilisateur ailleurs (Yousign/Youtrust pour la QES, CertEurope).
+>
+> **Précisé le 2026-09-11 (doc 20 §4bis, doc 19 §5.3) : cet ADR ne couvre
+> que la seconde des deux signatures du parcours de clôture — la
+> légale.** Il existe une première signature (l'indiv valide les comptes
+> avant tout envoi, nous protège nous) qui n'a pas besoin d'un niveau
+> eIDAS qualifié et ne dépend donc pas forcément de ce choix de
+> prestataire — peut rester une confirmation interne simple. Ne pas
+> présumer qu'un seul prestataire/une seule intégration couvre les deux.
 
 ## Contexte
 
-Le circuit de validation finale (doc 11 §3.3) nécessite une signature électronique qualifiée ou avancée eIDAS pour les liasses fiscales et bilans. La signature est déclenchée côté AxeLCompta et réalisée par le gérant du dossier (chauffeur) sur une page mobile-first sans création de compte.
+Le circuit de validation finale (doc 11 §3.3, doc 19 §5.3) nécessite une signature électronique qualifiée ou avancée eIDAS pour les liasses fiscales et bilans. La signature est déclenchée côté AxeLCompta et réalisée par le gérant du dossier (chauffeur) sur une page mobile-first sans création de compte.
 
 ## Contraintes
 

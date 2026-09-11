@@ -249,6 +249,15 @@ revue, signature électronique »). `demo_api.py` gagne les routes
 `GET/POST .../greffe-inpi{.pdf,/signature}` ; `frontend/components/GreffeInpiSection.tsx`
 sur la fiche dossier.
 
+**⚠️ Mal placé depuis la révision du 2026-09-11 (doc 19)** : `ClotureSection.tsx`
+et `GreffeInpiSection.tsx` sont sur la fiche dossier **gestionnaire** —
+doivent migrer côté indiv (`/chauffeur/*`) une fois ce parcours codé (doc
+17 §9 note, doc 19 §8). Le code backend (`filings/`, `workflow/signature.py`)
+reste correct et réutilisable tel quel — c'est le branchement front qui
+change d'écran, pas le calcul. `workflow/signature.py` modélise déjà une
+seule étape de signature ; le vrai parcours en a deux (doc 20 §4bis,
+validation + légale) — à étendre, pas à réécrire.
+
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
 (chantier séparé, pas commencé), écran `chauffeur_direct` de connexion
 bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), appel réel

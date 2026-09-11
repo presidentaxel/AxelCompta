@@ -140,6 +140,28 @@ n'importe quelle signature électronique avancée — à vérifier que Yousign
 (ou le prestataire retenu) propose bien ce niveau de certificat avant de
 signer un devis pour ce cas d'usage spécifiquement.
 
+## 4bis. Deux signatures, deux rôles distincts (précisé 2026-09-11)
+
+Clarification de Louis, importante pour ne pas tout confondre dans
+`workflow/signature.py` (doc 18) : le parcours de clôture (doc 19 §5.3)
+comporte **deux signatures séparées**, pas une seule répétée.
+
+| | Signature 1 — validation | Signature 2 — légale |
+|---|---|---|
+| Qui signe | L'indiv | L'indiv |
+| Sur quoi | Les comptes produits par AxeLCompta, avant tout envoi | Le document de synthèse renvoyé par l'organisme (ex. PJ_99 INPI, §4) après dépôt |
+| Rôle | **Nous protège** — c'est l'acte de « l'utilisateur professionnel valide » (doc 02 §2.3) | **Légalement exigée** par l'organisme (ex. R.123-5 pour l'INPI, §4) |
+| Niveau eIDAS requis | Aucun a priori — une confirmation simple suffit, pas besoin de qualifié | Qualifié RGS (INPI) — variable selon l'organisme, à vérifier au cas par cas |
+| Prestataire | Peut rester interne (pas besoin d'ADR-004) | ADR-004, comparatif §6 |
+
+**Implication code** (pas fait ici, pour plus tard) : `SignatureProvider`
+(`workflow/signature.py`) modélise déjà la bonne distinction avec son
+champ `qualifie: bool` — mais le renderer `PdfDepotInpiRenderer` construit
+aujourd'hui (doc 17 §9) ne fait qu'une seule étape de signature (démo).
+Le vrai parcours en a deux, avec un envoi aux organismes entre les deux
+(doc 19 §5.3 points 10-12) — à revoir quand ce parcours sera codé pour de
+vrai, pas juste renommé.
+
 ## 5. Ce que ça change pour le plan (doc 17 §9 Semaine 4, doc 12)
 
 **Le blocage n'est plus « schéma inconnu » (résolu, §3) mais « signature

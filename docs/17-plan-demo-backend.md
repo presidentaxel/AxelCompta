@@ -593,6 +593,17 @@ se connecter.
 
 ### Semaine 4 — Clôture, liasse, dossier greffe, répétition
 
+> ⚠️ **Écart trouvé le 2026-09-11, après coup** : tout ce qui suit dans
+> cette section a été construit **sur la fiche dossier gestionnaire** —
+> cohérent avec ce que doc 11/doc 19 disaient jusqu'au 2026-09-11. La
+> révision du même jour (doc 19 §2.1/§2.4/§5.3) change ça : clôture et
+> signature sont maintenant des écrans **indiv**, pas gestionnaire. Le
+> code ci-dessous (`ClotureSection.tsx`, `GreffeInpiSection.tsx`, routes
+> `demo_api.py`) reste **fonctionnellement correct** (bons calculs, bons
+> tests) mais **au mauvais endroit** — à déplacer côté `/chauffeur/*`
+> quand ce chantier sera codé (doc 19 §8), pas refait de zéro. Décision de
+> Louis : documenter maintenant, coder plus tard.
+
 - Clôture + liasse + CERFA 2065 + FEC/grand livre/balance sur les 3
   dossiers (déjà fait au niveau moteur, §12) — exposés dans l'interface
   gestionnaire plutôt qu'un export PDF isolé. **Estimation : ~1 jour**

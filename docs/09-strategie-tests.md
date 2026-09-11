@@ -133,6 +133,12 @@ comptable est juste. Dispositif complémentaire :
 - **Relecture des templates d'écritures et des dossiers de référence par un
   expert-comptable** (prestation ponctuelle, quelques jours) avant la V1, puis à
   chaque millésime fiscal. Budget à prévoir, non négociable.
+- **Ajouté 2026-09-11 (doc 06 §5bis)** : le délai de battement avant
+  clôture (combien de temps attendre après le 31/12 pour considérer les
+  données bancaires stables) et la politique de provisionnement CCA/FNP
+  pour le résiduel non arrivé sont des décisions comptables, pas des choix
+  d'ingénierie — à faire trancher par l'expert-comptable au même moment
+  que la relecture des templates, pas devinées.
 - Cadrages croisés permanents en prod : TVA déclarée vs comptabilisée, solde 512 vs
   relevés, totaux liasse vs balance — des jobs qui vérifient, pas des humains.
 

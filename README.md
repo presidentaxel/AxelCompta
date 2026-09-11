@@ -67,7 +67,12 @@ sur ce paragraphe — s'y fier plutôt qu'à ce résumé en cas de doute.
    métier** par secteur (doc 03 §3bis).
 6. **Deux modes d'usage, un seul moteur** : portefeuille (1 → N dossiers) et
    mono-entreprise (1 → 1) partagent modèle de données et écrans de niveau
-   dossier ; seule l'UI d'habillage diffère (doc 01 §1, doc 11 §1bis).
+   dossier (doc 01 §1, doc 11 §1bis). **Précisé le 2026-09-11 (doc 19)** :
+   ce n'est plus qu'une question d'habillage UI — le gestionnaire
+   portefeuille n'a **jamais accès** aux écrans de niveau dossier
+   (transactions, justificatifs, clôture, signature), c'est l'indiv
+   propriétaire du dossier qui les voit, quel que soit le mode. Le
+   gestionnaire voit un état des lieux agrégé, point (doc 19 §2.1/§2.4).
 7. **ML hiérarchique à 3 niveaux** : socle global de catégorisation → adaptation
    par client/pack → profil comportemental statistique **par dossier** pour les
    anomalies (« ce chauffeur a consommé plus que d'habitude ») — sans entraîner un

@@ -141,11 +141,14 @@ Un dossier ne peut pas être clôturé avec un rapprochement non soldé.
 
 Checklist automatisée, chaque étape produisant des écritures OD traçables :
 
-1. Rapprochements bancaires soldés sur 12 mois.
+1. Rapprochements bancaires soldés sur 12 mois — **voir §5bis, ce n'est pas
+   une simple vérification technique.**
 2. Zéro proposition en attente de validation sur l'exercice.
 3. Alertes d'anomalies toutes instruites.
 4. Dotations aux amortissements générées.
-5. Charges constatées d'avance / factures non parvenues (saisie assistée).
+5. Charges constatées d'avance / factures non parvenues (saisie assistée) —
+   **c'est le filet de sécurité de §5bis**, pas juste une ligne comptable
+   parmi d'autres.
 6. Calcul TVA de clôture, cadrage TVA (CA déclaré vs comptabilisé).
 7. Calcul du résultat, réintégrations fiscales (amortissements excédentaires VP,
    part LOA non déductible…), IS et écriture 695 le cas échéant.
@@ -153,7 +156,51 @@ Checklist automatisée, chaque étape produisant des écritures OD traçables :
 9. **Liasse pivot** (2050-suite ou 2033-suite selon régime) remplie case par case
    depuis la balance + retraitements ; règles de cohérence des cases (les contrôles
    du cahier des charges TDFC) exécutées en interne.
-10. Verrou de clôture (I4) + à-nouveaux sur l'exercice suivant.
+10. **Signature de validation** de l'indiv (doc 20 §4bis — nous protège,
+    pas la signature légale) avant production finale des documents (§6).
+11. Verrou de clôture (I4) + à-nouveaux sur l'exercice suivant — **pas
+    immuable pour autant, voir §5bis** (régularisation possible).
+
+### 5bis. Complétude bancaire à la clôture — pas une simple case à cocher
+
+Question ouverte discutée avec Louis (2026-09-11), pas encore tranchée sur
+les paramètres précis (durée du délai, politique CCA/FNP), mais le principe
+est acté : **une date de synchronisation postérieure au 31/12 ne prouve
+jamais que l'exercice clos est complet.** Deux raisons concrètes, déjà
+documentées côté Digifactory (doc 16 §3.1, §5) :
+
+- **Décalage pending → booked** : une transaction du 30/12 peut ne se
+  solder (apparaître comme « bookée ») que début janvier — filtrer sur la
+  date de comptabilisation la ferait passer pour une écriture de l'exercice
+  suivant alors qu'elle appartient au précédent.
+- **Le silence n'est pas une preuve d'absence** : un commerçant peut
+  soumettre un prélèvement des semaines en retard. Tant qu'il ne l'a pas
+  fait, rien côté Bridge/Digifactory ne signale qu'il manque quelque chose —
+  on ne distingue pas « il n'y a rien » de « il y a quelque chose qu'on n'a
+  pas encore vu ».
+
+**Ce qui protège réellement la clôture, dans l'ordre** :
+1. **L'attestation de l'indiv fait foi** — pas une heuristique de date. Le
+   parcours de clôture (doc 19 §5) lui demande explicitement de confirmer
+   que la dernière écriture connue correspond à sa vraie banque ; tant que
+   ce n'est pas confirmé, chaque nouvelle synchro Bridge/Digifactory
+   redemande la validation si de nouvelles écritures apparaissent.
+2. **Un délai de battement** avant de considérer l'exercice stable (durée
+   exacte à définir avec un expert-comptable — quelques semaines
+   typiquement, pas tranché ici).
+3. **CCA/FNP pour le résiduel** (§5 point 5) : l'indiv qui sait qu'une
+   charge de l'exercice clos n'est pas encore arrivée (facture comptable
+   annuelle, par exemple) fait provisionner une estimation à la clôture,
+   ajustée quand la vraie écriture arrive.
+4. **Un chemin de régularisation après clôture** — le verrou de clôture
+   (I4) empêche une écriture sauvage, pas une régularisation tracée et
+   volontaire quand une écriture égarée arrive malgré tout. Cohérent avec
+   ce que l'API INPI elle-même prévoit (statut `AMENDMENT_PENDING`, doc 20
+   §3) — même l'administration anticipe qu'un dépôt se corrige après coup.
+
+**Pas tranché ici, à faire avec un expert-comptable avant V1** (doc 09
+§8) : la durée exacte du délai de battement, et les règles précises de
+quand provisionner en CCA/FNP plutôt que d'attendre l'écriture réelle.
 
 ## 6. Renderers (`filings`)
 

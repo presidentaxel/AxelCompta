@@ -171,7 +171,7 @@ couverture ledger ≥ 95 %.
 
 ### 2.4 Pipeline assemblé + revue humaine
 - [ ] Orchestration 4 étages + auto-validation configurable par tenant.
-- [ ] **File de revue** (l'écran clé, doc 11 §3.1) avec raccourcis clavier.
+- [ ] **File de revue** (l'écran clé, doc 11 §3.1) avec raccourcis clavier — **côté indiv, pas gestionnaire, depuis le 2026-09-11 (doc 19 §5.2)**, déclenchée par notification au fil de l'eau plutôt qu'en session groupée.
 - [ ] Boucle de feedback : corrections → labels → réentraînement mensuel → rapport.
 - [ ] Tests de la matrice de scénarios pipeline (doc 09 §2.3).
 
@@ -205,6 +205,33 @@ fait maintenant une des deux interfaces de la démo. Reste à faire : le
 code — rien de ceci n'est encore construit. Ne pas confondre avec le flux
 Rollee Connect chauffeur (doc 13 §3.3), qui lui est déjà spec depuis le
 début.
+
+**Révision structurante du 2026-09-11 (doc 19)** : ce n'est plus juste
+« le chauffeur a en plus un accès mobile » — la file de revue, la clôture
+et la signature **quittent le gestionnaire pour devenir exclusivement
+indiv**. Nouveaux items concrets qui en découlent, aucun encore chiffré :
+
+- [ ] **Système de notification** (doc 19 §5.2) : dès qu'une transaction
+      arrive et que le pipeline ne sait pas trancher, notifier l'indiv —
+      rien n'existe (pas d'email transactionnel, pas de push/in-app).
+      Objectif produit : traitement au fil de l'eau, pas une revue de fin
+      d'année (répartit aussi notre charge support/LLM sur l'année, doc 09
+      §7).
+- [ ] **Import en masse des invitations** (doc 19 §3.1) : le gestionnaire
+      invite ses indivs depuis une base clients, pas seulement un par un —
+      distinct du CSV dossiers déjà spécifié (§1.1 ci-dessus).
+- [ ] **Boucle de clôture/complétude bancaire** (doc 19 §5.3, doc 06 §5bis) :
+      confirmation de l'indiv + délai de battement + CCA/FNP pour le
+      résiduel — la durée du délai et la politique CCA/FNP restent à
+      valider avec un expert-comptable, pas tranchées.
+- [ ] **Deux signatures distinctes** (doc 20 §4bis) : une validation
+      (protège AxeLCompta, pas besoin de qualifié) avant tout envoi, une
+      signature légale qualifiée RGS sur le retour des organismes — ne pas
+      les traiter comme une seule étape répétée.
+- [ ] **Visibilité gestionnaire, confirmation juridique requise** (doc 19
+      §2.4, doc 02 §10) : le gestionnaire ne voit que des agrégats tant que
+      ce n'est pas confirmé légalement — même « documents déposés : oui/non »
+      par dossier est en attente de validation, pas codé par défaut.
 
 **Critère de sortie Phase 2** : sur le dataset historique rejoué, ≥ 85 % de
 catégorisation automatique à ≥ 97 % de précision, rappel anomalies ≥ 80 %,
