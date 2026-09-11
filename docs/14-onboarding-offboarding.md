@@ -56,7 +56,9 @@ Ce CSV est validé par le système avant toute création (rapport d'erreurs lign
 
 Via l'interface admin AxeLCompta (non accessible aux clients) :
 - Création du tenant avec sa configuration (mode, pack, providers activés)
-- Création des utilisateurs B2B du client (admin_tenant, comptable…) avec MFA forcé
+- Création du/des compte(s) gestionnaire du client — lien `tenant_id`
+  (doc 03 §7, doc 19 §2, précisé 2026-09-11 : plus de rôles `admin_tenant`/
+  `comptable` distincts, un compte gestionnaire suffit)
 - Génération des credentials d'API si le client utilise l'API directement
 
 ### 1.4 Étape 2 — Import en masse des dossiers

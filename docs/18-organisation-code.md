@@ -259,7 +259,9 @@ seule étape de signature ; le vrai parcours en a deux (doc 20 §4bis,
 validation + légale) — à étendre, pas à réécrire.
 
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
-(chantier séparé, pas commencé), écran `chauffeur_direct` de connexion
+(pas commencé — **précisé 2026-09-11, doc 03 §7 : ce n'est plus un système
+à part**, juste le lien `tenant_id` en plus de `dossier_id` sur le même
+mécanisme `demo_auth.py`), écran `chauffeur_direct` de connexion
 bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), appel réel
 à l'API INPI (bloqué sur ADR-004, pas un problème de schéma, doc 20 §5),
 répétition avec run pré-cuit.

@@ -32,7 +32,16 @@ un lien ponctuel. Ce doc décrit ce parcours, celui du gestionnaire tel qu'il
 évolue en conséquence, et sert directement de base au nouveau [doc 17](17-plan-demo-backend.md)
 (plan de démo).
 
-## 2. Les deux comptes
+## 2. Un compte, deux liens — pas deux systèmes
+
+> **Précisé le 2026-09-11 (doc 03 §7)** : « gestionnaire » et « indiv » ne
+> sont pas deux types de compte différents, deux systèmes d'auth à
+> construire séparément. **Un compte peut porter un lien `dossier_id`**
+> (accès indiv à ce dossier, §2.2) **et/ou un lien `tenant_id`** (accès
+> gestionnaire à ce portefeuille, §2.1) — les deux indépendamment, les
+> deux à la fois possible sur le même compte (§2.3, le mono). Ce qui suit
+> décrit ce que chaque lien donne comme accès, pas deux produits
+> distincts.
 
 ### 2.1 Le gestionnaire (PC / web) — **corrigé le 2026-09-11** : état des lieux, pas cockpit détaillé
 
@@ -68,30 +77,24 @@ démo, cible finale = app native App Store / Play Store). Ce compte lui sert
 - Signer ses documents (l'écran qui existait déjà, doc 11 §3.3 — il devient
   une étape parmi d'autres, pas le seul écran).
 
-### 2.3 Mode mono-compte — même logique, pas une troisième UI
+### 2.3 Mode mono-compte — **résolu le 2026-09-11**, ce n'est même plus un « mode »
 
-Un indépendant qui gère sa propre compta seul (sans gestionnaire) suit
-**le même principe d'axe déjà acté en doc 11 §1bis** : le mode mono est le
-mode portefeuille sans la couche portefeuille, sur les mêmes écrans PC/web.
-Le mobile, pour lui aussi, sert **uniquement au confort du quotidien**
-(capture de ticket, question rapide) — **pas** à piloter l'ensemble de sa
-compta. La gestion réelle (clôture, liasse, suivi) reste sur l'interface
-web, qu'il y ait un portefeuille de 200 dossiers ou un seul.
+**La tension notée dans une version précédente de ce doc est résolue.**
+Un indépendant qui gère sa propre compta seul n'a pas de statut spécial :
+c'est un compte dont le lien `tenant_id` (gestionnaire) et le lien
+`dossier_id` (indiv) **pointent vers le même portefeuille d'un seul
+dossier — le sien** (doc 03 §7). Aucun branchement particulier à coder :
+- Il a accès à l'écran gestionnaire (§2.1) — état des lieux agrégé —
+  **qui n'affiche qu'un seul dossier**, le sien. Techniquement inutile
+  (pas grand-chose à agréger sur un portefeuille de un), mais pas un
+  écran en moins ni un cas à exclure.
+- Il a accès à l'écran indiv (§2.2) — son propre dossier en détail,
+  transactions, revue, clôture, signature.
 
-En clair : il n'y a que **deux UI**, pas trois — web (gestionnaire ou mono)
-et mobile (chauffeur ou usage quotidien du mono) — et le mobile n'a jamais
-vocation à tout gérer.
-
-> ⚠️ **Tension non résolue, introduite par la révision du 2026-09-11** :
-> ce paragraphe suppose que clôture/revue/signature restent « côté web »
-> pour le mono — cohérent avec l'ancien modèle (gestionnaire = web =
-> détail), plus avec le nouveau (indiv = propriétaire de ces écrans,
-> quel que soit le support). En mono, l'indiv est son propre gestionnaire
-> ET son propre indiv : est-ce que ça veut dire que le mono utilise
-> l'interface indiv (§2.2) pour tout, sans couche portefeuille du tout —
-> plus radicalement « pas trois UI » que prévu ici ? Pas tranché,
-> à trancher avec Louis avant le code de ce mode (hors scope démo de
-> toute façon, doc 17 §8).
+Les **deux** interfaces (web et mobile/webapp) restent celles déjà
+décrites §7 — rien de spécifique au mono à construire là non plus,
+c'est la même personne qui navigue entre les deux, pas un habillage à
+part.
 
 ### 2.4 Ce que le gestionnaire ne voit jamais (et ce qui reste à confirmer légalement)
 

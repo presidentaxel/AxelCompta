@@ -1,6 +1,6 @@
 # 03 — Architecture technique
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
+> Statut : brouillon à valider — Dernière mise à jour : 2026-09-11
 
 ## 1. Principes directeurs
 
@@ -23,8 +23,14 @@ Calibrés pour une équipe de 1-2 devs visant une fiabilité « comptable » :
    des tests et par Row Level Security en base.
 6. **Un tenant = un portefeuille de 1 à N dossiers.** Le mode « gestionnaire »
    (notre pilote : ~200 dossiers) et le mode « mono-entreprise » (futur : 1 dossier)
-   sont le **même modèle de données et le même moteur** ; seule l'UI diffère
-   (doc 11 §1bis). Aucune table, aucun service ne suppose N > 1 ni N = 1.
+   sont le **même modèle de données et le même moteur**. **Précisé le
+   2026-09-11 (doc 19 §2/§7)** : ce n'est plus qu'une différence d'UI —
+   c'est aussi une différence d'**accès** (l'indiv, propriétaire d'un
+   dossier, et le gestionnaire, propriétaire d'un tenant, ne voient jamais
+   l'un ce qui appartient à l'autre). Le mono n'est pas un troisième cas :
+   c'est simplement un compte où les deux liens (`dossier_id` et
+   `tenant_id`, §7) pointent vers la même personne. Aucune table, aucun
+   service ne suppose N > 1 ni N = 1.
 7. **Le comportement métier est de la configuration, pas du code.** Statut
    juridique et régime fiscal sont des attributs du dossier ; taxonomies, règles,
    templates d'écritures sont des **packs métier** versionnés en données (§3bis).
@@ -186,16 +192,53 @@ Chaque frontière du système a un contrat Pydantic versionné :
 
 ## 7. Auth, rôles, multi-tenant
 
-- **Utilisateurs B2B** : auth par email + MFA obligatoire (TOTP/WebAuthn). SSO
-  (SAML/OIDC) en phase 2 si la banque l'exige.
-- **Rôles V1** : `admin_tenant`, `comptable` (valide), `analyste` (lit, annote),
-  `signataire_externe` (accès par lien magique scoped à un paquet de documents,
-  expirable, sans compte).
-- **Isolation** : `tenant_id` obligatoire sur toutes les tables métier + RLS
-  PostgreSQL activée + tests d'isolation automatisés (doc 09 §6).
-- **Liens de signature** : URL signées à usage limité, expiration courte,
-  journalisation de chaque consultation (qui a ouvert quoi, quand — utile en cas de
-  litige sur « j'ai signé sans voir »).
+> **Réécrit le 2026-09-11** — la version précédente (`admin_tenant`/
+> `comptable`/`analyste` côté gestionnaire + `signataire_externe` par lien
+> magique sans compte) datait d'avant doc 19 (2026-09-06) et n'avait
+> jamais été corrigée depuis : elle décrivait un produit où seul le
+> gestionnaire a un vrai compte et le chauffeur signe par lien — l'inverse
+> de ce qui est acté depuis (doc 19, précisé le 2026-09-11).
+
+**Un seul type de compte, deux liens indépendants — pas des rôles
+exclusifs.** Un compte (Supabase Auth aujourd'hui, ADR-003) peut porter :
+
+- `dossier_id` (optionnel) — accès **indiv** à ce dossier : transactions,
+  revue, justificatifs, clôture, signature (doc 19 §5). Jamais l'accès à
+  un autre dossier.
+- `tenant_id` (optionnel) — accès **gestionnaire** à ce portefeuille :
+  agrégats par dossier, statut d'onboarding, invitations (doc 19 §6).
+  Jamais le détail d'un dossier, quel qu'il soit.
+
+Les deux liens peuvent coexister **sur le même compte** — c'est le mode
+mono (doc 03 §1 principe 6) : `tenant_id` pointe vers le portefeuille d'un
+seul dossier, `dossier_id` vers ce même dossier. Pas un troisième type de
+compte, pas de champ `role` à trancher en dur — juste deux relations qui
+peuvent être vraies indépendamment. Ni compte gestionnaire ni compte indiv
+n'a par défaut les deux liens ; les avoir tous les deux est le cas mono,
+pas l'inverse.
+
+**Conséquence pratique** : le futur « auth gestionnaire » (doc 17 §9,
+« chantier séparé, pas commencé ») n'est **pas** un système à part —
+c'est la vérification de token Supabase déjà construite pour l'indiv
+(`demo_auth.py`, doc 17 §9 Semaine 3) à laquelle on ajoute la lecture du
+lien `tenant_id`. Pas de nouveau mécanisme d'authentification, juste une
+donnée en plus dans les métadonnées du compte et des vérifications d'accès
+supplémentaires côté API.
+
+- **Auth** : email + mot de passe via Supabase Auth (ADR-003, exception
+  actée pour la V1 aussi, doc 12 §0.1), MFA à évaluer en V1 pour le lien
+  `tenant_id` (plus sensible qu'un dossier individuel — accès à
+  l'onboarding de tout un portefeuille). SSO (SAML/OIDC) en phase 2 si la
+  banque l'exige.
+- **Isolation** : `tenant_id`/`dossier_id` obligatoires sur toutes les
+  tables métier concernées + RLS PostgreSQL activée + tests d'isolation
+  automatisés (doc 09 §6) — l'isolation gestionnaire↔indiv (doc 19 §2.4)
+  suit la même logique que l'isolation tenant↔tenant, pas un mécanisme
+  différent.
+- **Signature** : ne passe plus par un lien magique sans compte
+  (`signataire_externe`, abandonné le 2026-09-06 avec doc 19) — c'est
+  l'indiv authentifié qui signe depuis son propre compte (doc 19 §5.3,
+  doc 20 §4bis).
 
 ## 8. Choix d'hébergement OVH vs DigitalOcean
 
