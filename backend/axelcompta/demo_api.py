@@ -32,12 +32,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.engine import Engine
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
+from axelcompta.closing.models import LiassePivot
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import EcritureId, UserId
 from axelcompta.demo_auth import IdentiteAuthentifiee, identite_chauffeur_optionnelle
@@ -53,6 +54,10 @@ from axelcompta.demo_justificatifs import (
     FichierJustificatifRepository,
     JustificatifRepository,
 )
+from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
+from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
+from axelcompta.filings.fec import exporter_fec
+from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO, ProfilChauffeurType
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
@@ -160,14 +165,23 @@ def _statut_invitation_vue(statut: StatutInvitation) -> str:
     return {StatutInvitation.INVITE: "invité", StatutInvitation.ACTIF: "actif"}[statut]
 
 
+def _construire_liasse(profil: ProfilChauffeurType, ledger: InMemoryLedgerService) -> LiassePivot:
+    """Semaine 4 (doc 17 §9) : même appel que `_resume` (clôture) et que les
+    exports de `demo_chauffeurs_type._executer_un_chauffeur`, mais sur le
+    ledger **avec les décisions humaines déjà appliquées**
+    (`_ledger_avec_decisions`) — une transaction tranchée en 455/108 doit
+    sortir de la liasse téléchargée, pas seulement du dashboard."""
+    return ClotureSimplifieeService(ledger).cloturer(
+        profil.dossier_id, exercice=str(profil.date_debut.year)
+    )
+
+
 def _resume(
     profil: ProfilChauffeurType, decisions: DecisionRepository, comptes: CompteRepository
 ) -> DossierResume:
     ledger = _ledger_avec_decisions(profil, decisions)
     ecritures = ledger.grand_livre(profil.dossier_id)
-    liasse = ClotureSimplifieeService(ledger).cloturer(
-        profil.dossier_id, exercice=str(profil.date_debut.year)
-    )
+    liasse = _construire_liasse(profil, ledger)
     nb_a_trancher = sum(
         1 for e in ecritures if any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
     )
@@ -478,12 +492,81 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:
         )
 
 
+def _fichier(contenu: bytes | str, media_type: str, nom_fichier: str) -> Response:
+    corps = contenu.encode("utf-8") if isinstance(contenu, str) else contenu
+    return Response(
+        content=corps,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{nom_fichier}"'},
+    )
+
+
+def _enregistrer_routes_cloture(app: FastAPI) -> None:
+    """Semaine 4 (doc 17 §9) : les mêmes renderers que
+    `demo_chauffeurs_type.py` (§12 du doc), exposés en téléchargement direct
+    depuis la fiche dossier plutôt que générés à part sur disque — sur le
+    ledger avec décisions humaines appliquées (`_construire_liasse`), pas le
+    ledger brut."""
+
+    @app.get("/dossiers/{dossier_id}/liasse.pdf")
+    def telecharger_liasse(
+        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+    ) -> Response:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        liasse = _construire_liasse(profil, _ledger_avec_decisions(profil, decisions))
+        pdf = PdfLiasseSimplifieeRenderer().rendre(liasse)
+        return _fichier(pdf, "application/pdf", f"liasse-{dossier_id}.pdf")
+
+    @app.get("/dossiers/{dossier_id}/cerfa-2065.pdf")
+    def telecharger_cerfa(
+        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+    ) -> Response:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        liasse = _construire_liasse(profil, _ledger_avec_decisions(profil, decisions))
+        pdf = PdfCerfa2065Renderer().rendre(liasse)
+        return _fichier(pdf, "application/pdf", f"cerfa-2065-{dossier_id}.pdf")
+
+    @app.get("/dossiers/{dossier_id}/fec.txt")
+    def telecharger_fec(
+        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+    ) -> Response:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        ecritures = _ledger_avec_decisions(profil, decisions).grand_livre(profil.dossier_id)
+        return _fichier(
+            exporter_fec(ecritures), "text/plain; charset=utf-8", f"fec-{dossier_id}.txt"
+        )
+
+    @app.get("/dossiers/{dossier_id}/grand-livre.csv")
+    def telecharger_grand_livre(
+        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+    ) -> Response:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        ecritures = _ledger_avec_decisions(profil, decisions).grand_livre(profil.dossier_id)
+        return _fichier(
+            exporter_grand_livre(ecritures), "text/csv", f"grand-livre-{dossier_id}.csv"
+        )
+
+    @app.get("/dossiers/{dossier_id}/balance.csv")
+    def telecharger_balance(
+        dossier_id: str, decisions: DecisionsDep, identite: IdentiteDep
+    ) -> Response:
+        _verifier_acces_dossier(dossier_id, identite)
+        profil = _profil_par_id(dossier_id)
+        ecritures = _ledger_avec_decisions(profil, decisions).grand_livre(profil.dossier_id)
+        return _fichier(exporter_balance(ecritures), "text/csv", f"balance-{dossier_id}.csv")
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
     _configurer_cors(app)
     _enregistrer_routes_dossiers(app)
     _enregistrer_routes_transactions(app)
     _enregistrer_routes_invitation(app)
+    _enregistrer_routes_cloture(app)
     return app
 
 

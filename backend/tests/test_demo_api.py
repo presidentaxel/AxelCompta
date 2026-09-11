@@ -441,3 +441,69 @@ def test_chauffeur_ne_peut_pas_joindre_justificatif_a_un_autre_dossier() -> None
     )
 
     assert reponse.status_code == 403
+
+
+# --- Semaine 4 (doc 17 §9) : clôture/liasse téléchargeables ---------------
+
+
+def test_telecharger_liasse_renvoie_un_vrai_pdf() -> None:
+    reponse = _client().get("/dossiers/DEMO_karim/liasse.pdf")
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"] == "application/pdf"
+    assert reponse.content.startswith(b"%PDF")
+
+
+def test_telecharger_cerfa_renvoie_un_vrai_pdf() -> None:
+    reponse = _client().get("/dossiers/DEMO_karim/cerfa-2065.pdf")
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"] == "application/pdf"
+    assert reponse.content.startswith(b"%PDF")
+
+
+def test_telecharger_fec_contient_les_colonnes_normees() -> None:
+    reponse = _client().get("/dossiers/DEMO_karim/fec.txt")
+    assert reponse.status_code == 200
+    assert "text/plain" in reponse.headers["content-type"]
+    assert "JournalCode" in reponse.text  # doc 06 §6 : en-tête des 18 colonnes FEC
+
+
+def test_telecharger_grand_livre_et_balance_sont_des_csv() -> None:
+    client = _client()
+    grand_livre = client.get("/dossiers/DEMO_karim/grand-livre.csv")
+    balance = client.get("/dossiers/DEMO_karim/balance.csv")
+    assert grand_livre.status_code == balance.status_code == 200
+    assert grand_livre.headers["content-type"].startswith("text/csv")
+    assert balance.headers["content-type"].startswith("text/csv")
+
+
+def test_telecharger_cloture_dossier_inconnu_est_un_404() -> None:
+    reponse = _client().get("/dossiers/DEMO_inconnu/liasse.pdf")
+    assert reponse.status_code == 404
+
+
+def test_chauffeur_ne_peut_pas_telecharger_la_liasse_dun_autre_dossier() -> None:
+    jeton = _jeton_chauffeur("DEMO_karim")
+    reponse = _client().get(
+        "/dossiers/DEMO_sophie/liasse.pdf", headers={"Authorization": f"Bearer {jeton}"}
+    )
+    assert reponse.status_code == 403
+
+
+def test_fec_reflete_une_decision_tranchee_pas_le_ledger_brut() -> None:
+    """La liasse téléchargée doit refléter les décisions humaines (bloc A/C,
+    doc 17 §9), pas un ledger recalculé sans elles — le compte 455 doit
+    apparaître dans le FEC une fois la décision prise, alors qu'il n'y
+    figurait pas avant (Sophie n'a jamais de 455 en l'absence de décision,
+    seulement du 471 « à trancher »)."""
+    client = _client()
+    ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
+    avant = client.get("/dossiers/DEMO_sophie/fec.txt").text
+    assert "455" not in avant
+
+    client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
+        json={"categorie": "usage_personnel"},
+    )
+
+    apres = client.get("/dossiers/DEMO_sophie/fec.txt").text
+    assert "455" in apres

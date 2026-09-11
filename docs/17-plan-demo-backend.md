@@ -597,6 +597,30 @@ se connecter.
   dossiers (déjà fait au niveau moteur, §12) — exposés dans l'interface
   gestionnaire plutôt qu'un export PDF isolé. **Estimation : ~1 jour**
   (réutilise des renderers déjà faits, surtout du branchement front).
+
+> **Fait (2026-09-11)** — `demo_api.py` gagne 5 routes de téléchargement
+> (`GET /dossiers/{id}/{liasse.pdf, cerfa-2065.pdf, fec.txt,
+> grand-livre.csv, balance.csv}`), toutes sur le ledger **avec décisions
+> humaines appliquées** (`_construire_liasse` sur `_ledger_avec_decisions`,
+> pas le ledger brut de `demo_chauffeurs_type.py`) — une écriture tranchée
+> en 455/108 (bloc C) doit sortir de la liasse téléchargée, pas seulement
+> du dashboard (vérifié par test : `test_fec_reflete_une_decision_tranchee_pas_le_ledger_brut`).
+> Même contrôle d'accès que les autres routes dossier
+> (`_verifier_acces_dossier` — un chauffeur ne peut pas télécharger la
+> liasse d'un autre dossier). Côté front, `ClotureSection.tsx` (nouveau
+> composant) affiche compte de résultat + bilan simplifié (CA HT/Charges/
+> Résultat/Trésorerie/TVA à payer — ces deux derniers n'étaient nulle part
+> à l'écran avant, seulement dans la réponse API) et les 5 liens de
+> téléchargement, sur la fiche dossier gestionnaire. **Vérifié en vrai
+> navigateur** sur les 3 profils (uvicorn + Postgres migré + Next.js
+> lancés ensemble) : Karim (résultat positif, vert), Yanis (déficitaire,
+> -1 346,50 €, rouge, TVA à payer 0 € en franchise), Sophie — pas
+> seulement `tsc`/tests. 8 tests ajoutés
+> (`tests/test_demo_api.py`), mypy/ruff/import-linter/pytest tous verts
+> (214 tests backend), `next lint`/`next build` verts.
+>
+> **Pas fait dans ce lot** : le dossier greffe/INPI (item séparé
+> ci-dessous, son propre spike) et la répétition avec run pré-cuit.
 - **Nouveau, décidé 2026-09-07** : dossier de dépôt greffe/INPI en
   **format réel** (PDF + données structurées, doc 02 §6 phase 1) — pas un
   simple rendu visuel façon CERFA 2065. **Risque de spike non chiffré** :

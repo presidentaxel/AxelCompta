@@ -62,6 +62,12 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
   `mode_acces_bancaire`. **Pas fait** : la connexion bancaire directe
   `chauffeur_direct` elle-même (bouton désactivé, stub visuel — toujours
   conditionnée à un canal bancaire réel, Digifactory ou Bridge, doc 16).
+  **Clôture/liasse fait (2026-09-11, Semaine 4)** : `ClotureSection.tsx`
+  sur la fiche dossier — compte de résultat (CA HT/Charges/Résultat) +
+  bilan simplifié (Trésorerie/TVA à payer, absents de l'écran avant ce
+  lot) + 5 liens de téléchargement (liasse/CERFA 2065/FEC/grand livre/
+  balance, `demo_api.py`) reflétant les décisions humaines appliquées, pas
+  le ledger brut.
 - **V1 (doc 12, phase 3-4)** : Next.js complet sur `api/` (le vrai backend,
   auth/MFA, multi-tenant), design system (`DESIGN.md`), maquettes Figma
   validées avec 2 utilisateurs cibles (doc 12 §0.3).

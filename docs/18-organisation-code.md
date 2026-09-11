@@ -2,7 +2,7 @@
 
 > Statut : moteur démo + deux interfaces (gestionnaire, chauffeur) en
 > construction, voir état détaillé ci-dessous. Dernière mise à jour :
-> 2026-09-09.
+> 2026-09-11.
 
 Ce doc fait le lien entre l'arborescence réelle du repo (`backend/`,
 `frontend/`) et le découpage en modules défini en [doc 03 §3](03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
@@ -225,8 +225,19 @@ qui est maintenant identifié par son vrai `user_id` Supabase.
 `demo_justificatifs.py` (nouveau, composition root de démo) tient le
 même rôle que `demo_comptes.py`/`demo_auth.py` — hors doc 03 §3.
 
+**Semaine 4 (doc 17 §9), partiellement faite le 2026-09-11** : clôture/
+liasse exposées dans l'UI gestionnaire — 5 routes de téléchargement dans
+`demo_api.py` (liasse/CERFA 2065/FEC/grand livre/balance, sur le ledger
+avec décisions humaines appliquées, pas le ledger brut) et
+`frontend/components/ClotureSection.tsx` (compte de résultat + bilan
+simplifié + liens de téléchargement) sur la fiche dossier. Digifactory
+étant débloqué le même jour (doc 16), `DigifactoryHttpClient` (chemin A,
+vrais appels HTTP) rejoint aussi `ingestion/providers/digifactory.py` —
+toujours pas branché sur `fetch_transactions` (mapping `contact_nr →
+dossier_id` manquant, doc 16 §9 point 5).
+
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
 (chantier séparé, pas commencé), écran `chauffeur_direct` de connexion
-bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), clôture/
-liasse exposées dans l'UI gestionnaire et dossier greffe/INPI (Semaine 4,
-spike de schéma non fait).
+bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), dossier
+greffe/INPI (Semaine 4, spike de schéma non fait), répétition avec run
+pré-cuit.

@@ -19,6 +19,15 @@ export type DossierResume = {
   mode_acces_bancaire: "gestionnaire" | "chauffeur_direct"; // doc 19 §4
 };
 
+// doc 17 §9 Semaine 4 : les 5 exports de clôture, servis en téléchargement
+// direct par demo_api.py (mêmes renderers que demo_chauffeurs_type.py).
+export type DocumentCloture =
+  | "liasse.pdf"
+  | "cerfa-2065.pdf"
+  | "fec.txt"
+  | "grand-livre.csv"
+  | "balance.csv";
+
 export type StatutTransaction = "validé" | "à trancher";
 
 export type TransactionVue = {

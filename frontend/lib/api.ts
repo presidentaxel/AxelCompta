@@ -1,4 +1,4 @@
-import type { DossierResume, TransactionVue } from "./types";
+import type { DocumentCloture, DossierResume, TransactionVue } from "./types";
 
 // axelcompta.demo_api, lancé à part : `uvicorn axelcompta.demo_api:app
 // --reload --port 8000` depuis backend/ (voir frontend/README.md).
@@ -70,4 +70,11 @@ export function obtenirDossier(dossierId: string): Promise<DossierResume> {
 
 export function listerTransactions(dossierId: string): Promise<TransactionVue[]> {
   return getJSON<TransactionVue[]>(`/dossiers/${dossierId}/transactions`);
+}
+
+// doc 17 §9 Semaine 4 : un lien direct, pas un fetch — le navigateur gère
+// le téléchargement (Content-Disposition côté demo_api.py), pas besoin de
+// passer par React pour un fichier statique par requête.
+export function urlTelechargementCloture(dossierId: string, document: DocumentCloture): string {
+  return `${API_BASE_URL}/dossiers/${dossierId}/${document}`;
 }

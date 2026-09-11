@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/Badge";
+import { ClotureSection } from "@/components/ClotureSection";
 import { TrancherActions } from "@/components/TrancherActions";
 import { listerTransactions, obtenirDossier } from "@/lib/api";
 import { formatMontant } from "@/lib/format";
@@ -26,6 +27,8 @@ export default async function DossierPage({ params }: { params: { id: string } }
       <p className="mb-6 text-sm text-subtle">
         {dossier.exercice_debut} → {dossier.exercice_fin} · {dossier.nb_transactions} écritures
       </p>
+
+      <ClotureSection dossier={dossier} />
 
       <div className="overflow-hidden rounded-lg border border-border bg-canvas">
         <table className="w-full text-sm">
