@@ -215,24 +215,30 @@ contractuelle.
 | **CertEurope / infocert-sign** (groupe Tinexta InfoCert) | **Non** — a un produit dédié **« Certificat de signature électronique qualifiée pour INPI »**, mais le modèle est : chaque signataire (le dirigeant du dossier) obtient son propre certificat individuel (~30 € HT, appel vidéo ~10 min), puis signe via leur appli desktop/web séparée (`infocert-sign`), pas via une intégration dans notre app. | Certificat **par personne physique**, 30 € HT one-shot | Modèle historiquement « natif » pour ce cas d'usage (page produit dédiée INPI), mais le coût est par dirigeant — sur ~200 chauffeurs/dirigeants SASU-EURL, ça chiffre vite (voir point ouvert ci-dessous) et le parcours sort systématiquement de notre app. |
 | **Certigreffe** (Infogreffe, également via CertEurope) | **Non**, et pire : clé **USB physique**, retrait obligatoire dans un greffe de tribunal de commerce. | Certificat par personne, 119 €HT/an ou 249 €HT/3 ans | Écarté d'office pour un produit mobile-first sur 200 chauffeurs — logistique physique incompatible avec l'onboarding à distance (doc 14). Mentionné pour mémoire, c'est l'option « historique ». |
 
-**Point ouvert, pas résolu ici, à traiter avant tout choix ferme** : dans
-le contrat d'interface INPI (§3), il existe une notion de `declarant`
-distincte de `personnePhysique`/`personneMorale` — cohérent avec le fait
-que l'API s'appelle « API mandataire de dépôt ». **Si AxeLCompta peut
-agir comme mandataire avec son propre certificat (via une procuration/
-mandat du dirigeant) plutôt que de faire obtenir un certificat individuel
-à chacun des ~200 chauffeurs**, le modèle économique et UX change
-complètement (un seul certificat côté AxeLCompta vs. 200 certificats
-individuels). **Question juridique/business, pas technique** — à
-clarifier avec un expert-comptable ou juriste avant de trancher ADR-004,
-pas supposée ici.
+**Point ouvert ci-dessus — tranché par Louis (2026-09-11) : NON.**
+AxeLCompta ne signera **jamais** comme mandataire avec son propre
+certificat, quel que soit le gain économique/UX. Raison donnée par
+Louis : signer, c'est engager sa responsabilité sur le dépôt — exactement
+ce que la décision structurante n°1 du projet interdit déjà (README « Les
+7 décisions structurantes » / doc 02 §2.3 : *« l'utilisateur professionnel
+valide tout, AxeL ne tient pas la comptabilité en son nom »*). Ouvrir une
+exception sur la signature de dépôt légal serait la pire porte d'entrée
+possible pour cette responsabilité — **sujet clos, ne pas rouvrir** (même
+formule que doc 12 §0.1 sur l'associé). Conséquence directe : **chaque
+dirigeant (dossier) doit disposer de son propre certificat qualifié et
+signer lui-même**, sans exception ni raccourci — ~200 signataires
+individuels, pas un seul mandataire.
 
 **Recommandation de ce spike** (pas une décision) : demander un devis à
-**Universign** en premier (seul candidat trouvé où la QES reste dans
-notre app, aligné sur la préférence de Louis), en clarifiant en parallèle
-la question du mandataire ci-dessus — elle peut rendre le modèle
-CertEurope (moins bon pour l'UX mais avec un produit INPI déjà taillé)
-plus intéressant que prévu si un seul certificat AxeLCompta suffit.
+**Universign** en premier — c'est le seul candidat trouvé où le parcours
+d'obtention/usage d'un certificat **individuel** (un par dirigeant) peut
+rester dans notre app via leur iframe, ce qui reste vrai et même plus
+pertinent maintenant que le modèle mandataire est écarté : chaque
+chauffeur passera par sa propre vérification d'identité, autant que ce
+soit sans quitter l'app. CertEurope/Certigreffe restent des candidats de
+repli (produit natif INPI) mais imposent de sortir de l'app pour chacun
+des ~200 signataires — moins bon sur ce critère, à garder en tête
+seulement si Universign ne convient pas en pratique (devis, POC).
 
 ## 7. Pas fait dans ce spike
 

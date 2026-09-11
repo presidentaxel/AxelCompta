@@ -16,10 +16,17 @@
 > document. Comparatif complet, avec **Universign** (QES embarquable en
 > iframe d'après leur doc) et **CertEurope/Certigreffe** (certificat
 > individuel par dirigeant, hors de notre app) : [doc 20 §6](../20-integration-inpi-depot-comptes.md#6-comparatif-prestataires-signature-qualifiée-rgs-recherche-2026-09-11).
-> Reste ouvert : la notion de « mandataire » dans l'API INPI pourrait
-> permettre à AxeLCompta de signer pour le compte du dirigeant (un seul
-> certificat) plutôt que d'équiper individuellement ~200 chauffeurs — à
-> trancher avec un juriste/expert-comptable avant la décision finale.
+> **Tranché par Louis (2026-09-11) : AxeLCompta ne signera jamais comme
+> mandataire, quel que soit le gain UX/coût.** Signer engagerait la
+> responsabilité d'AxeLCompta sur le dépôt — contraire à la décision
+> structurante n°1 du projet (doc 02 §2.3 : AxeL ne tient jamais la
+> comptabilité/les actes en son nom, l'utilisateur professionnel valide
+> tout). **Sujet clos, ne pas rouvrir.** Chaque dirigeant/dossier doit donc
+> obtenir et utiliser son propre certificat qualifié — ~200 signataires
+> individuels en V1, jamais un seul certificat côté AxeLCompta. Ça renforce
+> l'intérêt d'un prestataire dont le parcours QES individuel reste
+> embarquable dans notre app (Universign) plutôt qu'un qui renvoie chaque
+> utilisateur ailleurs (Yousign/Youtrust pour la QES, CertEurope).
 
 ## Contexte
 
