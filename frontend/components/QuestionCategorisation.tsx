@@ -7,10 +7,10 @@ import { trancherTransactionChauffeur } from "@/lib/auth-chauffeur";
 import type { TransactionVue } from "@/lib/types";
 
 /** doc 19 §5.6 : « petites questions de catégorisation ... présentée
- * simplement » — même mécanisme que la file de revue gestionnaire
- * (`TrancherActions.tsx`, doc 17 §9 bloc C) mais sans le vocabulaire
- * comptable ("471", "reclasser") : une question fermée d'abord, un champ
- * libre seulement si la réponse est non. */
+ * simplement » — même mécanisme de revue que doc 17 §9 bloc C (désormais
+ * exclusivement indiv, doc 19 §2.1) mais sans le vocabulaire comptable
+ * ("471", "reclasser") : une question fermée d'abord, un champ libre
+ * seulement si la réponse est non. */
 export function QuestionCategorisation({
   dossierId,
   ecritureId,

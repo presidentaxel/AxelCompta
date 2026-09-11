@@ -29,6 +29,16 @@ export type DocumentCloture =
   | "grand-livre.csv"
   | "balance.csv";
 
+// doc 20 §4 : réponse de la signature greffe/INPI — déplacé ici le
+// 2026-09-11 (doc 19) car appelé depuis lib/api.ts (type) et
+// lib/auth-chauffeur.ts (l'appel authentifié réel, côté indiv).
+export type SignatureGreffeVue = {
+  dossier_id: string;
+  signe: boolean;
+  signe_le: string;
+  qualifie: boolean; // toujours false en démo
+};
+
 export type StatutTransaction = "validé" | "à trancher";
 
 export type TransactionVue = {

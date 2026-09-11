@@ -603,6 +603,16 @@ se connecter.
 > tests) mais **au mauvais endroit** — à déplacer côté `/chauffeur/*`
 > quand ce chantier sera codé (doc 19 §8), pas refait de zéro. Décision de
 > Louis : documenter maintenant, coder plus tard.
+>
+> **Déplacé le 2026-09-11, même jour** (doc 19 §8) : `ClotureSection.tsx`
+> et `GreffeInpiSection.tsx` vivent maintenant sur `/chauffeur/[dossierId]`,
+> signature authentifiée (`signerGreffeInpiChauffeur`). Fiche dossier
+> gestionnaire et `TrancherActions.tsx` supprimés. Vérifié en vrai
+> navigateur (compte de test Sophie, supprimé après) : signature réelle en
+> direct, dashboard gestionnaire sans navigation vers un détail. `next
+> lint`/`build` verts, 232 tests backend inchangés (aucun code backend
+> touché). Limite connue non corrigée dans ce lot : l'accès anonyme aux
+> routes indiv de `demo_api.py` reste techniquement possible (doc 19 §8bis).
 
 - Clôture + liasse + CERFA 2065 + FEC/grand livre/balance sur les 3
   dossiers (déjà fait au niveau moteur, §12) — exposés dans l'interface

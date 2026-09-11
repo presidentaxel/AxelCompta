@@ -15,7 +15,7 @@
  */
 
 import { ApiError } from "./api";
-import type { TransactionVue } from "./types";
+import type { SignatureGreffeVue, TransactionVue } from "./types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -204,6 +204,29 @@ export async function trancherTransactionChauffeur(
     throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
   }
   return corps as TransactionVue;
+}
+
+/** doc 19 §5.3, doc 20 §4bis : signature (démo, jamais qualifiée RGS) du
+ * dossier de dépôt greffe/INPI — authentifiée pour que `demo_api.py`
+ * attribue vraiment `signataire` à l'indiv connecté (`identite.user_id`),
+ * pas au stub `UTILISATEUR_DEMO`. Déplacé depuis lib/api.ts le
+ * 2026-09-11 : cet écran quitte le gestionnaire (doc 19 §2.1/§2.4), donc
+ * la version anonyme n'a plus de raison d'être appelée. */
+export async function signerGreffeInpiChauffeur(dossierId: string): Promise<SignatureGreffeVue> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const reponse = await fetch(`${baseUrl}/dossiers/${dossierId}/greffe-inpi/signature`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.accessToken}` },
+  });
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as SignatureGreffeVue;
 }
 
 /** doc 17 §9 Semaine 3, doc 19 §5.7 : photo de justificatif jointe par le

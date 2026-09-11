@@ -249,14 +249,18 @@ revue, signature électronique »). `demo_api.py` gagne les routes
 `GET/POST .../greffe-inpi{.pdf,/signature}` ; `frontend/components/GreffeInpiSection.tsx`
 sur la fiche dossier.
 
-**⚠️ Mal placé depuis la révision du 2026-09-11 (doc 19)** : `ClotureSection.tsx`
-et `GreffeInpiSection.tsx` sont sur la fiche dossier **gestionnaire** —
-doivent migrer côté indiv (`/chauffeur/*`) une fois ce parcours codé (doc
-17 §9 note, doc 19 §8). Le code backend (`filings/`, `workflow/signature.py`)
-reste correct et réutilisable tel quel — c'est le branchement front qui
-change d'écran, pas le calcul. `workflow/signature.py` modélise déjà une
-seule étape de signature ; le vrai parcours en a deux (doc 20 §4bis,
-validation + légale) — à étendre, pas à réécrire.
+**Déplacé le 2026-09-11, même jour** (doc 19 §8) : `ClotureSection.tsx`
+et `GreffeInpiSection.tsx` vivent maintenant sur `frontend/app/chauffeur/[dossierId]`,
+plus sur la fiche dossier gestionnaire (supprimée, ainsi que
+`TrancherActions.tsx`) — le gestionnaire n'a plus qu'un dashboard agrégé
+(`app/(gestionnaire)/page.tsx`, cartes sans navigation). Signature
+authentifiée via `signerGreffeInpiChauffeur` (`lib/auth-chauffeur.ts`), pas
+la version anonyme de `lib/api.ts` (retirée). Le code backend (`filings/`,
+`workflow/signature.py`) n'a pas bougé, toujours correct tel quel —
+`workflow/signature.py` modélise une seule étape de signature ; le vrai
+parcours en a deux (doc 20 §4bis, validation + légale) — à étendre, pas à
+réécrire. Limite connue, pas corrigée : les routes indiv de `demo_api.py`
+acceptent toujours un appel sans jeton (doc 19 §8bis).
 
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
 (pas commencé — **précisé 2026-09-11, doc 03 §7 : ce n'est plus un système

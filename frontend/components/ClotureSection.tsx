@@ -1,8 +1,8 @@
 // doc 17 §9 Semaine 4 : compte de résultat + bilan simplifié + liens de
-// téléchargement des exports de clôture, sur la fiche dossier — jusqu'ici
-// ces chiffres n'existaient que sur la carte du tableau de bord (CA HT/
-// Charges/Résultat) et le bilan (trésorerie/TVA à payer) n'était affiché
-// nulle part côté écran, seulement dans la réponse API.
+// téléchargement des exports de clôture. **Déplacé le 2026-09-11** (doc 19
+// §2.1/§5.3) : sur la fiche dossier indiv, pas gestionnaire — le
+// gestionnaire n'a plus de fiche dossier détaillée du tout, seulement
+// l'agrégat du dashboard.
 import { urlTelechargementCloture } from "@/lib/api";
 import { formatMontant } from "@/lib/format";
 import type { DocumentCloture, DossierResume } from "@/lib/types";

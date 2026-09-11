@@ -1,4 +1,4 @@
-import type { DocumentCloture, DossierResume, TransactionVue } from "./types";
+import type { DocumentCloture, DossierResume } from "./types";
 
 // axelcompta.demo_api, lancé à part : `uvicorn axelcompta.demo_api:app
 // --reload --port 8000` depuis backend/ (voir frontend/README.md).
@@ -40,41 +40,23 @@ export async function inviterChauffeur(
   return corps;
 }
 
-export async function trancherTransaction(
-  dossierId: string,
-  ecritureId: string,
-  categorie: string,
-): Promise<TransactionVue> {
-  const reponse = await fetch(
-    `${API_BASE_URL}/dossiers/${dossierId}/transactions/${ecritureId}/decision`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ categorie }),
-    },
-  );
-  const corps = await reponse.json();
-  if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
-  }
-  return corps as TransactionVue;
-}
-
+// doc 19 §2.1/§6 (révision 2026-09-11) : c'est tout ce qui reste côté
+// gestionnaire — la liste agrégée. Le détail d'un dossier (transactions,
+// clôture, signature) n'existe plus que côté indiv, doc 19 §5 —
+// `obtenirDossier`/`listerTransactions`/`trancherTransaction` ont été
+// retirés d'ici avec la fiche dossier gestionnaire qui les utilisait ;
+// leurs équivalents authentifiés vivent dans lib/auth-chauffeur.ts.
 export function listerDossiers(): Promise<DossierResume[]> {
   return getJSON<DossierResume[]>("/dossiers");
 }
 
-export function obtenirDossier(dossierId: string): Promise<DossierResume> {
-  return getJSON<DossierResume>(`/dossiers/${dossierId}`);
-}
-
-export function listerTransactions(dossierId: string): Promise<TransactionVue[]> {
-  return getJSON<TransactionVue[]>(`/dossiers/${dossierId}/transactions`);
-}
-
 // doc 17 §9 Semaine 4 : un lien direct, pas un fetch — le navigateur gère
 // le téléchargement (Content-Disposition côté demo_api.py), pas besoin de
-// passer par React pour un fichier statique par requête.
+// passer par React pour un fichier statique par requête. Reste anonyme
+// (pas d'en-tête Authorization possible sur un <a href>) : fonctionne via
+// le même repli que côté gestionnaire avant (`identite is None`,
+// demo_api.py) — limite connue, pas un vrai contrôle d'accès côté indiv
+// pour l'instant (à durcir si besoin, doc 19 §8).
 export function urlTelechargementCloture(dossierId: string, document: DocumentCloture): string {
   return `${API_BASE_URL}/dossiers/${dossierId}/${document}`;
 }
@@ -83,22 +65,4 @@ export function urlTelechargementCloture(dossierId: string, document: DocumentCl
 // automatiquement l'état signé/non signé côté serveur (demo_api.py).
 export function urlGreffeInpi(dossierId: string): string {
   return `${API_BASE_URL}/dossiers/${dossierId}/greffe-inpi.pdf`;
-}
-
-export type SignatureGreffeVue = {
-  dossier_id: string;
-  signe: boolean;
-  signe_le: string;
-  qualifie: boolean; // doc 20 §4 : toujours false en démo
-};
-
-export async function signerGreffeInpi(dossierId: string): Promise<SignatureGreffeVue> {
-  const reponse = await fetch(`${API_BASE_URL}/dossiers/${dossierId}/greffe-inpi/signature`, {
-    method: "POST",
-  });
-  const corps = await reponse.json();
-  if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
-  }
-  return corps as SignatureGreffeVue;
 }

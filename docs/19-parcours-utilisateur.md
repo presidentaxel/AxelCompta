@@ -321,9 +321,35 @@ plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
 - **Confirmation juridique sur la visibilité gestionnaire** (§2.4, doc 02
   §10) — bloquant pour savoir si même « documents déposés : oui/non » est
   affichable au gestionnaire.
-- **Rework de ce qui a été construit le 2026-09-11 avant cette révision**
-  (doc 17 §9 Semaine 4, greffe/INPI) : `ClotureSection.tsx` et
-  `GreffeInpiSection.tsx` sont aujourd'hui sur la fiche dossier
-  **gestionnaire** — à déplacer côté indiv une fois qu'on code ce parcours.
-  Pas fait dans cette révision de doc (Louis : « on fera du code plus
-  tard ») — noté pour ne pas l'oublier.
+- ~~Rework de ce qui a été construit le 2026-09-11 avant cette révision~~
+  — **fait le 2026-09-11, même jour** : `ClotureSection.tsx` et
+  `GreffeInpiSection.tsx` ont migré vers `/chauffeur/[dossierId]`, appel
+  de signature authentifié (`signerGreffeInpiChauffeur`,
+  `lib/auth-chauffeur.ts`) pour que `demo_api.py` attribue vraiment la
+  signature à l'indiv connecté. La fiche dossier gestionnaire
+  (`app/(gestionnaire)/dossiers/[id]`) et `TrancherActions.tsx` sont
+  supprimés — le gestionnaire n'a plus que le dashboard agrégé (§2.1),
+  les cartes n'ouvrent plus rien (`Link` retiré). Vérifié en vrai
+  navigateur (compte de test Sophie via `/admin/users`, supprimé après) :
+  connexion, clôture et greffe/INPI visibles et fonctionnels côté indiv,
+  signature réelle en direct (badge → signé, PDF change), dashboard
+  gestionnaire avec cartes non cliquables. `next lint`/`build` verts.
+  **Pas fait dans ce lot** (hors scope, cf. §7bis) : durcir l'accès
+  anonyme encore permis par le backend sur ces routes (et sur
+  transactions/décision/justificatif, préexistant) — resterait
+  accessible sans jeton si quelqu'un appelait l'API directement.
+
+### 8bis. Limite connue, pas corrigée dans ce lot (2026-09-11)
+
+Les routes indiv de `demo_api.py` (transactions, décision, justificatif,
+clôture, greffe/INPI) acceptent toutes un appel **sans** en-tête
+`Authorization` — `_verifier_acces_dossier` ne restreint que si un jeton
+est présent et ne correspond pas au dossier, jamais l'absence de jeton
+(hérité du cas « gestionnaire, pas de login » d'avant cette révision).
+Maintenant que ces écrans n'ont plus d'UI gestionnaire pour les appeler,
+plus personne ne le fait dans l'app — mais l'API elle-même le permettrait
+encore si on l'appelait directement (curl/Swagger). Décision à prendre :
+exiger un jeton indiv valide sur toutes ces routes, pas juste vérifier sa
+cohérence s'il est fourni. Pas fait ici — périmètre plus large que le
+déplacement d'écran demandé, touche à toutes les routes indiv, pas
+seulement les deux déplacées aujourd'hui.

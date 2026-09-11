@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ClotureSection } from "@/components/ClotureSection";
+import { GreffeInpiSection } from "@/components/GreffeInpiSection";
 import { JustificatifPhoto } from "@/components/JustificatifPhoto";
 import { QuestionCategorisation } from "@/components/QuestionCategorisation";
 import { SignatureMock } from "@/components/SignatureMock";
@@ -16,12 +18,16 @@ type Chargement =
   | { statut: "erreur"; message: string };
 
 /** Vue chauffeur (doc 19 §5.5 : « vocabulaire simple, pas le vocabulaire
- * comptable pro de la file de revue gestionnaire »). doc 17 §9 Semaine 3 :
- * transactions catégorisées, question de catégorisation (usage_personnel
- * ou non, `QuestionCategorisation`), photo de justificatif
- * (`JustificatifPhoto`, pas d'OCR) et signature mockée (`SignatureMock`,
- * « vrai faux », décidé 2026-09-07) — les trois étapes qui manquaient
- * encore à cette page.
+ * comptable pro »). doc 17 §9 Semaine 3 : transactions catégorisées,
+ * question de catégorisation (usage_personnel ou non,
+ * `QuestionCategorisation`), photo de justificatif (`JustificatifPhoto`,
+ * pas d'OCR) et signature mockée (`SignatureMock`, « vrai faux », décidé
+ * 2026-09-07).
+ *
+ * **Depuis le 2026-09-11** (doc 19 §2.1/§5.3) : clôture (`ClotureSection`)
+ * et dépôt greffe/INPI (`GreffeInpiSection`) ont migré ici depuis la fiche
+ * dossier gestionnaire — c'est l'indiv, propriétaire de son dossier, qui
+ * les voit et qui signe, jamais le gestionnaire (doc 19 §2.4).
  */
 export default function DossierChauffeurPage({ params }: { params: { dossierId: string } }) {
   const router = useRouter();
@@ -72,6 +78,10 @@ export default function DossierChauffeurPage({ params }: { params: { dossierId: 
       <h1 className="mb-1 text-xl font-bold text-ink">Bonjour {chargement.dossier.nom}</h1>
       <p className="mb-3 text-sm text-subtle">Voici vos dernières transactions.</p>
       <ConnexionBancaireBadge mode={chargement.dossier.mode_acces_bancaire} />
+      <div className="mt-4">
+        <ClotureSection dossier={chargement.dossier} />
+        <GreffeInpiSection dossier={chargement.dossier} />
+      </div>
       <ul className="mt-4 space-y-2">
         {chargement.transactions.map((transaction) => (
           <TransactionLigne
