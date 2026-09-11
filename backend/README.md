@@ -114,6 +114,15 @@ erreurs mypy dans des fichiers de test — annotations manquantes,
 export implicite, narrowing `Optional` que mypy ne pouvait pas déduire
 seul ; 4 fichiers jamais reformatés) sont corrigés.
 
+**CI ajoutée le 2026-09-11** (`.github/workflows/ci.yml`, à la racine du
+repo) : ces commandes ci-dessus (backend, y compris l'intégration contre un
+vrai Postgres éphémère du job) + `next lint`/`next build` (front) tournent
+maintenant automatiquement sur chaque push/PR vers `main`. Couvre les
+étapes 1-6 du pipeline cible de [doc 08 §4](../docs/08-qualite-code.md) —
+pas encore les étapes 7-10 (golden tests séparés, seuils de couverture,
+audit dépendances/secrets, build Docker). Les tests marqués `supabase`
+restent hors CI (quota e-mail réel, doc 17 §9 bloc B) — toujours manuels.
+
 ## Tests : un dossier miroir par module (doc 08 §3)
 
 `tests/<module>/` reproduit exactement `axelcompta/<module>/` — c'est une

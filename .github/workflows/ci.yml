@@ -1,0 +1,95 @@
+name: CI
+
+# Première version de la CI (doc 12 §1.1, doc 08 §4) — couvre les étapes 1-6
+# du pipeline cible (ruff, mypy, import-linter, tests rapides + intégration
+# Postgres, tsc/lint/build front). Volontairement pas encore : golden tests
+# séparés (déjà dans la suite pytest normale), seuils de couverture, audit
+# dépendances/secrets, build Docker (doc 08 §4 étapes 7-10) — à ajouter une
+# fois qu'un premier passage vert est acquis, pas bloquant pour commencer.
+# Les tests marqués `supabase` (doc 17 §9 bloc B) restent hors CI : ils
+# consomment un quota d'e-mail réel sur le projet Supabase, à lancer
+# manuellement (backend/README.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: axelcompta_dev
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d axelcompta_dev"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://user:password@localhost:5432/axelcompta_dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Installer axelcompta (+ deps dev)
+        run: pip install -e ".[dev]"
+
+      - name: ruff format --check
+        run: python -m ruff format --check .
+
+      - name: ruff check
+        run: python -m ruff check .
+
+      - name: mypy
+        run: python -m mypy axelcompta tests migrations
+
+      - name: import-linter (frontières de modules, doc 03 §3)
+        run: lint-imports
+
+      - name: Migrations Alembic (vers le Postgres du job)
+        run: python -m alembic upgrade head
+
+      - name: Tests rapides (doc 08 §3 — sans Postgres ni Supabase)
+        run: python -m pytest
+
+      - name: Tests d'intégration (doc 09 §4 — vrai Postgres)
+        run: python -m pytest -m integration
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: next lint
+        run: npm run lint
+
+      - name: Build (type-check tsc inclus)
+        run: npm run build

@@ -1,10 +1,12 @@
 # 16 — Intégration Digifactory (source bancaire)
 
-> **Statut : spec confirmée par le fournisseur, non encore vérifiée par appel réel.**
-> Le token retourne actuellement un 401 (voir §7). Tout ce qui est marqué
-> ⚠️ *à confirmer* vient de la description de Pierre BERTOLA et n'a pas été
-> observé dans une réponse réelle.
-> Dernière mise à jour : 2026-09-01.
+> **Statut : déblocage confirmé le 2026-09-11 — `/contacts` et `/categories`
+> répondent 200 en réel (voir §7).** Le 401 n'était pas un problème côté
+> Digifactory : c'était un mauvais type d'en-tête utilisé côté client depuis
+> le début (§2). Tout ce qui reste marqué ⚠️ *à confirmer* n'a toujours pas
+> été observé dans une réponse réelle (`/accounts`, `/transactions` pas
+> encore appelés).
+> Dernière mise à jour : 2026-09-11.
 
 > **Phasage : Digifactory est le canal exclusif pour septembre 2026.**
 > Bridge reste la source de données de base (Digifactory n'est qu'un tampon qui
@@ -46,11 +48,20 @@ notre demande.
 
 **Base URL :** `https://entrepreneur.digifactory.fr/api/bridge`
 
-**Authentification :** en-tête `Authorization: Bearer <token>`
+**Authentification : en-tête `X_DIGI_TOKEN: <token>` — ce n'est PAS un
+bearer token.** Corrigé le 2026-09-11 (Pierre BERTOLA) : Digifactory a deux
+types de token, et la spec initiale (`Authorization: Bearer <token>`) nous
+avait été donnée pour l'autre type par erreur. C'est la cause réelle du 401
+qui bloquait depuis le 2026-09-01 — rien n'était cassé ni de notre côté
+(client) ni du côté Digifactory, juste un mauvais nom/format d'en-tête.
+**Confirmé par appel réel le 2026-09-11** (§7) : `X_DIGI_TOKEN` fonctionne,
+`Authorization: Bearer` ne fonctionnera jamais pour ce type de token — ne
+pas revenir dessus si un futur doute survient.
 
-Le token est un secret de 64 caractères, transmis hors bande. Il ne doit
-jamais être commité ni écrit dans un fichier versionné — lecture par variable
-d'environnement uniquement (`DIGIFACTORY_TOKEN`).
+Le token est un secret de 64 caractères (shared secret, pas un JWT/bearer),
+transmis hors bande. Il ne doit jamais être commité ni écrit dans un fichier
+versionné — lecture par variable d'environnement uniquement
+(`DIGIFACTORY_TOKEN`).
 
 Cycle de vie du token (durée de validité, rotation, scope, procédure en cas de
 fuite) : **non documenté**, question posée au fournisseur, sans réponse à ce
@@ -118,10 +129,24 @@ ajoutés par le fournisseur sans qu'on les demande.
 
 Liste des contacts. Le champ `nr` est l'identifiant pivot.
 
-⚠️ **Vérifier au premier appel réussi si le SIREN est présent.** C'est le point
-de jointure vers nos dossiers. En son absence, le mapping `nr → dossier_id` est
-manuel sur ~200 chauffeurs et doit être stocké dans une table de correspondance
-explicite.
+**Vérifié par appel réel le 2026-09-11** (§7) : réponse = objet indexé par
+`nr` (pas un tableau), champs par contact : `nr`, `firstname`, `lastname`,
+`companyNr`, `companyName`, `siret`. Le point de jointure attendu est
+présent, mais deux réserves réelles trouvées sur cet appel (5 contacts,
+échantillon non représentatif des ~200 chauffeurs) :
+- Le champ s'appelle `siret` mais toutes les valeurs observées font 9
+  chiffres (longueur SIREN, pas SIRET/14 chiffres). ⚠️ *À confirmer avec
+  Pierre* : nommage trompeur mais valeur exploitable telle quelle, ou
+  troncature/mapping différent à vérifier avant de brancher le mapping
+  `nr → dossier_id` en confiance.
+- Au moins un contact de l'échantillon a `siret: ""` (vide) — confirme
+  que le cas « pas de SIREN » de la réserve ci-dessous est réel, pas
+  hypothétique : le mapping `nr → dossier_id` doit rester une table de
+  correspondance explicite, pas une jointure automatique sur ce champ.
+
+Pas de données réelles de contacts reproduites ici (noms/SIRET de tiers) —
+si besoin de rejouer cet appel, relancer le curl (§7) plutôt que de
+committer une capture.
 
 ### 3.4 `/categories`
 
@@ -203,7 +228,7 @@ interprétable comme une absence d'activité.
 
 ---
 
-## 7. Statut du token (bloquant à ce jour)
+## 7. Statut du token — DÉBLOQUÉ le 2026-09-11
 
 Le token reçu retourne un **401** sur `/contacts` :
 
@@ -242,6 +267,39 @@ ou un jeton/une config à retester) **vendredi 2026-09-11**. Le token reste
 401 jusque-là — rien à retester avant cette date. Session suivante :
 vérifier si les curls sont arrivés et reprendre le retest de ce §7 à partir
 d'eux.
+
+**Cause réelle trouvée et corrigée (2026-09-11).** Pierre BERTOLA a
+identifié l'erreur : Digifactory a deux types de token, et l'en-tête qui
+nous avait été communiqué initialement (`Authorization: Bearer <token>`,
+§2) était celui de l'*autre* type. Le nôtre est un shared secret, à passer
+dans l'en-tête `X_DIGI_TOKEN`. Rien n'était cassé ni de notre côté ni de
+celui de Digifactory pendant ces 10 jours — mauvaise spec dès le départ. Les
+tags de trace du 2026-09-07 (relance) ne sont plus exploitables côté
+Digifactory (délai de rétention des logs dépassé) — sans conséquence, la
+cause est identifiée par un autre biais (Pierre a testé directement avec
+notre token).
+
+**Retesté et confirmé en réel le 2026-09-11**, avec le vrai token de
+`.env` (`DIGIFACTORY_TOKEN`, suffixe `...8512`, celui transmis par Pierre) :
+
+```
+GET /contacts    → 200, objet indexé par nr, 5 contacts (voir §3.3)
+GET /categories  → 200, arborescence de catégories Bridge (~60 entrées)
+```
+
+**Pas encore testé** : `/accounts/{contactNr}` et `/transactions/{contactNr}`
+— nécessite de choisir un `contactNr` réel et de tirer des données bancaires
+réelles de tiers, pas fait sans validation explicite de Louis au préalable
+(vs. `/contacts`/`/categories` qui ne exposent que l'identité déjà
+communiquée par Pierre lui-même dans son mail). Prochaine étape naturelle
+avant de coder `DigifactoryProvider` en chemin A (doc 12 §1.2, toujours pas
+implémenté — le provider actuel ne tourne que sur fixtures, §9 point 1).
+
+**Développement contre fixtures (ci-dessus) reste valide** : le schéma
+confirmé par `/contacts`/`/categories` correspond à ce qui était documenté
+(hors la nuance `siret`/SIREN et l'indexation par `nr`, désormais notées),
+`parser_transactions` n'a pas besoin d'être réécrit avant de basculer sur
+de vraies données `/transactions`.
 
 ---
 
