@@ -1,11 +1,10 @@
 # 16 — Intégration Digifactory (source bancaire)
 
-> **Statut : déblocage confirmé le 2026-09-11 — `/contacts` et `/categories`
-> répondent 200 en réel (voir §7).** Le 401 n'était pas un problème côté
-> Digifactory : c'était un mauvais type d'en-tête utilisé côté client depuis
-> le début (§2). Tout ce qui reste marqué ⚠️ *à confirmer* n'a toujours pas
-> été observé dans une réponse réelle (`/accounts`, `/transactions` pas
-> encore appelés).
+> **Statut : les 4 routes vérifiées en réel le 2026-09-11 — voir §7.** Le
+> 401 n'était pas un problème côté Digifactory : c'était un mauvais type
+> d'en-tête utilisé côté client depuis le début (§2). Chemin A implémenté
+> (`DigifactoryHttpClient`, `backend/axelcompta/ingestion/providers/digifactory.py`)
+> et testé contre la vraie API, pas seulement contre des fixtures.
 > Dernière mise à jour : 2026-09-11.
 
 > **Phasage : Digifactory est le canal exclusif pour septembre 2026.**
@@ -103,15 +102,25 @@ max observé au dernier passage.
 
 ```json
 {
-  "<accountId>": [ { ...transaction }, ... ],
-  "<accountId>": [ ... ]
+  "<accountId>": { "<transactionId>": { ...transaction }, ... },
+  "<accountId>": { ... }
 }
 ```
 
-⚠️ *À confirmer.* Pierre a initialement décrit une indexation par nom de banque
-(`"Swan"`, `"Bourso"`), puis corrigé : c'est bien l'`accountId`. Le parsing doit
-néanmoins **ne pas dépendre de la clé** — lire `account_id` sur chaque
-transaction si le champ y est présent, et ne se rabattre sur la clé que sinon.
+**Vérifié par appel réel le 2026-09-11** (§7, 2 contacts, 2029 transactions
+au total) : l'indexation est bien par `accountId`, comme corrigé par Pierre.
+**Écart réel trouvé, différent de ce qui était documenté avant cette
+session** : chaque compte n'est **pas une liste** de transactions mais un
+**dict `{transactionId: transaction}`**. `parser_transactions` (code) est
+corrigé en conséquence (`_transactions_de_compte`, accepte les deux formes)
+— ce n'était pas qu'une note de doc, ça aurait fait planter le parsing du
+premier vrai payload tel qu'écrit avant aujourd'hui (`for tx in
+transactions` itérait sur les clés du dict, pas sur les transactions).
+
+Le parsing doit néanmoins **ne pas dépendre de la clé du niveau compte** —
+lire `account_id` sur chaque transaction si le champ y est présent, et ne
+se rabattre sur la clé que sinon (déjà le cas, `parser_transactions`
+inchangé sur ce point).
 
 ### 3.2 `/accounts/{contactNr}`
 
@@ -122,8 +131,34 @@ id  name  item_id  provider_id  pro  data_access  paused  iban
 balance  type  currency_code  updated_at  last_refresh_status
 ```
 
-Plus les objets liés **`item`** (dates de rafraîchissement) et **`provider`**,
-ajoutés par le fournisseur sans qu'on les demande.
+**Vérifié par appel réel le 2026-09-11** (2 contacts, 13 comptes au total) :
+tous ces champs sont bien présents, sans exception. Précisions réelles,
+absentes de la description initiale du fournisseur :
+- **Un contact sans compte connecté renvoie `[]`** (liste vide), pas `{}`
+  — le type de la réponse n'est donc pas toujours un objet, à gérer
+  explicitement (`DigifactoryHttpClient.accounts` typé en conséquence).
+- `last_refresh_status` observé toujours à la valeur sentinelle
+  `"0000-00-00 00:00:00"` (format date zéro façon MySQL) sur tous les
+  comptes de l'échantillon, jamais un vrai timestamp ni `null` — à traiter
+  comme une valeur non renseignée, pas comme une date réelle à parser.
+- `item` (objet lié) contient bien plus que « dates de rafraîchissement » :
+  `id`, `provider_id`, **`provider`** (imbriqué *dans* `item`, pas un objet
+  frère comme la phrase initiale pouvait le laisser penser — voir
+  ci-dessous), `status` (entier), `status_code_info` (chaîne, ex. observées :
+  `"ok"` et `"sca_required_webview"` — ce dernier signifie une connexion qui
+  demande une nouvelle authentification forte, un vrai cas de « connexion
+  cassée » à distinguer d'un compte simplement inactif, doc 16 §5
+  « Santé de connexion »), `account_types`, `paused`, `last_successful_refresh`,
+  `last_try_refresh`, `created_at`, et **`authentication_expires_at`** —
+  qui répond enfin à la question ouverte du §6 : **oui, la date d'expiration
+  du consentement DSP2 est exposée**, format `YYYY-MM-DD HH:MM:SS`, observée
+  jusqu'à ~3 mois dans le futur sur les comptes actifs de l'échantillon.
+- `item.provider` (imbriqué) : `id`, `name` (nom de la banque, ex. observés :
+  Bunq, Swan), `country_code`, `group_name`, `logo` (URL), `health_status`
+  (ex. observé : `"healthy"`).
+
+Aucune IBAN/nom de compte réel reproduit ici — champs et formes uniquement,
+pas de vraies données clients dans ce fichier (cf. §3.3).
 
 ### 3.3 `/contacts`
 
@@ -179,6 +214,24 @@ Champs confirmés disponibles par le fournisseur (nomenclature Bridge) :
 | `category_id` | Catégorie Bridge | Feature uniquement |
 | `account_id` | Compte bancaire | **Bloquant** — rapprochement |
 
+**Vérifié par appel réel le 2026-09-11** (2029 transactions, 2 contacts,
+toutes chez des providers bancaires FR) :
+- Les 15 champs ci-dessus sont bien tous présents sur chaque transaction.
+- `booking_date`/`transaction_date`/`value_date` : **toujours `null`** sur
+  l'échantillon complet — jamais renseignés en pratique pour ces comptes.
+  Ne pas construire de logique qui suppose leur présence ; `date` et
+  `updated_at` restent les deux seuls champs de date fiables.
+- `amount` : type JSON observé **int ou float** selon la transaction (un
+  montant rond sérialise en int). `_vers_centimes` (code) passe déjà par
+  `Decimal(str(montant))`, robuste aux deux — rien à changer.
+- `currency_code` : toujours `"EUR"` sur l'échantillon (pas de multi-devise
+  observée, mais l'échantillon ne le prouve pas pour tous les cas).
+  `deleted`/`future` : toujours `false` sur cet échantillon — les cas vrais
+  n'ont pas été observés en réel, seulement testés via fixtures (§7,
+  couverts par les tests existants).
+- `operation_type` : valeurs observées `card`, `unknown`, `direct_debit`,
+  `transfer` — liste non garantie exhaustive.
+
 ---
 
 ## 5. Contraintes d'implémentation
@@ -192,8 +245,14 @@ premier appel si l'unité source est l'euro ou le centime.
 
 **Dates.** Le format annoncé (`YYYY-MM-DD HH:MM:SS`) est sans fuseau, et le
 fournisseur a lui-même mentionné un décalage horaire. Normaliser en UTC à
-l'ingestion, en documentant le fuseau source retenu. ⚠️ *À confirmer sur une
-réponse réelle.*
+l'ingestion, en documentant le fuseau source retenu. **Confirmé par appel
+réel le 2026-09-11** : format bien `YYYY-MM-DD HH:MM:SS`, séparateur
+espace (pas `T`), sans aucune information de fuseau dans la chaîne — le
+décalage horaire mentionné par le fournisseur reste donc ⚠️ *à confirmer*
+(quel fuseau source exactement), seul le format de sérialisation est
+tranché. `datetime.fromisoformat` (Python ≥3.11) parse ce format
+directement, y compris avec l'espace comme séparateur — pas besoin d'un
+parseur dédié.
 
 **Déduplication.** Clé = `id` de transaction. Un `id` déjà connu dont
 l'`updated_at` a changé est une **mise à jour**, pas un doublon : il doit
@@ -203,6 +262,12 @@ déclencher la révision de l'écriture associée, pas être ignoré silencieuse
 volume en régime courant, mais le **premier appel sans filtre peut être
 volumineux**. Prévoir un découpage `from`/`to` par mois en repli, et mesurer le
 poids réel par contact avant de lancer un chargement sur 200 dossiers.
+**Mesuré en réel le 2026-09-11, sans filtre `since`** : un seul contact a
+renvoyé ~807 Ko / 2029 transactions sur 4 comptes. Pas encore mesuré sur
+l'historique complet des ~200 dossiers du pilote (dépend du nombre de
+comptes et de l'ancienneté par chauffeur), mais confirme que l'appel
+initial (sans `since`) doit être découpé plutôt que lancé tel quel sur
+l'ensemble du pilote.
 
 **Rate limit.** Non communiqué. Le fournisseur a explicitement demandé d'éviter
 un volume de requêtes élevé et des réponses massives. Implémenter un backoff et
@@ -221,7 +286,7 @@ interprétable comme une absence d'activité.
 | Sujet | Impact |
 |---|---|
 | Profondeur d'historique conservée chez Digifactory | Détermine si la reprise d'antériorité passe par cette API ou uniquement par les FEC |
-| Date d'expiration du consentement DSP2 exposée ? | Sans elle, on constate la panne au lieu de l'anticiper (relance J-14 impossible, doc 14 §2.3) |
+| ~~Date d'expiration du consentement DSP2 exposée ?~~ | **Résolu (2026-09-11)** : oui, `item.authentication_expires_at` sur `/accounts/{contactNr}` (§3.2). La relance J-14 du dashboard consentements (doc 14 §2.3) est donc buildable, reste à implémenter. |
 | Cycle de vie du token | Rotation, révocation, procédure d'incident |
 | Chaîne de sous-traitance RGPD | chauffeur → Bridge → Digifactory → nous. Le consentement DSP2 signé couvre-t-il la retransmission ? Art. 28 à trois parties. **Non traité, à instruire en phase 0** (doc 02 §3, doc 10). |
 | Qui gère le lien Bridge Connect pour un nouveau chauffeur | Digifactory possède la relation Bridge ; pas confirmé si l'ouverture d'une nouvelle connexion pour un chauffeur pilote passe par eux ou reste hors de notre contrôle (doc 14 §1.5). |
@@ -287,19 +352,28 @@ GET /contacts    → 200, objet indexé par nr, 5 contacts (voir §3.3)
 GET /categories  → 200, arborescence de catégories Bridge (~60 entrées)
 ```
 
-**Pas encore testé** : `/accounts/{contactNr}` et `/transactions/{contactNr}`
-— nécessite de choisir un `contactNr` réel et de tirer des données bancaires
-réelles de tiers, pas fait sans validation explicite de Louis au préalable
-(vs. `/contacts`/`/categories` qui ne exposent que l'identité déjà
-communiquée par Pierre lui-même dans son mail). Prochaine étape naturelle
-avant de coder `DigifactoryProvider` en chemin A (doc 12 §1.2, toujours pas
-implémenté — le provider actuel ne tourne que sur fixtures, §9 point 1).
+**`/accounts/{contactNr}` et `/transactions/{contactNr}` testés en réel le
+2026-09-11**, avec validation explicite de Louis au préalable (données
+bancaires réelles de tiers — contrairement à `/contacts`/`/categories` qui
+n'exposent que de l'identité déjà communiquée par Pierre). 2 contacts, 13
+comptes, 2029 transactions au total. Écarts trouvés reportés en §3.1
+(forme dict, pas liste — bug potentiel évité), §3.2 (`authentication_expires_at`,
+`status_code_info`, `[]` si aucun compte) et §4 (dates détaillées toujours
+`null`, `amount` int ou float). **Aucune donnée réelle de contact, compte ou
+transaction reproduite dans ce dépôt** — champs et formats uniquement ;
+les captures brutes (utilisées le temps de cette session) n'ont pas été
+committées.
 
-**Développement contre fixtures (ci-dessus) reste valide** : le schéma
-confirmé par `/contacts`/`/categories` correspond à ce qui était documenté
-(hors la nuance `siret`/SIREN et l'indexation par `nr`, désormais notées),
-`parser_transactions` n'a pas besoin d'être réécrit avant de basculer sur
-de vraies données `/transactions`.
+**Chemin A implémenté et vérifié en réel** (pas juste en théorie) :
+`DigifactoryHttpClient` (`backend/axelcompta/ingestion/providers/digifactory.py`)
+— vrais appels HTTP avec le bon en-tête, testés contre `/contacts` et
+`/categories` en conditions réelles (200, données réelles reçues, jamais
+écrites sur disque dans le repo). `DigifactoryProvider.health()` fait
+maintenant un vrai appel quand on lui fournit un `client_reel`. **Pas
+encore fait** : brancher `fetch_transactions`/`fetch_platform_settlements`
+sur le client réel — bloqué sur l'absence de la table `contact_nr →
+dossier_id` (§9 point 5, ~200 chauffeurs, dépend de la liste pilote
+attendue le week-end du 12-13/09), pas un problème technique.
 
 ---
 
@@ -323,16 +397,38 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
 
 ## 9. À faire côté code
 
-1. `DigifactoryProvider` implémentant l'interface `DataProvider` (doc 13 §2).
-2. Sync incrémental sur `since`, avec persistance du `updated_at` max par contact.
-3. Normalisation à l'ingestion : `Decimal` pour les montants, UTC pour les dates.
-4. Filtrage systématique de `deleted` et `future` avant écriture comptable.
-5. Table de correspondance `contact_nr → dossier_id`.
-6. Monitoring de fraîcheur et de santé de connexion par compte.
+1. ~~`DigifactoryProvider` implémentant l'interface `DataProvider`.~~ **Fait
+   pour le chemin B (fixtures) depuis le début. Chemin A (vrais appels
+   HTTP) fait le 2026-09-11** : `DigifactoryHttpClient`, testé en réel
+   contre les 4 routes (§7). `DataProvider.fetch_transactions` n'utilise
+   pas encore ce client réel (bloqué sur le point 5 ci-dessous).
+2. Sync incrémental sur `since` : `DigifactoryHttpClient.transactions`
+   accepte déjà `since` (2026-09-11) et le sérialise au bon format
+   (`YYYY-MM-DD HH:MM:SS`, confirmé §5) ; **persistance du `updated_at`
+   max par contact pas encore faite** (pas de stockage de ce curseur).
+3. Normalisation à l'ingestion : `Decimal` pour les montants — fait de
+   longue date (`_vers_centimes`), confirmé robuste sur données réelles
+   (§4, `amount` int ou float). UTC pour les dates — **pas fait**, le
+   fuseau source exact reste ⚠️ à confirmer (§5).
+4. Filtrage systématique de `deleted` et `future` — fait de longue date
+   (`parser_transactions`), confirmé par tests, jamais observé en vrai sur
+   l'échantillon testé (§4).
+5. Table de correspondance `contact_nr → dossier_id` — **toujours pas
+   faite**, c'est le vrai bloquant restant pour brancher le chemin A sur
+   `fetch_transactions` (§7). Dépend de la liste des ~200 chauffeurs du
+   pilote, prévue le week-end du 2026-09-12/13 (doc 12 §0.1).
+6. Monitoring de fraîcheur et de santé de connexion par compte — **pas
+   fait**. Les champs nécessaires sont confirmés disponibles depuis le
+   2026-09-11 (`data_access`, `paused`, `status_code_info`,
+   `authentication_expires_at`, §3.2) : c'est maintenant du câblage, plus
+   un problème de schéma inconnu.
 7. Fixtures et tests couvrant : transaction mise à jour rétroactivement,
    transaction supprimée, contact multi-comptes dans la même banque, connexion
-   en échec, réponse vide.
+   en échec, réponse vide — **fait pour deleted/mise à jour/multi-comptes**
+   (tests existants + `test_accepte_le_format_reel_dict_indexe_par_transaction_id`,
+   2026-09-11) ; **pas fait** pour connexion en échec et réponse vide côté
+   `/transactions` (`/accounts` vide `[]` est couvert, §3.2).
 8. Ajouter `digifactory_contact_nr` au CSV d'onboarding et à la documentation
    associée (doc 14 §1.2), **en plus de** `bridge_item_id` qui reste réservé au
    futur provider Bridge direct (§8) — pas de renommage, les deux colonnes
-   coexistent.
+   coexistent. **Pas fait** — dépend du point 5.
