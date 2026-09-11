@@ -68,7 +68,7 @@ la phase suivante avec des invariants non tenus.
       2026-09-12/13.
 - [ ] Contrat Bridge direct : pricing, volumes, statut, sandbox — piste parallèle non bloquante, testée après le pilote Digifactory (doc 16 §8).
 - [ ] Contrat Rollee : conditions fleet mode, volumes, API sandbox, pricing.
-- [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign.
+- [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign. **Précisé (2026-09-11, doc 20 §4)** : le dépôt des comptes annuels au greffe (INPI) exige spécifiquement une signature électronique **avancée avec certificat qualifié RGS** (C. com. art. R.123-5) — à vérifier explicitement dans le devis retenu, pas n'importe quel niveau de signature électronique.
 - [ ] Décision hébergement prod (ADR-003) après premier échange sécurité banque.
 - [ ] **Écrire les ADR 001-006** (docs/adr/) — templates disponibles, à valider.
 

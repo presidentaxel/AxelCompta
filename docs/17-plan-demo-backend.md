@@ -623,13 +623,25 @@ se connecter.
 > ci-dessous, son propre spike) et la répétition avec run pré-cuit.
 - **Nouveau, décidé 2026-09-07** : dossier de dépôt greffe/INPI en
   **format réel** (PDF + données structurées, doc 02 §6 phase 1) — pas un
-  simple rendu visuel façon CERFA 2065. **Risque de spike non chiffré** :
-  contrairement au CERFA 2065 (un vrai formulaire officiel PDF existait à
-  overlayer), le schéma exact attendu par l'API formalités INPI/Guichet
-  Unique n'est documenté nulle part dans ce repo aujourd'hui — même
-  situation de départ que Digifactory avant le doc 16. **À timeboxer en
-  spike (1-2 jours) avant de committer une estimation ferme**, plutôt que
-  de traiter ça comme un renderer de plus à côté des autres.
+  simple rendu visuel façon CERFA 2065.
+
+> **Spike fait (2026-09-11)** — [doc 20](20-integration-inpi-depot-comptes.md).
+> Bonne surprise : contrairement à Digifactory avant le doc 16, l'INPI
+> **documente publiquement** le schéma (`POST /api/annual_accounts`, doc
+> 20 §3) — pas besoin d'attendre un contact fournisseur pour savoir quoi
+> construire. Mauvaise surprise, différente de celle anticipée : le vrai
+> blocage n'est pas le schéma (résolu) mais la **signature électronique
+> qualifiée RGS** légalement obligatoire pour ce dépôt (C. com. art.
+> R.123-5, doc 20 §4) — recoupe directement ADR-004 (prestataire de
+> signature, toujours en devis, doc 12 §0.1). Tant qu'aucun prestataire
+> qualifié n'est retenu, le dépôt réel via API n'est pas possible — seule
+> la génération du dossier prêt à déposer **manuellement** (PDF + JSON,
+> doc 02 §6 phase 1) reste réaliste à court terme. **Pas construit dans ce
+> spike** (question posée : « qu'est-ce qu'il faut construire », pas
+> « construisons-le ») — estimation ~0,5-1 jour pour ce renderer une fois
+> priorisé avec Louis, le dictionnaire de données INPI (détail champ par
+> champ) restant à dépouiller avant une implémentation réelle.
+
 - Répétition avec un run pré-cuit en secours, comme dans l'ancien plan.
 
 ### Semaine 4bis — Design system V1 + passe UX/UI (ajouté 2026-09-09)
@@ -697,7 +709,7 @@ estimée) — à chiffrer une fois le périmètre précisé avec Louis.
 | Vouloir montrer `chauffeur_direct` complet fait déraper le planning | Explicitement en dernier, explicitement optionnel (§7, §9 semaine 3) |
 | La vraie file de revue humaine (nouveau vs `auto_accept`) prend plus de temps que prévu | Fallback : garder `auto_accept` pour Karim/Yanis (cas nominaux), ne construire l'écran de revue que pour le cas Sophie qui le justifie |
 | Dérive de scope vers la matrice complète statut × pack | §8 rappelle explicitement les non-objectifs |
-| Schéma du dossier greffe/INPI inconnu (aucune doc dans ce repo, contrairement au CERFA 2065 qui avait un vrai formulaire à overlayer) | Timeboxer un spike dédié (§9, 1-2j) avant d'estimer le reste — ne pas découvrir le problème en plein codage comme pour Digifactory (doc 16 §7) |
+| ~~Schéma du dossier greffe/INPI inconnu~~ | **Résolu (2026-09-11)** : documenté publiquement par l'INPI, voir doc 20. Nouveau risque à sa place : signature qualifiée RGS obligatoire pour le dépôt réel, recoupe ADR-004 (prestataire non retenu) — bloque l'appel API, pas la génération du dossier prêt à déposer manuellement |
 | Supabase Auth (nouveau, jamais utilisé dans ce projet) prend plus de temps que prévu à intégrer | Fallback : compte unique pré-créé par profil (Karim/Sophie/Yanis) sans vrai flux d'invitation par email si le temps manque — l'essentiel à montrer est « le compte existe et fonctionne », pas le parcours d'inscription complet |
 | Persistance des décisions humaines mal isolée du reste (recalculé à la volée) fait resurgir une décision « oubliée » à la relecture suivante | Tests dédiés sur le stockage (bloc A) avant de brancher l'écran de revue (bloc C) — même logique que les golden tests existants |
 | Design system V1 + passe UX/UI (§9 Semaine 4bis) pas scopée à temps, découverte en dernière minute avant la démo | Écart déjà documenté maintenant (2026-09-09), pas d'attendre la répétition pour le découvrir — reste à prioriser avec Louis (avant/en parallèle/après le reste de Semaine 4) |

@@ -140,9 +140,14 @@ stable, moteur de liasse éprouvé en production via les temps 1 et 2.
 
 - Depuis 2023, formalités via le **Guichet Unique** (INPI). Les comptes annuels des
   sociétés (les SASU/EURL de chaque dossier géré) y sont déposés.
-- L'INPI propose des dépôts dématérialisés ; une **API formalités** existe. Phase 1 :
-  génération du dossier complet prêt à déposer (PDF + données), dépôt manuel par le
-  client. Phase 2 : intégration API.
+- L'INPI propose des dépôts dématérialisés ; une **API formalités** existe, schéma
+  documenté publiquement (`POST /api/annual_accounts`, spike 2026-09-11, voir
+  [doc 20](20-integration-inpi-depot-comptes.md)). Phase 1 : génération du dossier
+  complet prêt à déposer (PDF + données), dépôt manuel par le client. Phase 2 :
+  intégration API — **révisé** : ce n'est plus un simple manque de doc qui la
+  bloque (le schéma est connu), mais l'obligation légale de **signature
+  électronique qualifiée RGS** (C. com. art. R.123-5) pour le dépôt réel, qui
+  recoupe ADR-004 (prestataire de signature non encore retenu, doc 12 §0.1).
 - L'entité déposante et la nature du dépôt dépendent du **statut configuré par
   dossier** (doc 06 §7) : société IS/IR → dépôt INPI ; EI → pas de dépôt de comptes ;
   futur cas CAE → la coopérative dépose pour elle-même. Le moteur lit cette
