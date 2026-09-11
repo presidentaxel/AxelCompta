@@ -653,6 +653,31 @@ se connecter.
 
 - Répétition avec un run pré-cuit en secours, comme dans l'ancien plan.
 
+> **Répétition faite le 2026-09-11** — parcours réel en navigateur, pas
+> un simple redémarrage des serveurs : dashboard (3 dossiers, Sophie « 3 à
+> trancher ») → fiche Sophie (clôture, signature greffe/INPI, descente
+> jusqu'à la dépense Zara) → **tranchage réel en direct** → dashboard
+> re-vérifié (« 2 à trancher ») → fiche Yanis (déficitaire, TVA 0€ en
+> franchise, chiffres cohérents avec les sessions précédentes).
+>
+> **Vrai accroc trouvé, pas un bug produit** : le premier essai a échoué
+> (« Échec de la décision » à l'écran) — deux serveurs `next dev` tournaient
+> en parallèle depuis une session précédente, celui utilisé écoutait sur le
+> port 3001 au lieu de 3000. `ORIGINE_FRONTEND_DEV` (`demo_api.py`) est figé
+> sur `http://localhost:3000` (doc 08 : pas de sur-ingénierie pour la démo)
+> — le CORS a bloqué la requête sur le mauvais port. Cause identifiée,
+> serveurs stray tués, rejoué sur le port 3000 : passe sans accroc. **Pas
+> un bug de code, une leçon d'hygiène de répétition** — retenue pour la
+> vraie présentation : vérifier qu'aucun `next dev`/`uvicorn` résiduel ne
+> tourne avant de lancer, le port 3000 doit être libre.
+>
+> État de démo remis à zéro après coup (la décision Zara créée pendant la
+> répétition a été supprimée de Postgres) — Sophie repart avec ses 3
+> dépenses à trancher pour la vraie présentation, pas 2. Le run pré-cuit
+> lui-même (rapport HTML + PDF, `python -m axelcompta.demo_chauffeurs_type`,
+> doc 17 §12) reste valide et inchangé comme filet de secours si le live
+> plante — pas rejoué ici, rien n'y a changé depuis sa dernière exécution.
+
 ### Semaine 4bis — Design system V1 + passe UX/UI (ajouté 2026-09-09)
 
 **Demande de Louis (2026-09-09)** : avant la démo, il faut une vraie V1
