@@ -50,19 +50,18 @@ export function listerDossiers(): Promise<DossierResume[]> {
   return getJSON<DossierResume[]>("/dossiers");
 }
 
-// doc 17 §9 Semaine 4 : un lien direct, pas un fetch — le navigateur gère
-// le téléchargement (Content-Disposition côté demo_api.py), pas besoin de
-// passer par React pour un fichier statique par requête. Reste anonyme
-// (pas d'en-tête Authorization possible sur un <a href>) : fonctionne via
-// le même repli que côté gestionnaire avant (`identite is None`,
-// demo_api.py) — limite connue, pas un vrai contrôle d'accès côté indiv
-// pour l'instant (à durcir si besoin, doc 19 §8).
-export function urlTelechargementCloture(dossierId: string, document: DocumentCloture): string {
-  return `${API_BASE_URL}/dossiers/${dossierId}/${document}`;
+// doc 19 §8bis (2026-09-11) : ces routes exigent désormais un jeton indiv
+// (demo_api.py) — un `<a href>` ne peut porter d'en-tête `Authorization`,
+// donc ce ne sont plus des URLs complètes à mettre directement dans un
+// lien, seulement des **chemins** pour `telechargerAvecAuthChauffeur`
+// (lib/auth-chauffeur.ts), qui fait le fetch authentifié puis déclenche
+// l'enregistrement via une URL d'objet temporaire.
+export function cheminTelechargementCloture(dossierId: string, document: DocumentCloture): string {
+  return `/dossiers/${dossierId}/${document}`;
 }
 
-// doc 20 : dossier de dépôt greffe/INPI — même lien direct, le PDF reflète
+// doc 20 : dossier de dépôt greffe/INPI — même logique, le PDF reflète
 // automatiquement l'état signé/non signé côté serveur (demo_api.py).
-export function urlGreffeInpi(dossierId: string): string {
-  return `${API_BASE_URL}/dossiers/${dossierId}/greffe-inpi.pdf`;
+export function cheminGreffeInpi(dossierId: string): string {
+  return `/dossiers/${dossierId}/greffe-inpi.pdf`;
 }

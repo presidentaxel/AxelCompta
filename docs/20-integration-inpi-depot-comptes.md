@@ -142,6 +142,12 @@ signer un devis pour ce cas d'usage spécifiquement.
 
 ## 4bis. Deux signatures, deux rôles distincts (précisé 2026-09-11)
 
+> **Preuve légale, même jour** : `SignatureRepository` est devenu
+> append-only (doc 19 §8bis) — une signature ne peut plus être écrasée par
+> la suivante. Condition nécessaire pour que la signature « validation »
+> ci-dessous vaille comme preuve, indépendamment du choix de prestataire
+> pour la signature « légale ».
+
 Clarification de Louis, importante pour ne pas tout confondre dans
 `workflow/signature.py` (doc 18) : le parcours de clôture (doc 19 §5.3)
 comporte **deux signatures séparées**, pas une seule répétée.

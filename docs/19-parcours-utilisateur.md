@@ -339,17 +339,40 @@ plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
   transactions/décision/justificatif, préexistant) — resterait
   accessible sans jeton si quelqu'un appelait l'API directement.
 
-### 8bis. Limite connue, pas corrigée dans ce lot (2026-09-11)
+### 8bis. Jeton obligatoire + preuve de signature — **fait le 2026-09-11, même jour**
 
-Les routes indiv de `demo_api.py` (transactions, décision, justificatif,
-clôture, greffe/INPI) acceptent toutes un appel **sans** en-tête
-`Authorization` — `_verifier_acces_dossier` ne restreint que si un jeton
-est présent et ne correspond pas au dossier, jamais l'absence de jeton
-(hérité du cas « gestionnaire, pas de login » d'avant cette révision).
-Maintenant que ces écrans n'ont plus d'UI gestionnaire pour les appeler,
-plus personne ne le fait dans l'app — mais l'API elle-même le permettrait
-encore si on l'appelait directement (curl/Swagger). Décision à prendre :
-exiger un jeton indiv valide sur toutes ces routes, pas juste vérifier sa
-cohérence s'il est fourni. Pas fait ici — périmètre plus large que le
-déplacement d'écran demandé, touche à toutes les routes indiv, pas
-seulement les deux déplacées aujourd'hui.
+~~Les routes indiv de `demo_api.py` acceptaient un appel sans en-tête
+`Authorization`~~ — corrigé. Louis (même jour, suite immédiate) : « on
+peut faire les appels avec les jetons pour la sécu... et avec des logs, je
+veux pouvoir prouver légalement que la personne a signé donc il faut une
+trace électronique. »
+
+**Doc déjà écrite pour ça, pas inventée ici** : doc 10 §RGPD spécifie déjà
+« Journal d'audit : table append-only — qui a vu/modifié/validé/exporté
+quoi, quand, depuis où » (V1, doc 12 §1.1, jamais construit) — c'est le
+mécanisme général. Ce lot en fait la version minimale, appliquée aux deux
+points qui en avaient le plus besoin :
+
+1. **Jeton obligatoire sur toutes les routes indiv** (`_verifier_acces_dossier`
+   renvoie désormais `IdentiteAuthentifiee`, pas `None` — 401 si aucun jeton,
+   403 si mauvais dossier). Le stub `UTILISATEUR_DEMO` est retiré : plus
+   aucune route de tranchage/signature n'a de chemin gestionnaire-sans-login,
+   cohérent avec §2.1/§2.4 (ces actions sont indiv-exclusives). `GET
+   /dossiers/{id}` (détail, pas la liste) est concerné aussi — plus rien
+   dans l'app ne l'appelait anonymement depuis le déplacement de §8.
+2. **`SignatureRepository` devient append-only** (`workflow/signature.py`,
+   doc 20 §4bis) — écart trouvé dans le lot précédent : une signature
+   pouvait être écrasée par la suivante (« pas besoin d'historique pour la
+   démo », raisonnement erroné une fois qu'il faut prouver légalement
+   qu'une personne a signé). `dernier()` reste l'API principale, `lister()`
+   expose l'historique complet, jamais purgé.
+
+**Pas fait dans ce lot, volontairement plus large** (doc 10, doc 12 §1.1) :
+le vrai journal d'audit transverse (tout objet, pas que les signatures ;
+consultable par tenant) — son propre chantier, pas à construire en marge
+d'un autre.
+
+Vérifié : 231 tests backend verts (dont 45 dans `test_demo_api.py`, un
+test devenu obsolète supprimé — `test_decision_gestionnaire_reste_attribuee_a_utilisateur_demo`,
+plus aucun chemin gestionnaire-sans-jeton n'existe pour le déclencher),
+mypy/ruff/import-linter verts.

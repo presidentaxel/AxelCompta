@@ -42,6 +42,7 @@ def test_signature_demo_produit_un_pdf_different_de_loriginal() -> None:
 def test_repository_memoire_absent_tant_que_rien_nest_signe() -> None:
     repo = InMemorySignatureRepository()
     assert repo.dernier(DOSSIER, "greffe_inpi") is None
+    assert repo.lister(DOSSIER, "greffe_inpi") == ()
 
 
 def test_repository_memoire_enregistre_puis_retourne_le_document() -> None:
@@ -51,10 +52,10 @@ def test_repository_memoire_enregistre_puis_retourne_le_document() -> None:
     assert repo.dernier(DOSSIER, "greffe_inpi") == document
 
 
-def test_repository_memoire_une_nouvelle_signature_remplace_lancienne() -> None:
-    """Contrairement à DecisionRepository (historique complet), un document
-    de dépôt n'a pas besoin de versions signées passées pour la démo —
-    `dernier` doit refléter la dernière signature, pas la première."""
+def test_repository_memoire_nouvelle_signature_devient_derniere_sans_effacer_historique() -> None:
+    """Append-only depuis le 2026-09-11 (preuve légale, doc 20 §4bis) —
+    même principe que DecisionRepository : `dernier` reflète la plus
+    récente, `lister` garde tout, rien n'est jamais écrasé."""
     repo = InMemorySignatureRepository()
     provider = SignatureDemoProvider()
     premiere = provider.signer(_pdf_factice(), GESTIONNAIRE)
@@ -64,6 +65,7 @@ def test_repository_memoire_une_nouvelle_signature_remplace_lancienne() -> None:
     repo.enregistrer(DOSSIER, "greffe_inpi", seconde)
 
     assert repo.dernier(DOSSIER, "greffe_inpi") == seconde
+    assert repo.lister(DOSSIER, "greffe_inpi") == (premiere, seconde)
 
 
 def test_repository_memoire_isole_par_dossier() -> None:

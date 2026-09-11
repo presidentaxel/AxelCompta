@@ -55,18 +55,30 @@ class SignatureProvider(ABC):
 class SignatureRepository(ABC):
     """Frontière de persistance — un document signé doit survivre entre
     deux requêtes (même principe que `DecisionRepository`, doc 17 §9 bloc
-    A : « pas juste un changement d'état côté React »)."""
+    A : « pas juste un changement d'état côté React »).
+
+    **Append-only depuis le 2026-09-11** (Louis : « je veux pouvoir prouver
+    légalement que la personne a signé, donc il faut une trace
+    électronique »). Écart corrigé par rapport à la version du même jour,
+    plus tôt : `enregistrer` remplaçait la signature précédente
+    (raisonnement d'alors : « pas besoin d'historique pour la démo ») — un
+    enregistrement qu'on peut écraser n'est jamais une preuve. Même
+    principe que `DecisionHumaine` (immuable, historique complet), pas une
+    exception."""
 
     @abstractmethod
     def enregistrer(
         self, dossier_id: DossierId, type_document: str, document: DocumentSigne
     ) -> None:
-        """Enregistre la signature courante pour ce dossier/type de
-        document — remplace la précédente s'il y en avait une (contrairement
-        à `DecisionHumaine`, un document de dépôt n'a pas besoin d'historique
-        de versions signées pour la démo)."""
+        """Ajoute une signature à l'historique — ne remplace ni ne
+        supprime jamais une signature existante pour ce dossier/type."""
 
     @abstractmethod
     def dernier(self, dossier_id: DossierId, type_document: str) -> DocumentSigne | None:
-        """Le dernier document signé pour ce dossier/type, ou `None` si
+        """La signature la plus récente pour ce dossier/type, ou `None` si
         jamais signé."""
+
+    @abstractmethod
+    def lister(self, dossier_id: DossierId, type_document: str) -> tuple[DocumentSigne, ...]:
+        """Tout l'historique des signatures pour ce dossier/type, triées
+        par date — la preuve elle-même, jamais purgée."""

@@ -14,13 +14,30 @@
 // c'est l'indiv, propriétaire de son dossier, qui signe. Appel authentifié
 // (`lib/auth-chauffeur.ts`) pour que `demo_api.py` attribue vraiment
 // `signataire` à l'indiv connecté, pas au stub `UTILISATEUR_DEMO`.
+//
+// **Bouton plutôt que `<a href>` pour le PDF, même jour** (doc 19 §8bis) :
+// cette route exige aussi un jeton désormais — un lien direct échouerait
+// en 401.
 import { useState } from "react";
 
-import { ApiError, urlGreffeInpi } from "@/lib/api";
-import { signerGreffeInpiChauffeur } from "@/lib/auth-chauffeur";
+import { ApiError, cheminGreffeInpi } from "@/lib/api";
+import {
+  ErreurAuthChauffeur,
+  signerGreffeInpiChauffeur,
+  telechargerAvecAuthChauffeur,
+} from "@/lib/auth-chauffeur";
 import type { DossierResume } from "@/lib/types";
 
 import { Badge } from "./Badge";
+
+// `signerGreffeInpiChauffeur` lève `ErreurAuthChauffeur` (pas de session)
+// ou `ApiError` (réponse HTTP non-ok) ; `telechargerAvecAuthChauffeur` ne
+// lève que `ErreurAuthChauffeur` dans les deux cas (lib/auth-chauffeur.ts).
+function messageErreur(exception: unknown, repli: string): string {
+  return exception instanceof ErreurAuthChauffeur || exception instanceof ApiError
+    ? exception.message
+    : repli;
+}
 
 export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
   // État local plutôt que remonté au parent (doc 19 §5 : la page chauffeur
@@ -37,9 +54,21 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
       await signerGreffeInpiChauffeur(dossier.dossier_id);
       setSigne(true);
     } catch (exception) {
-      setErreur(exception instanceof ApiError ? exception.message : "Échec de la signature.");
+      setErreur(messageErreur(exception, "Échec de la signature."));
     } finally {
       setEnCours(false);
+    }
+  }
+
+  async function telecharger() {
+    setErreur(null);
+    try {
+      await telechargerAvecAuthChauffeur(
+        cheminGreffeInpi(dossier.dossier_id),
+        `greffe-inpi-${dossier.dossier_id}.pdf`,
+      );
+    } catch (exception) {
+      setErreur(messageErreur(exception, "Échec du téléchargement."));
     }
   }
 
@@ -56,12 +85,13 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
         )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <a
-          href={urlGreffeInpi(dossier.dossier_id)}
+        <button
+          type="button"
+          onClick={() => void telecharger()}
           className="text-sm text-primary hover:underline"
         >
           Dossier de dépôt (PDF)
-        </a>
+        </button>
         {!signe && (
           <button
             type="button"

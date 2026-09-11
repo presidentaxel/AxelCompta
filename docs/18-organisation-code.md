@@ -259,8 +259,13 @@ la version anonyme de `lib/api.ts` (retirée). Le code backend (`filings/`,
 `workflow/signature.py`) n'a pas bougé, toujours correct tel quel —
 `workflow/signature.py` modélise une seule étape de signature ; le vrai
 parcours en a deux (doc 20 §4bis, validation + légale) — à étendre, pas à
-réécrire. Limite connue, pas corrigée : les routes indiv de `demo_api.py`
-acceptent toujours un appel sans jeton (doc 19 §8bis).
+réécrire.
+
+**Jeton obligatoire + append-only, même jour (doc 19 §8bis)** : les routes
+indiv de `demo_api.py` exigent désormais un jeton valide (401 sinon), le
+stub `UTILISATEUR_DEMO` est retiré, et `workflow/signature_memory.py` garde
+l'historique complet des signatures (`lister()`) au lieu d'écraser la
+précédente — condition pour que ça vaille comme preuve.
 
 **Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
 (pas commencé — **précisé 2026-09-11, doc 03 §7 : ce n'est plus un système

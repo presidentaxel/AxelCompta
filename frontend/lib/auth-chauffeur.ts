@@ -155,23 +155,57 @@ export async function definirMotDePasse(motDePasse: string): Promise<void> {
   }
 }
 
-/** Appel à `demo_api` avec le jeton chauffeur — pour toute route côté
- * chauffeur (doc 19 §4 : le serveur vérifie que le dossier appartient bien
- * à l'appelant, ceci ne fait qu'ajouter l'en-tête). */
-export async function fetchAvecAuthChauffeur<T>(path: string): Promise<T> {
+function baseUrlApi(): string {
+  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+}
+
+/** Requête brute avec le jeton chauffeur — factorisé pour `fetchAvecAuthChauffeur`
+ * (JSON) et `telechargerAvecAuthChauffeur` (fichier binaire), doc 19 §8bis :
+ * toutes les routes de niveau dossier exigent désormais ce jeton. */
+async function requeteAvecAuthChauffeur(path: string): Promise<Response> {
   const session = obtenirSession();
   if (!session) {
     throw new ErreurAuthChauffeur("Aucune session active.");
   }
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-  const reponse = await fetch(`${baseUrl}${path}`, {
+  const reponse = await fetch(`${baseUrlApi()}${path}`, {
     headers: { Authorization: `Bearer ${session.accessToken}` },
     cache: "no-store",
   });
   if (!reponse.ok) {
     throw new ErreurAuthChauffeur(`API démo (${path}) : HTTP ${reponse.status}`);
   }
+  return reponse;
+}
+
+/** Appel à `demo_api` avec le jeton chauffeur — pour toute route côté
+ * chauffeur (doc 19 §4 : le serveur vérifie que le dossier appartient bien
+ * à l'appelant, ceci ne fait qu'ajouter l'en-tête). */
+export async function fetchAvecAuthChauffeur<T>(path: string): Promise<T> {
+  const reponse = await requeteAvecAuthChauffeur(path);
   return (await reponse.json()) as T;
+}
+
+/** doc 19 §8bis (2026-09-11) : les exports de clôture/greffe-INPI sont des
+ * liens `<a href>` qui ne peuvent pas porter d'en-tête `Authorization` — un
+ * simple `<a>` échouerait en 401 maintenant que ces routes exigent un
+ * jeton. On récupère donc le fichier ici (jeton dans l'en-tête, comme les
+ * autres appels chauffeur), puis on déclenche l'enregistrement via une URL
+ * d'objet temporaire, jamais en naviguant directement vers l'API. */
+export async function telechargerAvecAuthChauffeur(
+  path: string,
+  nomFichier: string,
+): Promise<void> {
+  const reponse = await requeteAvecAuthChauffeur(path);
+  const blob = await reponse.blob();
+  const urlObjet = URL.createObjectURL(blob);
+  try {
+    const lien = document.createElement("a");
+    lien.href = urlObjet;
+    lien.download = nomFichier;
+    lien.click();
+  } finally {
+    URL.revokeObjectURL(urlObjet);
+  }
 }
 
 /** doc 17 §9 Semaine 3 : le chauffeur tranche sa propre écriture (question
@@ -187,7 +221,7 @@ export async function trancherTransactionChauffeur(
   if (!session) {
     throw new ErreurAuthChauffeur("Aucune session active.");
   }
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const baseUrl = baseUrlApi();
   const reponse = await fetch(
     `${baseUrl}/dossiers/${dossierId}/transactions/${ecritureId}/decision`,
     {
@@ -217,7 +251,7 @@ export async function signerGreffeInpiChauffeur(dossierId: string): Promise<Sign
   if (!session) {
     throw new ErreurAuthChauffeur("Aucune session active.");
   }
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const baseUrl = baseUrlApi();
   const reponse = await fetch(`${baseUrl}/dossiers/${dossierId}/greffe-inpi/signature`, {
     method: "POST",
     headers: { Authorization: `Bearer ${session.accessToken}` },
@@ -240,7 +274,7 @@ export async function joindreJustificatifChauffeur(
   if (!session) {
     throw new ErreurAuthChauffeur("Aucune session active.");
   }
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const baseUrl = baseUrlApi();
   const corpsFormulaire = new FormData();
   corpsFormulaire.append("fichier", fichier);
   const reponse = await fetch(

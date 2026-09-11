@@ -81,15 +81,11 @@ _TYPES_IMAGE_ACCEPTES = ("image/jpeg", "image/png", "image/webp", "image/heic", 
 COMPTE_ATTENTE = "471"  # doc 06 §2 : compte d'attente par défaut, "à trancher"
 TYPE_DOCUMENT_GREFFE_INPI = "greffe_inpi"  # doc 20 : dépôt des comptes annuels
 ORIGINE_FRONTEND_DEV = "http://localhost:3000"
-# doc 17 §9 bloc B/Semaine 3 : le dashboard gestionnaire reste sans login
-# (décidé avec Louis, 2026-09-08 — chantier d'auth gestionnaire séparé, pas
-# encore planifié) — UTILISATEUR_DEMO reste donc le `decide_par` pour tout
-# appel sans en-tête `Authorization` (cas gestionnaire actuel). **Ouvert
-# au chauffeur authentifié le 2026-09-09** (doc 19 §5.6 : « répondre à une
-# question de catégorisation ») : un chauffeur qui tranche sa propre
-# écriture (`_verifier_acces_dossier` déjà en place) est enregistré sous sa
-# vraie identité (`identite.user_id`), pas sous ce stub.
-UTILISATEUR_DEMO = UserId("gestionnaire_demo")
+# **Retiré le 2026-09-11 (doc 19 §8bis)** : `UTILISATEUR_DEMO` (stub pour
+# le cas « gestionnaire sans login » sur les routes de tranchage/signature)
+# n'a plus de raison d'être — ces routes exigent désormais un vrai jeton
+# indiv (`_verifier_acces_dossier`), la révision structurante du même jour
+# ayant retiré au gestionnaire tout accès à ces actions (doc 19 §2.1/§2.4).
 
 
 class DossierResume(BaseModel):
@@ -225,12 +221,22 @@ def _resume(
     )
 
 
-def _verifier_acces_dossier(dossier_id: str, identite: IdentiteAuthentifiee | None) -> None:
-    """doc 19 §4 : un chauffeur authentifié ne voit que son propre dossier.
-    Aucune identité (cas gestionnaire actuel, pas de login) → pas de
-    restriction, comportement inchangé."""
-    if identite is not None and identite.dossier_id != dossier_id:
+def _verifier_acces_dossier(
+    dossier_id: str, identite: IdentiteAuthentifiee | None
+) -> IdentiteAuthentifiee:
+    """doc 19 §8bis (2026-09-11) : toutes les routes de niveau dossier sont
+    indiv-exclusives depuis la révision structurante du même jour (doc 19
+    §2.1/§2.4) — un jeton valide est désormais **obligatoire**, pas
+    seulement cohérent s'il est fourni. Avant : l'absence de jeton
+    (cas gestionnaire, jamais de login) passait sans restriction ; ce
+    chemin n'a plus de raison d'être, rien dans l'app n'appelle plus ces
+    routes sans jeton. Retourne l'identité (narrowée, non optionnelle) pour
+    que l'appelant n'ait plus besoin du stub `UTILISATEUR_DEMO`."""
+    if identite is None:
+        raise HTTPException(status_code=401, detail="Authentification requise.")
+    if identite.dossier_id != dossier_id:
         raise HTTPException(status_code=403, detail="Ce dossier ne vous appartient pas.")
+    return identite
 
 
 def _transactions_dossier(
@@ -360,8 +366,9 @@ def _trancher(
     """doc 17 §9 bloc C : la décision humaine, pour de vrai — déclenche le
     `workflow` testé (doc 05 §5), pas un changement d'état côté React seul.
     Extrait de la route (doc 08 §2 : longueur de fonction) plutôt que fait
-    inline. `decide_par` est `UTILISATEUR_DEMO` (gestionnaire, pas de login)
-    ou l'identité réelle du chauffeur (Semaine 3, doc 19 §5.6)."""
+    inline. `decide_par` est toujours l'identité réelle de l'indiv depuis le
+    2026-09-11 (doc 19 §8bis) — le stub `UTILISATEUR_DEMO` a été retiré,
+    `_verifier_acces_dossier` exige désormais un jeton."""
     ledger, propositions = construire_ledger(profil)
     ecriture = next((e for e in ledger.grand_livre(profil.dossier_id) if e.id == ecriture_id), None)
     if ecriture is None:
@@ -484,12 +491,12 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         justificatifs: JustificatifsDep,
         identite: IdentiteDep,
     ) -> TransactionVue:
-        """Gestionnaire (pas de login, `identite` absente → `UTILISATEUR_DEMO`)
-        ou chauffeur qui tranche sa propre écriture (doc 19 §5.6, Semaine 3)
-        — `_verifier_acces_dossier` refuse déjà l'accès à un autre dossier."""
-        _verifier_acces_dossier(dossier_id, identite)
+        """Indiv qui tranche sa propre écriture (doc 19 §5.6, doc 19 §8bis :
+        jeton obligatoire depuis le 2026-09-11) — `_verifier_acces_dossier`
+        refuse déjà l'accès à un autre dossier."""
+        identite = _verifier_acces_dossier(dossier_id, identite)
         profil = _profil_par_id(dossier_id)
-        decide_par = identite.user_id if identite is not None else UTILISATEUR_DEMO
+        decide_par = identite.user_id
         ecriture = _trancher(profil, ecriture_id, entree.categorie, decisions, decide_par)
         return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier_id, ecriture_id))
 
@@ -640,11 +647,10 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         signatures: SignaturesInpiDep,
         identite: IdentiteDep,
     ) -> SignatureGreffeVue:
-        _verifier_acces_dossier(dossier_id, identite)
+        identite = _verifier_acces_dossier(dossier_id, identite)
         profil = _profil_par_id(dossier_id)
         pdf_non_signe = _document_greffe_inpi(profil, decisions)
-        signataire = identite.user_id if identite is not None else UTILISATEUR_DEMO
-        document = SignatureDemoProvider().signer(pdf_non_signe, signataire)
+        document = SignatureDemoProvider().signer(pdf_non_signe, identite.user_id)
         signatures.enregistrer(profil.dossier_id, TYPE_DOCUMENT_GREFFE_INPI, document)
         return SignatureGreffeVue(
             dossier_id=dossier_id,
