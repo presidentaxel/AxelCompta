@@ -706,6 +706,46 @@ se connecter.
 > doc 17 §12) reste valide et inchangé comme filet de secours si le live
 > plante — pas rejoué ici, rien n'y a changé depuis sa dernière exécution.
 
+> **Re-vérification backend après la refonte Postgres/auth (2026-09-22).**
+> Cette répétition du 11/09 tournait sur l'ancienne architecture (tout
+> recalculé à la volée, `UTILISATEUR_DEMO`). Le 21-22/09, l'API a changé de
+> fond en comble (lecture Postgres, jeton Supabase obligatoire, `demo_seed`)
+> — plus rien ne prouvait que le parcours démo tenait encore dessus. Vérifié
+> pour de vrai, en curl avec de vrais jetons Supabase (pas de front lancé,
+> voir juste en dessous pourquoi) :
+> - Connexion réelle des 5 comptes de démo (§ ci-dessous) — jetons valides.
+> - Dashboard gestionnaire : les 3 dossiers s'affichent avec les bons
+>   agrégats (Yanis toujours déficitaire à -1 346,50 €, cohérent avec les
+>   sessions précédentes).
+> - Contrôle d'accès : 401 sans jeton, 403 quand Sophie appelle le dossier
+>   de Karim.
+> - File de revue réelle : Zara (Sophie) tranchée 471 → 455, vérifié aussi
+>   dans le FEC téléchargé (la ligne 455 y apparaît, plus la 471).
+> - Clôture : PDF liasse téléchargé, valide.
+> - Greffe/INPI : signature démo posée sur Karim, le PDF change réellement
+>   (filigrane), `qualifie: false` comme attendu.
+> - État remis à zéro après coup, comme le 11/09 : décision Zara supprimée
+>   de Postgres, `uvicorn` redémarré pour vider la signature INPI (en
+>   mémoire, pas persistée) — Sophie confirmée de nouveau à 3 à trancher,
+>   Karim confirmé `greffe_inpi_signe: false`.
+>
+> **Comptes de démo créés pour de vrai, cette fois persistants** (jusqu'ici
+> les comptes de vérification étaient créés puis supprimés à chaque
+> session) : deux comptes gestionnaire (`louis.vedovato@axelproject.fr` et
+> `demo@axelcompta.fr`, ce dernier pour la personne à qui la démo sera
+> montrée) et les 3 comptes chauffeur (`demo-{karim,sophie,yanis}@axelcompta.fr`,
+> `app_metadata.env: "demo"`, aucun `tenant_id` — accès indiv seulement, pas
+> de portefeuille). Nouveau script `scripts/creer_comptes_demo_chauffeurs.py`
+> (doc 18, backend/README). Mots de passe donnés à Louis hors du repo.
+>
+> **Pas fait ici, donc pas prouvé** : le rendu écran (dashboard, file de
+> revue, clôture, bouton signature) côté navigateur. `node`/`npm` sont
+> absents de l'environnement Claude Code utilisé pour cette vérification —
+> impossible d'y lancer `next dev`. Le backend tient, mais tant que
+> personne n'a cliqué dans le vrai navigateur sur cette architecture,
+> l'écran lui-même (rendu, régressions front éventuelles depuis le 11/09)
+> reste une inconnue réelle, pas juste une formalité.
+
 ### Semaine 4bis — Design system V1 + passe UX/UI (ajouté 2026-09-09)
 
 **Demande de Louis (2026-09-09)** : avant la démo, il faut une vraie V1

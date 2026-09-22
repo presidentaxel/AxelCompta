@@ -146,9 +146,18 @@ APP_BASE_URL dans l'environnement, voir `.env.example`) :
 À lancer après la synchro, depuis un cron. Seuls les comptes activés sont
 notifiés ; un même dossier n'est pas relancé avant 6 h (sauf rappel à 7 jours).
 
-Comptes Supabase : `scripts/creer_compte_gestionnaire.py` (gestionnaire) et
+Comptes Supabase : `scripts/creer_compte_gestionnaire.py` (gestionnaire),
 `scripts/migrer_liens_vers_app_metadata.py` (comptes chauffeur créés avant
-le 2026-09-21).
+le 2026-09-21) et `scripts/creer_comptes_demo_chauffeurs.py` (les 3 comptes
+chauffeur de démo Karim/Sophie/Yanis, `app_metadata.env: "demo"` pour les
+distinguer de vrais comptes pilote plus tard).
+
+**Comptes de démo créés pour de vrai (2026-09-22)**, persistants — pas des
+comptes de test supprimés après vérification comme jusqu'ici : deux comptes
+gestionnaire (`louis.vedovato@axelproject.fr` et `demo@axelcompta.fr`, ce
+dernier pour la personne à qui la démo sera montrée) et les 3 comptes
+chauffeur (`demo-{karim,sophie,yanis}@axelcompta.fr`). Mots de passe donnés
+à Louis en dehors du repo, jamais committés.
 
 **Mise à jour 2026-09-09** : `pytest`, `mypy axelcompta tests migrations`,
 `ruff check .`, `ruff format --check .` et `lint-imports` passent tous à

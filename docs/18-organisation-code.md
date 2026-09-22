@@ -336,3 +336,19 @@ tant que la file de jobs n'existe pas.
 bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), appel réel
 à l'API INPI (bloqué sur ADR-004, pas un problème de schéma, doc 20 §5),
 répétition avec run pré-cuit.
+
+**Comptes de démo + re-vérification backend (2026-09-22)**, suite au
+branchement Postgres/auth du 21-22/09 qui n'avait pas été retesté depuis :
+`backend/scripts/creer_comptes_demo_chauffeurs.py` (nouveau, même style que
+`creer_compte_gestionnaire.py`) crée les 3 comptes chauffeur de démo avec
+`app_metadata.dossier_id` seul (pas de `tenant_id` — jamais d'accès
+portefeuille pour un chauffeur) et `app_metadata.env: "demo"` pour les
+distinguer plus tard de vrais comptes pilote. Deux comptes gestionnaire
+créés aussi (`louis.vedovato@axelproject.fr`, `demo@axelcompta.fr`) — les
+5 comptes sont persistants cette fois, pas supprimés après vérification
+comme les comptes de test des sessions précédentes. Backend re-testé en
+réel avec ces comptes (login Supabase, dashboard agrégé, 401/403,
+tranchage 471→455 vérifié dans le FEC, téléchargement liasse, signature
+greffe/INPI avec PDF qui change) — détail complet doc 17 (Semaine 4,
+paragraphe daté 2026-09-22). **Non vérifié** : le rendu front — `node`/`npm`
+absents de l'environnement Claude Code utilisé, `next dev` pas lancé.
