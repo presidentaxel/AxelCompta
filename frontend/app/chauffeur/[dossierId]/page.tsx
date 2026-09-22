@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ClotureSection } from "@/components/ClotureSection";
@@ -30,7 +30,17 @@ type Chargement =
  * dossier gestionnaire — c'est l'indiv, propriétaire de son dossier, qui
  * les voit et qui signe, jamais le gestionnaire (doc 19 §2.4).
  */
-export default function DossierChauffeurPage({ params }: { params: { dossierId: string } }) {
+export default function DossierChauffeurPage({
+  params,
+}: {
+  params: Promise<{ dossierId: string }>;
+}) {
+  // Next 16 : `params` est une Promise même dans un composant client
+  // depuis Next 15 (avertissement `sync-dynamic-apis` sinon) — `use()`
+  // suspend le rendu jusqu'à résolution plutôt que d'y accéder
+  // directement, trouvé via un vrai avertissement console pendant la
+  // migration next@16, doc 18.
+  const { dossierId } = use(params);
   const router = useRouter();
   const [chargement, setChargement] = useState<Chargement>({ statut: "en_cours" });
 
@@ -40,19 +50,19 @@ export default function DossierChauffeurPage({ params }: { params: { dossierId: 
       router.push("/chauffeur/login");
       return;
     }
-    if (session.dossierId !== params.dossierId) {
+    if (session.dossierId !== dossierId) {
       // Pas une 403 muette : on renvoie vers le seul dossier auquel ce
       // compte a effectivement accès (doc 19 §4).
       router.replace(`/chauffeur/${session.dossierId}`);
       return;
     }
     Promise.all([
-      fetchAvecAuthChauffeur<DossierResume>(`/dossiers/${params.dossierId}`),
-      fetchAvecAuthChauffeur<TransactionVue[]>(`/dossiers/${params.dossierId}/transactions`),
+      fetchAvecAuthChauffeur<DossierResume>(`/dossiers/${dossierId}`),
+      fetchAvecAuthChauffeur<TransactionVue[]>(`/dossiers/${dossierId}/transactions`),
     ])
       .then(([dossier, transactions]) => setChargement({ statut: "pret", dossier, transactions }))
       .catch(() => setChargement({ statut: "erreur", message: "Impossible de charger vos données." }));
-  }, [params.dossierId, router]);
+  }, [dossierId, router]);
 
   function remplacerTransaction(transaction: TransactionVue) {
     setChargement((etat) =>
@@ -87,7 +97,7 @@ export default function DossierChauffeurPage({ params }: { params: { dossierId: 
         {chargement.transactions.map((transaction) => (
           <TransactionLigne
             key={transaction.ecriture_id}
-            dossierId={params.dossierId}
+            dossierId={dossierId}
             transaction={transaction}
             onChange={remplacerTransaction}
           />
