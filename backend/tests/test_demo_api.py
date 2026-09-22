@@ -790,7 +790,7 @@ def _en_masse(client: TestClient, lignes: list[dict[str, str]], **kw: object):  
     return client.post(
         "/invitations/en-masse",
         json={"invitations": lignes},
-        headers=kw.get("headers", _en_tete_gestionnaire()),  # type: ignore[arg-type]
+        headers=kw.get("headers", _en_tete_gestionnaire()),
     )
 
 

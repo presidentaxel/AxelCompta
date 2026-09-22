@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import Any
 
 import jwt
 import pytest
@@ -34,7 +35,7 @@ def _jeton(
     expire_dans: timedelta = timedelta(hours=1),
     cle_privee: ec.EllipticCurvePrivateKey = _CLE_PRIVEE,
 ) -> str:
-    charge_utile = {
+    charge_utile: dict[str, Any] = {
         "sub": "user-123",
         "email": "karim@example.com",
         "aud": "authenticated",

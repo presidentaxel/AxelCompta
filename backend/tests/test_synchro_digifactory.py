@@ -76,8 +76,14 @@ def test_un_dossier_en_echec_ou_sans_contact_ne_bloque_pas_les_autres() -> None:
     )
 
     par_id = {r.dossier_id: r for r in resultats}
-    assert par_id["a"].rapport is not None and par_id["a"].rapport.nouvelles == 1
-    assert par_id["b"].erreur is not None and "500" in par_id["b"].erreur
-    assert par_id["c"].ignore is not None
-    assert par_id["d"].rapport is not None and par_id["d"].rapport.nouvelles == 1
+    resultat_a, resultat_b, resultat_c, resultat_d = (
+        par_id[DossierId("a")],
+        par_id[DossierId("b")],
+        par_id[DossierId("c")],
+        par_id[DossierId("d")],
+    )
+    assert resultat_a.rapport is not None and resultat_a.rapport.nouvelles == 1
+    assert resultat_b.erreur is not None and "500" in resultat_b.erreur
+    assert resultat_c.ignore is not None
+    assert resultat_d.rapport is not None and resultat_d.rapport.nouvelles == 1
     assert len(ledger.grand_livre(DossierId("d"))) == 1
