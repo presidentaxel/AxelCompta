@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from axelcompta.core.ids import DossierId, EcritureId
 from axelcompta.core.money import Money
+from axelcompta.core.rls import appliquer_rls
 
 from .invariants import verifier_equilibre
 from .models import Ecriture, Journal, LigneEcriture, Sens
@@ -28,6 +29,7 @@ class PostgresLedgerService(LedgerService):
     def enregistrer(self, ecriture: Ecriture) -> EcritureId:
         verifier_equilibre(ecriture)
         with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
             connexion.execute(
                 ecritures.insert().values(
                     id=ecriture.id,
@@ -46,6 +48,7 @@ class PostgresLedgerService(LedgerService):
 
     def grand_livre(self, dossier_id: DossierId) -> tuple[Ecriture, ...]:
         with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
             entetes = _lire_entetes(connexion, dossier_id)
             lignes_par_ecriture = _lire_lignes(connexion, tuple(entetes))
         return tuple(

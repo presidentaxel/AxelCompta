@@ -122,6 +122,14 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
 .venv/bin/uvicorn axelcompta.demo_api:app --port 8000
 ```
 
+**RLS depuis le 2026-09-22** (doc 03 §7, doc 12 §1.1) : `alembic upgrade
+head` crée aussi le rôle `axelcompta_web`, restreint par des policies —
+`DATABASE_URL_WEB` (voir `.env.example`) doit être défini avant de lancer
+`uvicorn`, sinon `demo_api.py` refuse de démarrer (pas de repli silencieux
+sur `DATABASE_URL`, ce qui ferait tourner l'API sans RLS). `DATABASE_URL`
+reste celui des scripts d'administration ci-dessus (`demo_seed`,
+`synchro_digifactory`, `notifier`), jamais soumis aux policies.
+
 `python -m axelcompta.demo_seed` refuse de compléter un ledger à moitié
 écrit (`AmorcageIncompletError`) : dans ce cas, vider les tables et relancer.
 Synchroniser les transactions Digifactory d'un portefeuille (nécessite

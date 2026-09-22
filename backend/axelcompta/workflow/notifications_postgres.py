@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 
 from axelcompta.core.ids import DossierId, EcritureId
+from axelcompta.core.rls import appliquer_rls
 
 from .notifications import NotificationEnvoyee, NotificationRepository
 from .orm import notifications_envoyees as table
@@ -17,6 +18,7 @@ class PostgresNotificationRepository(NotificationRepository):
 
     def derniere(self, dossier_id: DossierId, type_: str) -> NotificationEnvoyee | None:
         with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
             ligne = connexion.execute(
                 select(table)
                 .where(table.c.dossier_id == dossier_id, table.c.type == type_)
@@ -35,6 +37,7 @@ class PostgresNotificationRepository(NotificationRepository):
 
     def enregistrer(self, notification: NotificationEnvoyee) -> None:
         with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
             connexion.execute(
                 table.insert().values(
                     id=notification.id,

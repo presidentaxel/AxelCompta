@@ -337,6 +337,31 @@ bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), appel réel
 à l'API INPI (bloqué sur ADR-004, pas un problème de schéma, doc 20 §5),
 répétition avec run pré-cuit.
 
+**RLS Postgres posée (2026-09-22, doc 03 §7, doc 12 §1.1)** : nouveau
+`axelcompta/core/rls.py` (contexte par requête via `ContextVar`,
+`set_config(..., true)` — portée transaction, jamais fuité entre deux
+requêtes qui réutiliseraient la même connexion du pool). Migration
+`87fc7238e52e` : rôle `axelcompta_web` (ni propriétaire ni superuser,
+utilisé uniquement par `demo_api.py` via `DATABASE_URL_WEB`), policies sur
+les 11 tables dossier/tenant-scopées, fonction `axelcompta_dossier_visible`
+partagée entre policies. `user` (migrations, `demo_seed`,
+`synchro_digifactory`, `notifier`, `DATABASE_URL`) reste propriétaire,
+jamais soumis — ces scripts traitent volontairement plusieurs dossiers à
+la fois. Les 6 repositories Postgres appellent `appliquer_rls(connexion)`
+en tout premier dans chaque transaction. Middleware `demo_api.py`
+(`_configurer_contexte_rls`) plutôt qu'une dépendance FastAPI classique :
+l'ordre de résolution des dépendances n'est pas une garantie assez forte
+pour un mécanisme de sécurité. `demo_auth.identite_tolerante` (nouveau) —
+jamais de levée, la décision d'autoriser reste entièrement dans
+`_verifier_acces_dossier`. 7 tests dédiés
+(`tests/integration/test_rls_isolation.py`), dont un qui vérifie que le
+`WITH CHECK` bloque aussi l'écriture (pas seulement la lecture). **Piège
+trouvé en testant** : `DROP ROLE` est une opération de *cluster* Postgres,
+pas de base — `axelcompta_test` et `axelcompta_dev` partagent le même
+cluster, la migration ne supprime donc jamais le rôle en downgrade
+(`DependentObjectsStillExist` sinon), seulement ses droits/policies sur la
+base courante.
+
 **Comptes de démo + re-vérification backend (2026-09-22)**, suite au
 branchement Postgres/auth du 21-22/09 qui n'avait pas été retesté depuis :
 `backend/scripts/creer_comptes_demo_chauffeurs.py` (nouveau, même style que

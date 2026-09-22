@@ -38,6 +38,7 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://user:password@localhost:5432/axelcompta_dev
+      DATABASE_URL_WEB: postgresql://axelcompta_web:web_password_dev@localhost:5432/axelcompta_dev
     steps:
       - uses: actions/checkout@v4
 

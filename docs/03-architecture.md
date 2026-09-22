@@ -238,7 +238,20 @@ la faille du lien `dossier_id`, corrigée le 2026-09-21.
   tables métier concernées + RLS PostgreSQL activée + tests d'isolation
   automatisés (doc 09 §6) — l'isolation gestionnaire↔indiv (doc 19 §2.4)
   suit la même logique que l'isolation tenant↔tenant, pas un mécanisme
-  différent.
+  différent. **RLS posée pour de vrai le 2026-09-22** (doc 12 §1.1,
+  migration `87fc7238e52e`) : un second rôle Postgres (`axelcompta_web`,
+  ni propriétaire ni superuser) exécute les requêtes de `demo_api.py`,
+  soumis aux policies — `user` (migrations, `demo_seed`,
+  `synchro_digifactory`, `notifier`) reste propriétaire, jamais concerné,
+  ces scripts traitent volontairement plusieurs dossiers à la fois. Le
+  contexte (`app.dossier_id`/`app.tenant_id`) est posé par requête via un
+  middleware (`axelcompta/core/rls.py`), `set_config(..., true)` —
+  portée transaction, jamais fuité entre deux requêtes qui
+  réutiliseraient la même connexion du pool. 7 tests d'isolation
+  (`tests/integration/test_rls_isolation.py`) : indiv/gestionnaire, lignes
+  d'écriture (isolées via leur écriture parente, pas de `dossier_id`
+  propre), et l'écriture d'une décision hors de son propre dossier
+  refusée par le `WITH CHECK`, pas seulement la lecture.
 - **Signature** : ne passe plus par un lien magique sans compte
   (`signataire_externe`, abandonné le 2026-09-06 avec doc 19) — c'est
   l'indiv authentifié qui signe depuis son propre compte (doc 19 §5.3,

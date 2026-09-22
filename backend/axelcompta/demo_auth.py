@@ -146,3 +146,15 @@ def identite_chauffeur_optionnelle(
 ) -> IdentiteAuthentifiee | None:
     """Dépendance FastAPI — voir `_identite_depuis_en_tete`."""
     return _identite_depuis_en_tete(authorization)
+
+
+def identite_tolerante(authorization: str | None) -> IdentiteAuthentifiee | None:
+    """Comme `_identite_depuis_en_tete`, mais ne lève jamais — `None` sur un
+    jeton absent ou invalide. Réservé au middleware RLS de `demo_api.py`
+    (`core/rls.py`) : lui seul pose le contexte, la décision d'autoriser
+    ou non reste entièrement dans `_verifier_acces_dossier` et les
+    dépendances existantes, jamais ici."""
+    try:
+        return _identite_depuis_en_tete(authorization)
+    except HTTPException:
+        return None

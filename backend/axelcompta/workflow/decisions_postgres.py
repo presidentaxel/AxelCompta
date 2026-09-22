@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine, Row
 
 from axelcompta.categorize.models import Etage
 from axelcompta.core.ids import DossierId, EcritureId, UserId
+from axelcompta.core.rls import appliquer_rls
 
 from .decisions import AnnotationDev, DecisionHumaine, DecisionRepository
 from .orm import annotations_dev, decisions_humaines
@@ -23,6 +24,7 @@ class PostgresDecisionRepository(DecisionRepository):
 
     def enregistrer_decision(self, decision: DecisionHumaine) -> None:
         with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
             connexion.execute(
                 decisions_humaines.insert().values(
                     id=str(uuid.uuid4()),
@@ -40,6 +42,7 @@ class PostgresDecisionRepository(DecisionRepository):
         self, dossier_id: DossierId, ecriture_id: EcritureId
     ) -> DecisionHumaine | None:
         with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
             resultat = connexion.execute(
                 select(decisions_humaines)
                 .where(
@@ -53,6 +56,7 @@ class PostgresDecisionRepository(DecisionRepository):
 
     def lister_decisions(self, dossier_id: DossierId) -> tuple[DecisionHumaine, ...]:
         with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
             resultat = connexion.execute(
                 select(decisions_humaines)
                 .where(decisions_humaines.c.dossier_id == dossier_id)
@@ -62,6 +66,7 @@ class PostgresDecisionRepository(DecisionRepository):
 
     def enregistrer_annotation(self, annotation: AnnotationDev) -> None:
         with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
             connexion.execute(
                 annotations_dev.insert().values(
                     id=str(uuid.uuid4()),
@@ -76,6 +81,7 @@ class PostgresDecisionRepository(DecisionRepository):
 
     def lister_annotations(self, dossier_id: DossierId) -> tuple[AnnotationDev, ...]:
         with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
             resultat = connexion.execute(
                 select(annotations_dev)
                 .where(annotations_dev.c.dossier_id == dossier_id)

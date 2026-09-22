@@ -33,9 +33,9 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
@@ -44,7 +44,12 @@ from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
-from axelcompta.demo_auth import IdentiteAuthentifiee, identite_chauffeur_optionnelle
+from axelcompta.core.rls import contexte_identite
+from axelcompta.demo_auth import (
+    IdentiteAuthentifiee,
+    identite_chauffeur_optionnelle,
+    identite_tolerante,
+)
 from axelcompta.demo_comptes import (
     CompteDejaInviteError,
     CompteRepository,
@@ -356,12 +361,18 @@ _ENGINE_DEMO: Engine | None = None
 def _engine() -> Engine:
     """Engine Postgres partagé, construit **à la première requête réelle**,
     pas à l'import du module : importer `demo_api` (pour ses tests, par
-    exemple) ne doit pas exiger `DATABASE_URL`. Les tests surchargent les
-    dépendances ci-dessous (`app.dependency_overrides[...] = ...`) avec des
-    implémentations en mémoire pour ne jamais l'appeler du tout."""
+    exemple) ne doit pas exiger `DATABASE_URL_WEB`. Les tests surchargent
+    les dépendances ci-dessous (`app.dependency_overrides[...] = ...`) avec
+    des implémentations en mémoire pour ne jamais l'appeler du tout.
+
+    `DATABASE_URL_WEB`, pas `DATABASE_URL` (doc 12 §1.1, migration
+    `87fc7238e52e`) : le rôle `axelcompta_web`, soumis aux policies RLS —
+    jamais le rôle `user` (propriétaire des tables, réservé aux scripts
+    d'administration). Se connecter par erreur avec `DATABASE_URL` ici
+    ferait tourner l'API entière sans RLS, silencieusement."""
     global _ENGINE_DEMO
     if _ENGINE_DEMO is None:
-        _ENGINE_DEMO = engine_depuis_env()
+        _ENGINE_DEMO = engine_depuis_env("DATABASE_URL_WEB")
     return _ENGINE_DEMO
 
 
@@ -574,6 +585,30 @@ def _configurer_cors(app: FastAPI) -> None:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+
+
+def _configurer_contexte_rls(app: FastAPI) -> None:
+    """Pose le contexte RLS (doc 12 §1.1, `axelcompta/core/rls.py`) pour
+    toute la durée de la requête — un middleware plutôt qu'une dépendance
+    FastAPI classique : l'ordre de résolution des dépendances n'est pas une
+    garantie assez forte pour un mécanisme de sécurité (rien ne force
+    `DossiersDep`/`LedgerBaseDep` à être résolues après une dépendance de
+    contexte). Le middleware, lui, encadre tout le traitement de la requête
+    sans exception. Tolérant par construction (`identite_tolerante`, jamais
+    de levée) : la décision d'autoriser ou non reste entièrement dans
+    `_verifier_acces_dossier` et les dépendances existantes, jamais ici —
+    un jeton absent ou invalide pose juste un contexte vide, RLS filtrera
+    tout (aucune ligne visible), les routes elles-mêmes répondront 401/403
+    comme avant."""
+
+    @app.middleware("http")
+    async def poser_contexte_rls(request: Request, call_next: Any) -> Any:
+        identite = identite_tolerante(request.headers.get("authorization"))
+        with contexte_identite(
+            dossier_id=str(identite.dossier_id) if identite and identite.dossier_id else None,
+            tenant_id=str(identite.tenant_id) if identite and identite.tenant_id else None,
+        ):
+            return await call_next(request)
 
 
 def _enregistrer_routes_dossiers(app: FastAPI) -> None:
@@ -821,6 +856,7 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
 def create_app() -> FastAPI:
     app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
     _configurer_cors(app)
+    _configurer_contexte_rls(app)
     _enregistrer_routes_dossiers(app)
     _enregistrer_routes_transactions(app)
     _enregistrer_routes_invitation(app)

@@ -8,6 +8,7 @@ from sqlalchemy.engine import Engine
 
 from axelcompta.categorize.models import Etage, ProposedEntry
 from axelcompta.core.ids import DossierId, EcritureId, TransactionId
+from axelcompta.core.rls import appliquer_rls
 
 from .orm import propositions_categorisation as table
 from .propositions import PropositionRepository
@@ -19,6 +20,7 @@ class PostgresPropositionRepository(PropositionRepository):
 
     def enregistrer(self, ecriture_id: EcritureId, proposition: ProposedEntry) -> None:
         with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
             connexion.execute(
                 insert(table)
                 .values(
@@ -33,6 +35,7 @@ class PostgresPropositionRepository(PropositionRepository):
 
     def obtenir(self, dossier_id: DossierId, ecriture_id: EcritureId) -> ProposedEntry | None:
         with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
             ligne = connexion.execute(
                 select(table).where(
                     table.c.ecriture_id == ecriture_id, table.c.dossier_id == dossier_id
