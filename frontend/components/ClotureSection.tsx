@@ -50,7 +50,7 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   }
 
   return (
-    <div className="mb-6 grid grid-cols-1 gap-6 rounded-lg border border-border bg-canvas p-5 shadow-sm md:grid-cols-2">
+    <div className="mb-6 grid grid-cols-1 gap-6 rounded-lg border border-border bg-canvas p-5 shadow-xs md:grid-cols-2">
       <div>
         <SousTitre>Compte de résultat</SousTitre>
         <dl className="space-y-1.5 text-sm">

@@ -977,24 +977,43 @@ signature, qui est une page publique autonome sans sidebar.
 
 ## Correspondance Tailwind / shadcn-ui
 
-Le projet utilise Tailwind CSS + shadcn/ui. Les tokens DESIGN.md se mappent aux
-variables CSS de shadcn (`globals.css`) comme suit :
+Le projet utilise **Tailwind CSS v4** + shadcn/ui (migré depuis v3 le
+2026-09-22 — le CLI shadcn actuel ne génère que du code v4). Les tokens
+DESIGN.md vivent dans un bloc `@theme` (`frontend/app/globals.css`, valeurs
+hex directes, pas de triplet RGB — Tailwind v4 n'en a plus besoin) : c'est
+la source de vérité pour tout ce qui est spécifique au produit
+(`--color-primary`, `--color-ink`, `--color-auto-ml`, etc., préfixe
+`--color-*` obligatoire en v4 pour que Tailwind génère les classes `bg-*`/
+`text-*` correspondantes).
+
+Les variables génériques shadcn (celles que les composants `ui/*` générés
+par le CLI référencent — `--background`, `--foreground`, `--card`,
+`--primary`, `--secondary`, `--muted`, `--destructive`, `--border`,
+`--input`, `--ring`) vivent dans un second bloc `:root`, **remplacées avec
+les vraies valeurs DESIGN.md** (le CLI génère par défaut une palette grise
+neutre — toujours l'écraser, jamais la garder telle quelle) :
 
 ```css
 :root {
-  --background:   248 250 252;  /* canvas-app #F8FAFC */
-  --card:         255 255 255;  /* canvas     #FFFFFF */
-  --foreground:   15  23  42;   /* ink         #0F172A */
-  --muted:        241 245 249;  /* surface-soft #F1F5F9 */
-  --muted-foreground: 71 85 105; /* subtle     #475569 */
-  --border:       226 232 240;  /* border      #E2E8F0 */
-  --primary:      37  99  235;  /* primary     #2563EB */
-  --primary-foreground: 255 255 255;
-  --destructive:  220 38  38;   /* danger      #DC2626 */
-  --ring:         37  99  235;  /* border-focus #2563EB */
-  --radius:       0.5rem;       /* rounded.md  8px */
+  --background: #f8fafc;   /* canvas-app */
+  --foreground: #0f172a;   /* ink */
+  --card: #ffffff;         /* canvas */
+  --primary: #2563eb;      /* primary */
+  --primary-foreground: #ffffff; /* on-primary */
+  --secondary: #ffffff;    /* canvas — button-secondary */
+  --muted: #f1f5f9;        /* surface-soft */
+  --muted-foreground: #475569; /* subtle */
+  --destructive: #dc2626;  /* danger */
+  --border: #e2e8f0;       /* border */
+  --input: #e2e8f0;        /* border, text-input */
+  --ring: #2563eb;         /* border-focus */
+  --radius: 0.5rem;        /* rounded.md, 8px */
 }
 ```
+
+Piège vérifié en pratique : `shadcn init`/`add` propose **Geist** comme
+police par défaut (preset Nova) — toujours l'écarter, `--font-sans` doit
+rester Inter (`next/font/google`), sans exception.
 
 Pour les montants, utiliser la classe utilitaire Tailwind `tabular-nums`
 (`font-variant-numeric: tabular-nums`) et ne jamais oublier `text-right` sur
@@ -1015,14 +1034,32 @@ les colonnes numériques.
 
 ## Known Gaps
 
-- **Ce fichier est une spec de tokens, pas un design system implémenté**
-  (constaté 2026-09-09, doc 17 §9 Semaine 4bis) : `button-*`, `text-input`,
-  les variantes de `card`/`review-card` sont documentées ici mais
-  n'existent comme composants React nulle part — seul `Badge.tsx` existe
-  dans `frontend/components/`. Chaque écran réinvente ses propres classes
-  Tailwind. Une V1 réelle (composants qui implémentent ces tokens) +
-  une passe UX/UI sont demandées par Louis avant la démo — pas encore
-  scopées ni estimées, voir doc 17 pour le détail.
+- **V1 des composants faite (2026-09-22)**, via shadcn/ui (Radix + CVA) —
+  a nécessité de migrer le projet **Tailwind v3 → v4** au passage (le CLI
+  shadcn actuel ne génère que du code v4 ; migration faite avec l'outil
+  officiel `@tailwindcss/upgrade`, mécanique, un seul renommage
+  `shadow-sm` → `shadow-xs`). Composants réels dans
+  `frontend/components/ui/` : `Button` (4 variantes DESIGN.md exactement :
+  primary/secondary/ghost/danger, tailles default/sm), `Card` (default/
+  flat/section/warning/danger/info), `Input` (`uiSize` default/lg — nommé
+  ainsi pour ne pas entrer en collision avec l'attribut HTML natif `size`).
+  `Badge.tsx` (racine `components/`, pas `ui/`) étendu aux 8 variantes du
+  vocabulaire de statut ci-dessus (avant : seulement 4, dont un `danger`
+  hors vocabulaire — renommé `alert`) + `neutral`, exception assumée hors
+  vocabulaire pour les tags informatifs (régime TVA, plateforme) qui ne
+  sont pas un statut d'écriture. Palette `@theme` (`app/globals.css`)
+  complétée avec tous les tokens DESIGN.md qui manquaient (`on-primary`,
+  `auto-rule`/`auto-ml`/`auto-llm`, `alert-anomaly`, `missing`, `closed`,
+  `info`, les couleurs `*-border`) — avant, seul un sous-ensemble existait.
+  Migré dans les écrans réels : dashboard gestionnaire (`DossierCard` →
+  `Card`), formulaire d'invitation (`InvitationActions` → `Input`/`Button`).
+  **Pas encore fait** : migrer les écrans restants (`ClotureSection`,
+  `GreffeInpiSection`, `Sidebar`, `TopBar`, les pages `/connexion` et
+  `/chauffeur/*`) sur ces composants — ils utilisent encore leurs classes
+  Tailwind ad hoc. La passe UX/UI proprement dite (revue visuelle une fois
+  la migration complète) n'a pas non plus été faite. `review-card`,
+  `table-*`, `sidebar-*`, `toast-*`, `modal` restent des tokens sans
+  composant React.
 - Thème sombre (dark mode global) — prévu en phase 5. La sidebar sombre n'est
   pas un dark mode, c'est un choix délibéré de contraste de navigation.
 - États disabled non documentés sur les boutons et inputs — à ajouter quand

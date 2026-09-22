@@ -3,6 +3,8 @@
 import { useState } from "react";
 
 import { Badge } from "@/components/Badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { inviterChauffeur } from "@/lib/auth-gestionnaire";
 import type { DossierAgregat } from "@/lib/types";
@@ -53,21 +55,22 @@ export function InvitationActions({
       onClick={(evenement) => evenement.stopPropagation()}
       onSubmit={inviter}
     >
-      <input
+      <Input
         type="email"
         value={email}
         onChange={(evenement) => setEmail(evenement.target.value)}
         placeholder="e-mail du chauffeur…"
         disabled={enCours}
-        className="w-40 rounded-md border border-border px-2 py-1 text-xs"
+        className="h-7 w-40 text-xs"
       />
-      <button
+      <Button
         type="submit"
+        variant="secondary"
+        size="sm"
         disabled={enCours || !email.trim()}
-        className="rounded-md border border-border px-2 py-1 text-xs font-semibold text-ink hover:bg-canvas-app disabled:opacity-50"
       >
         Inviter
-      </button>
+      </Button>
       {erreur && <p className="text-xs text-danger">{erreur}</p>}
     </form>
   );

@@ -1,6 +1,110 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/*
+  ---break---
+*/
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Marque */
+  --color-primary: #2563eb;
+  --color-primary-bright: #3b82f6;
+  --color-primary-deep: #1d4ed8;
+  --color-primary-subtle: #eff6ff;
+  --color-on-primary: #ffffff;
+
+  /* Neutres */
+  --color-ink: #0f172a;
+  --color-body: #1e293b;
+  --color-subtle: #475569;
+  --color-muted: #94a3b8;
+  --color-faint: #cbd5e1;
+  --color-on-dark: #f8fafc;
+  --color-on-dark-mute: rgba(248, 250, 252, 0.65);
+
+  /* Canvas et surfaces */
+  --color-canvas-app: #f8fafc;
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f1f5f9;
+  --color-surface-dark: #0f172a;
+  --color-surface-dark-raised: #1e293b;
+
+  /* Bordures */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-border-focus: #2563eb;
+  --color-hairline: #f1f5f9;
+
+  /* Sémantiques générales */
+  --color-success: #16a34a;
+  --color-success-subtle: #f0fdf4;
+  --color-success-border: #86efac;
+  --color-warning: #d97706;
+  --color-warning-subtle: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-danger: #dc2626;
+  --color-danger-subtle: #fef2f2;
+  --color-danger-border: #fca5a5;
+  --color-info: #0284c7;
+  --color-info-subtle: #f0f9ff;
+  --color-info-border: #7dd3fc;
+
+  /* Sémantiques comptables (doc DESIGN.md — usage strict, ne pas détourner) */
+  --color-amount-positive: #16a34a;
+  --color-amount-negative: #dc2626;
+  --color-amount-neutral: #0f172a;
+  --color-validated: #16a34a;
+  --color-validated-subtle: #f0fdf4;
+  --color-pending: #d97706;
+  --color-pending-subtle: #fffbeb;
+  --color-auto-rule: #0284c7;
+  --color-auto-rule-subtle: #f0f9ff;
+  --color-auto-ml: #7c3aed;
+  --color-auto-ml-subtle: #f5f3ff;
+  --color-auto-llm: #9333ea;
+  --color-auto-llm-subtle: #faf5ff;
+  --color-alert-anomaly: #dc2626;
+  --color-alert-anomaly-subtle: #fef2f2;
+  --color-missing: #94a3b8;
+  --color-closed: #475569;
+  --color-closed-subtle: #f8fafc;
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
 
 /* DESIGN.md : fond app = canvas-app, jamais du blanc pur en body direct. */
 body {
@@ -11,4 +115,127 @@ body {
 /* DESIGN.md — règle des montants : invariant non négociable. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+/*
+  ---break---
+*/
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+/*
+  ---break---
+*/
+/* Palette shadcn générique remplacée par les vrais tokens DESIGN.md (pas
+   les valeurs grises par défaut du preset Nova) — voir DESIGN.md
+   "Correspondance Tailwind / shadcn-ui" pour la table de correspondance
+   d'origine, complétée ici avec les tokens qui manquaient (muted, accent,
+   input, ring). */
+:root {
+  --background: #f8fafc; /* canvas-app */
+  --foreground: #0f172a; /* ink */
+  --card: #ffffff; /* canvas */
+  --card-foreground: #0f172a; /* ink */
+  --popover: #ffffff; /* canvas */
+  --popover-foreground: #0f172a; /* ink */
+  --primary: #2563eb; /* primary */
+  --primary-foreground: #ffffff; /* on-primary */
+  --secondary: #ffffff; /* canvas — button-secondary (DESIGN.md) */
+  --secondary-foreground: #0f172a; /* ink */
+  --muted: #f1f5f9; /* surface-soft */
+  --muted-foreground: #475569; /* subtle */
+  --accent: #eff6ff; /* primary-subtle */
+  --accent-foreground: #1d4ed8; /* primary-deep */
+  --destructive: #dc2626; /* danger */
+  --border: #e2e8f0; /* border */
+  --input: #e2e8f0; /* border (text-input) */
+  --ring: #2563eb; /* border-focus */
+  --chart-1: #2563eb;
+  --chart-2: #7c3aed;
+  --chart-3: #9333ea;
+  --chart-4: #0284c7;
+  --chart-5: #16a34a;
+  --radius: 0.5rem; /* rounded.md, 8px */
+  --sidebar: #0f172a; /* surface-dark */
+  --sidebar-foreground: #f8fafc; /* on-dark */
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(248, 250, 252, 0.07);
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: rgba(248, 250, 252, 0.08);
+  --sidebar-ring: #2563eb;
+}
+/*
+  ---break---
+*/
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }

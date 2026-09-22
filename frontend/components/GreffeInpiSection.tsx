@@ -73,7 +73,7 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
   }
 
   return (
-    <div className="mb-6 rounded-lg border border-border bg-canvas p-5 shadow-sm">
+    <div className="mb-6 rounded-lg border border-border bg-canvas p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">
           Dépôt greffe/INPI — comptes annuels

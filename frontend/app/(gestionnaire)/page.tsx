@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { InvitationActions } from "@/components/InvitationActions";
 import { InvitationsEnMasse } from "@/components/InvitationsEnMasse";
+import { Card } from "@/components/ui/card";
 import { ErreurAuthGestionnaire, listerDossiers } from "@/lib/auth-gestionnaire";
 import { formatMontant } from "@/lib/format";
 import type { DossierAgregat } from "@/lib/types";
@@ -57,7 +58,7 @@ export default function DashboardPage() {
 // toute la carte menait à `/dossiers/{id}`).
 function DossierCard({ dossier, onInvite }: { dossier: DossierAgregat; onInvite: () => void }) {
   return (
-    <div className="rounded-lg border border-border bg-canvas p-5 shadow-sm">
+    <Card>
       <div className="mb-3">
         <span className="text-base font-semibold text-ink">{dossier.nom}</span>
       </div>
@@ -86,7 +87,7 @@ function DossierCard({ dossier, onInvite }: { dossier: DossierAgregat; onInvite:
       <div className="mt-4 border-t border-border pt-3">
         <InvitationActions dossier={dossier} onInvite={onInvite} />
       </div>
-    </div>
+    </Card>
   );
 }
 

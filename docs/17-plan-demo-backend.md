@@ -789,6 +789,30 @@ pas décidé ici) :
 estimation chiffrée — l'écart est documenté, la priorisation attend
 Louis (avant Semaine 4 ? en parallèle ? après la démo ?).
 
+> **Étape 1 (composants) faite le 2026-09-22**, décidée avec Louis comme
+> priorité pour fermer la démo : `Button`/`Card`/`Input` (shadcn/ui, Radix +
+> CVA) implémentant exactement les variantes DESIGN.md, `Badge.tsx` étendu
+> aux 8 variantes du vocabulaire de statut (avant : 4, dont un `danger` hors
+> vocabulaire). A nécessité une migration **Tailwind v3 → v4** au passage
+> (le CLI shadcn ne génère plus que du code v4) — faite avec l'outil
+> officiel `@tailwindcss/upgrade`, un seul renommage mécanique
+> (`shadow-sm`→`shadow-xs`), build/lint vérifiés verts à chaque étape.
+> Détail complet, y compris un aller-retour où le premier essai (avant la
+> migration Tailwind) cassait la compilation : DESIGN.md § Known Gaps et
+> § Correspondance Tailwind/shadcn-ui.
+>
+> Migré dans les écrans réels : dashboard gestionnaire (`DossierCard` →
+> `Card`), formulaire d'invitation (`InvitationActions` → `Input`/`Button`).
+> **Pas encore fait** : les écrans restants (`ClotureSection`,
+> `GreffeInpiSection`, `Sidebar`, `TopBar`, `/connexion`, `/chauffeur/*`),
+> ni l'étape 2 (passe UX/UI proprement dite, doc 17 §9 point 3 ci-dessus) —
+> les deux attendent d'être scopées avec Louis, pas commencées ici.
+>
+> **Rendu visuel non vérifié dans le navigateur** cette session (extension
+> Chrome non connectée) — vérifié uniquement par build/lint/HTTP 200. Le
+> dev server tournait (`npm run dev`, port 3000) et répondait correctement,
+> mais personne n'a regardé l'écran.
+
 ### Estimation globale et mise en garde sur les dates
 
 **~8 à 11 jours de travail effectif** (A+B+C ≈ 3,5-4j, semaine 3 ≈ 1,5j,
