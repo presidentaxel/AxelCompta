@@ -388,7 +388,7 @@ maintenant un vrai appel quand on lui fournit un `client_reel`. **Pas
 encore fait** : brancher `fetch_transactions`/`fetch_platform_settlements`
 sur le client réel — bloqué sur l'absence de la table `contact_nr →
 dossier_id` (§9 point 5, ~200 chauffeurs, dépend de la liste pilote
-attendue le week-end du 12-13/09), pas un problème technique.
+attendue le week-end du 12-13/09, reportée à la semaine du 21/09, voir doc 12 recalage), pas un problème technique.
 
 ---
 
@@ -419,8 +419,11 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
    pas encore ce client réel (bloqué sur le point 5 ci-dessous).
 2. Sync incrémental sur `since` : `DigifactoryHttpClient.transactions`
    accepte déjà `since` (2026-09-11) et le sérialise au bon format
-   (`YYYY-MM-DD HH:MM:SS`, confirmé §5) ; **persistance du `updated_at`
-   max par contact pas encore faite** (pas de stockage de ce curseur).
+   (`YYYY-MM-DD HH:MM:SS`, confirmé §5). **Curseur persisté depuis le
+   2026-09-22** (`curseurs_synchro`, `ingestion/journal*.py`) : plus grand
+   `updated_at` vu par (dossier, source), avancé en dernier et jamais
+   reculé. La lecture recouvre la borne (inclusive, à confirmer côté
+   fournisseur), sans effet car la synchro est idempotente.
 3. Normalisation à l'ingestion : `Decimal` pour les montants — fait de
    longue date (`_vers_centimes`), confirmé robuste sur données réelles
    (§4, `amount` int ou float). UTC pour les dates — **pas fait**, le
@@ -428,10 +431,13 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
 4. Filtrage systématique de `deleted` et `future` — fait de longue date
    (`parser_transactions`), confirmé par tests, jamais observé en vrai sur
    l'échantillon testé (§4).
-5. Table de correspondance `contact_nr → dossier_id` — **toujours pas
-   faite**, c'est le vrai bloquant restant pour brancher le chemin A sur
-   `fetch_transactions` (§7). Dépend de la liste des ~200 chauffeurs du
-   pilote, prévue le week-end du 2026-09-12/13 (doc 12 §0.1).
+5. Table de correspondance `contact_nr → dossier_id` — **structure faite
+   le 2026-09-22** (`dossiers.contact_nr`, unique, `DossierRepository.par_contact_nr`),
+   et le chemin A est branché : `DigifactoryProvider.lire_lot(dossier, curseur)`
+   appelle `/transactions/{contact_nr}` avec le contact du dossier, et
+   refuse (`ContactNonMappeError`) un dossier sans contact plutôt que d'en
+   deviner un. **Reste les données** : la liste des ~200 chauffeurs du
+   pilote (doc 12, recalage : week-end du 26-27/09).
 6. Monitoring de fraîcheur et de santé de connexion par compte — **pas
    fait**. Les champs nécessaires sont confirmés disponibles depuis le
    2026-09-11 (`data_access`, `paused`, `status_code_info`,
@@ -442,7 +448,10 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
    en échec, réponse vide — **fait pour deleted/mise à jour/multi-comptes**
    (tests existants + `test_accepte_le_format_reel_dict_indexe_par_transaction_id`,
    2026-09-11) ; **pas fait** pour connexion en échec et réponse vide côté
-   `/transactions` (`/accounts` vide `[]` est couvert, §3.2).
+   `/transactions` (`/accounts` vide `[]` est couvert, §3.2). Depuis le
+   2026-09-22, une ligne malformée est mise en quarantaine sans bloquer le
+   lot, et une transaction modifiée ou supprimée après comptabilisation est
+   signalée en quarantaine (`workflow/synchro.py`).
 8. Ajouter `digifactory_contact_nr` au CSV d'onboarding et à la documentation
    associée (doc 14 §1.2), **en plus de** `bridge_item_id` qui reste réservé au
    futur provider Bridge direct (§8) — pas de renommage, les deux colonnes

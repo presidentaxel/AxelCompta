@@ -14,6 +14,7 @@ un partout où c'était avant un appel anonyme (ancien comportement
 
 from __future__ import annotations
 
+import functools
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -23,18 +24,27 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
 
 import axelcompta.demo_auth as demo_auth
-from axelcompta.core.ids import DossierId, EcritureId
+import axelcompta.demo_seed as demo_seed
+from axelcompta.core.ids import DossierId, EcritureId, TenantId
 from axelcompta.demo_api import (
     create_app,
     get_comptes,
     get_decisions,
+    get_dossiers,
     get_justificatifs,
+    get_ledger,
+    get_propositions,
     get_signatures_inpi,
 )
+from axelcompta.demo_chauffeurs_type import construire_ledger
 from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
+from axelcompta.ledger.memory import InMemoryLedgerService
+from axelcompta.tenants.memory import InMemoryDossierRepository
+from axelcompta.tenants.models import Tenant
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
+from axelcompta.workflow.propositions import InMemoryPropositionRepository
 from axelcompta.workflow.signature_memory import InMemorySignatureRepository
 
 # ES256 (JWT Signing Keys), pas HS256 : ce qu'émet le vrai projet Supabase
@@ -48,14 +58,48 @@ def _jeton_chauffeur(dossier_id: str) -> str:
         "email": "chauffeur@example.com",
         "aud": "authenticated",
         "exp": datetime.now(UTC) + timedelta(hours=1),
-        "user_metadata": {"dossier_id": dossier_id},
+        "app_metadata": {"dossier_id": dossier_id},
     }
     return jwt.encode(charge_utile, _CLE_PRIVEE_TEST, algorithm="ES256")
+
+
+def _jeton_gestionnaire(tenant_id: str = "TENANT_DEMO", dossier_id: str | None = None) -> str:
+    """doc 03 §7 : le lien gestionnaire vit dans `app_metadata` (écrit côté
+    serveur), pas `user_metadata` (modifiable par l'utilisateur)."""
+    charge_utile: dict[str, object] = {
+        "sub": "gestionnaire-1",
+        "email": "gestionnaire@example.com",
+        "aud": "authenticated",
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+        "app_metadata": {"tenant_id": tenant_id},
+    }
+    if dossier_id is not None:
+        charge_utile["app_metadata"]["dossier_id"] = dossier_id  # type: ignore[index]
+    return jwt.encode(charge_utile, _CLE_PRIVEE_TEST, algorithm="ES256")
+
+
+def _en_tete_gestionnaire(
+    tenant_id: str = "TENANT_DEMO", dossier_id: str | None = None
+) -> dict[str, str]:
+    return {"Authorization": f"Bearer {_jeton_gestionnaire(tenant_id, dossier_id)}"}
 
 
 def _en_tete(dossier_id: str) -> dict[str, str]:
     """doc 19 §8bis : jeton indiv valide, scopé sur `dossier_id`."""
     return {"Authorization": f"Bearer {_jeton_chauffeur(dossier_id)}"}
+
+
+@pytest.fixture(autouse=True)
+def _ledger_calcule_une_seule_fois(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L'amorçage recalcule le ledger des 3 profils (réconciliation + ML) ;
+    le résultat est déterministe, donc calculé une fois pour toute la suite
+    plutôt qu'à chaque client de test."""
+    monkeypatch.setattr(demo_seed, "construire_ledger", _construire_ledger_en_cache)
+
+
+@functools.cache
+def _construire_ledger_en_cache(profil):  # type: ignore[no-untyped-def]
+    return construire_ledger(profil)
 
 
 @pytest.fixture(autouse=True)
@@ -88,6 +132,15 @@ def _client_et_stubs() -> tuple[
     # module (demo_api.py) — surchargé ici pour isoler chaque test, sinon
     # une signature posée par un test resterait visible dans les suivants.
     signatures_stub = InMemorySignatureRepository()
+    dossiers_stub = InMemoryDossierRepository()
+    ledger_stub = InMemoryLedgerService()
+    propositions_stub = InMemoryPropositionRepository()
+    demo_seed.amorcer_demo(dossiers_stub, ledger_stub, propositions_stub)
+    # Un second portefeuille, vide : sert aux tests d'isolation entre tenants.
+    dossiers_stub.enregistrer_tenant(Tenant(id=TenantId("AUTRE_TENANT"), nom="Autre"))
+    app.dependency_overrides[get_dossiers] = lambda: dossiers_stub
+    app.dependency_overrides[get_ledger] = lambda: ledger_stub
+    app.dependency_overrides[get_propositions] = lambda: propositions_stub
     app.dependency_overrides[get_decisions] = lambda: decisions_stub
     app.dependency_overrides[get_comptes] = lambda: comptes_stub
     app.dependency_overrides[get_justificatifs] = lambda: justificatifs_stub
@@ -100,11 +153,81 @@ def _client() -> TestClient:
 
 
 def test_lister_dossiers_retourne_les_3_chauffeurs_type() -> None:
-    reponse = _client().get("/dossiers")
+    reponse = _client().get("/dossiers", headers=_en_tete_gestionnaire())
     assert reponse.status_code == 200
     corps = reponse.json()
     assert len(corps) == 3
     assert {d["dossier_id"] for d in corps} == {p.dossier_id for p in PROFILS_DEMO}
+
+
+def test_lister_dossiers_sans_jeton_est_refuse() -> None:
+    """Avant le 2026-09-21 cette route était ouverte à tous et renvoyait le
+    CA/résultat/trésorerie des 3 dossiers."""
+    assert _client().get("/dossiers").status_code == 401
+
+
+def test_lister_dossiers_avec_jeton_indiv_seul_est_refuse() -> None:
+    """Un chauffeur n'a pas le lien `tenant_id` : il ne voit pas le portefeuille."""
+    reponse = _client().get("/dossiers", headers=_en_tete("DEMO_karim"))
+    assert reponse.status_code == 403
+
+
+def test_lister_dossiers_autre_tenant_ne_voit_rien_du_portefeuille_demo() -> None:
+    """Isolation entre portefeuilles : un gestionnaire d'un autre tenant est
+    authentifié mais ne voit aucun dossier qui n'est pas dans le sien."""
+    reponse = _client().get("/dossiers", headers=_en_tete_gestionnaire("AUTRE_TENANT"))
+    assert reponse.status_code == 200
+    assert reponse.json() == []
+
+
+def test_inviter_un_dossier_dun_autre_portefeuille_est_404() -> None:
+    """404 et non 403 : ne pas révéler l'existence de dossiers d'autrui."""
+    reponse = _client().post(
+        "/dossiers/DEMO_karim/inviter",
+        json={"email": "x@example.com"},
+        headers=_en_tete_gestionnaire("AUTRE_TENANT"),
+    )
+    assert reponse.status_code == 404
+
+
+def test_dossier_inconnu_sans_jeton_reste_401() -> None:
+    """L'existence d'un dossier ne fuit pas : 401 avant 404."""
+    assert _client().get("/dossiers/INCONNU/transactions").status_code == 401
+
+
+def test_compte_mono_accede_aux_deux_vues() -> None:
+    """doc 03 §7 : le mode mono n'est pas un rôle à part, juste les deux
+    liens sur le même compte."""
+    client = _client()
+    en_tete = _en_tete_gestionnaire(dossier_id="DEMO_karim")
+    assert client.get("/dossiers", headers=en_tete).status_code == 200
+    assert client.get("/dossiers/DEMO_karim/transactions", headers=en_tete).status_code == 200
+
+
+def test_gestionnaire_seul_naccede_pas_au_detail_dun_dossier() -> None:
+    """doc 19 §2.4 : jamais le détail, quel que soit le dossier."""
+    client = _client()
+    en_tete = _en_tete_gestionnaire()
+    assert client.get("/dossiers/DEMO_karim", headers=en_tete).status_code == 403
+    assert client.get("/dossiers/DEMO_karim/transactions", headers=en_tete).status_code == 403
+    assert client.get("/dossiers/DEMO_karim/fec.txt", headers=en_tete).status_code == 403
+
+
+def test_liste_gestionnaire_ne_contient_que_des_agregats() -> None:
+    """doc 19 §2.1/§2.4 : CA/charges/résultat et onboarding, rien qui donne
+    l'état du détail (nombre de transactions à trancher, trésorerie, TVA à
+    payer, statut de signature greffe : tous dérivés de la compta de l'indiv)."""
+    corps = _client().get("/dossiers", headers=_en_tete_gestionnaire()).json()
+    interdits = {
+        "nb_transactions",
+        "nb_a_trancher",
+        "tresorerie_cts",
+        "tva_a_payer_cts",
+        "greffe_inpi_signe",
+    }
+    for dossier in corps:
+        assert interdits.isdisjoint(dossier)
+        assert {"ca_ht_cts", "charges_cts", "resultat_cts", "statut_invitation"} <= set(dossier)
 
 
 def test_dossier_yanis_est_bien_en_franchise_et_deficitaire() -> None:
@@ -275,10 +398,13 @@ def test_dossier_jamais_invite_a_un_statut_invitation_null() -> None:
 
 
 def test_inviter_chauffeur_renvoie_le_statut_invite() -> None:
-    """doc 19 §6 : action gestionnaire, toujours sans login — pas de jeton
-    ici, contrairement aux routes de niveau dossier ci-dessus."""
+    """doc 19 §6 : action gestionnaire, jeton avec lien `tenant_id` requis."""
     client = _client()
-    reponse = client.post("/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"})
+    reponse = client.post(
+        "/dossiers/DEMO_karim/inviter",
+        json={"email": "karim@example.com"},
+        headers=_en_tete_gestionnaire(),
+    )
     assert reponse.status_code == 200
     corps = reponse.json()
     assert corps == {"dossier_id": "DEMO_karim", "email": "karim@example.com", "statut": "invité"}
@@ -288,25 +414,62 @@ def test_inviter_est_reflete_par_un_get_ulterieur() -> None:
     """doc 19 §3.2 : le statut d'invitation doit apparaître au dashboard,
     pas seulement dans la réponse du POST."""
     client = _client()
-    client.post("/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"})
+    client.post(
+        "/dossiers/DEMO_karim/inviter",
+        json={"email": "karim@example.com"},
+        headers=_en_tete_gestionnaire(),
+    )
 
-    reponse = client.get("/dossiers/DEMO_karim", headers=_en_tete("DEMO_karim"))
+    reponse = client.get("/dossiers", headers=_en_tete_gestionnaire())
 
-    assert reponse.json()["statut_invitation"] == "invité"
+    karim = next(d for d in reponse.json() if d["dossier_id"] == "DEMO_karim")
+    assert karim["statut_invitation"] == "invité"
 
 
 def test_inviter_deux_fois_le_meme_dossier_est_refuse() -> None:
     client = _client()
-    client.post("/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"})
+    en_tete = _en_tete_gestionnaire()
+    client.post(
+        "/dossiers/DEMO_karim/inviter", json={"email": "karim@example.com"}, headers=en_tete
+    )
 
-    reponse = client.post("/dossiers/DEMO_karim/inviter", json={"email": "autre@example.com"})
+    reponse = client.post(
+        "/dossiers/DEMO_karim/inviter", json={"email": "autre@example.com"}, headers=en_tete
+    )
 
     assert reponse.status_code == 409
 
 
+def test_inviter_sans_jeton_est_refuse() -> None:
+    reponse = _client().post("/dossiers/DEMO_karim/inviter", json={"email": "x@example.com"})
+    assert reponse.status_code == 401
+
+
+def test_inviter_avec_jeton_indiv_est_refuse() -> None:
+    """Un chauffeur ne peut pas inviter (ni s'inviter lui-même, ni un tiers)."""
+    reponse = _client().post(
+        "/dossiers/DEMO_karim/inviter",
+        json={"email": "x@example.com"},
+        headers=_en_tete("DEMO_karim"),
+    )
+    assert reponse.status_code == 403
+
+
+def test_inviter_dossier_inconnu_est_404_pour_un_gestionnaire() -> None:
+    reponse = _client().post(
+        "/dossiers/INCONNU/inviter",
+        json={"email": "x@example.com"},
+        headers=_en_tete_gestionnaire(),
+    )
+    assert reponse.status_code == 404
+
+
 def test_karim_est_en_mode_chauffeur_direct_les_autres_en_gestionnaire() -> None:
     """doc 19 §4 : les deux modes doivent être représentés dans la démo."""
-    corps = {p["dossier_id"]: p for p in _client().get("/dossiers").json()}
+    corps = {
+        p["dossier_id"]: p
+        for p in _client().get("/dossiers", headers=_en_tete_gestionnaire()).json()
+    }
     assert corps["DEMO_karim"]["mode_acces_bancaire"] == "chauffeur_direct"
     assert corps["DEMO_sophie"]["mode_acces_bancaire"] == "gestionnaire"
     assert corps["DEMO_yanis"]["mode_acces_bancaire"] == "gestionnaire"
@@ -621,3 +784,66 @@ def test_chauffeur_ne_peut_pas_signer_le_greffe_inpi_dun_autre_dossier() -> None
         headers={"Authorization": f"Bearer {jeton}"},
     )
     assert reponse.status_code == 403
+
+
+def _en_masse(client: TestClient, lignes: list[dict[str, str]], **kw: object):  # type: ignore[no-untyped-def]
+    return client.post(
+        "/invitations/en-masse",
+        json={"invitations": lignes},
+        headers=kw.get("headers", _en_tete_gestionnaire()),  # type: ignore[arg-type]
+    )
+
+
+def test_invitations_en_masse_traitees_ligne_par_ligne() -> None:
+    client = _client()
+    lignes = [
+        {"dossier_id": "DEMO_karim", "email": "karim@example.com"},
+        {"dossier_id": "DEMO_sophie", "email": "pas-un-email"},
+        {"dossier_id": "INCONNU", "email": "x@example.com"},
+        {"dossier_id": "DEMO_karim", "email": "autre@example.com"},
+        {"dossier_id": "DEMO_yanis", "email": "yanis@example.com"},
+    ]
+
+    corps = _en_masse(client, lignes).json()
+
+    assert [ligne["resultat"] for ligne in corps["lignes"]] == [
+        "invité",
+        "email_invalide",
+        "dossier_inconnu",
+        "doublon_dans_le_lot",
+        "invité",
+    ]
+    assert corps["nb_invitees"] == 2
+
+
+def test_relancer_le_meme_lot_nenvoie_pas_de_seconde_invitation() -> None:
+    client = _client()
+    lignes = [{"dossier_id": "DEMO_karim", "email": "karim@example.com"}]
+    _en_masse(client, lignes)
+
+    corps = _en_masse(client, lignes).json()
+
+    assert corps["lignes"][0]["resultat"] == "deja_invite"
+    assert corps["nb_invitees"] == 0
+
+
+def test_invitations_en_masse_refusees_sans_lien_gestionnaire() -> None:
+    client = _client()
+    lignes = [{"dossier_id": "DEMO_karim", "email": "karim@example.com"}]
+    assert client.post("/invitations/en-masse", json={"invitations": lignes}).status_code == 401
+    assert _en_masse(client, lignes, headers=_en_tete("DEMO_karim")).status_code == 403
+
+
+def test_invitations_en_masse_ignorent_les_dossiers_dun_autre_portefeuille() -> None:
+    """Un gestionnaire d'un autre tenant obtient « dossier_inconnu », jamais
+    une invitation ni une indication que ce dossier existe ailleurs."""
+    lignes = [{"dossier_id": "DEMO_karim", "email": "karim@example.com"}]
+
+    corps = _en_masse(_client(), lignes, headers=_en_tete_gestionnaire("AUTRE_TENANT")).json()
+
+    assert corps["lignes"][0]["resultat"] == "dossier_inconnu"
+
+
+def test_un_lot_trop_gros_est_refuse() -> None:
+    lignes = [{"dossier_id": f"d{i}", "email": f"{i}@example.com"} for i in range(501)]
+    assert _en_masse(_client(), lignes).status_code == 422

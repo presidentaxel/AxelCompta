@@ -27,11 +27,10 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   rapides — comme `ledger/memory.py` pour le ledger.
 - `orm.py` / `decisions_postgres.py` — `PostgresDecisionRepository`
   (**fait, 2026-09-07**) : la vraie persistance (doc 17 §9 bloc A). Deux
-  tables (`decisions_humaines`, `annotations_dev`), append-only, **sans
-  FK** vers `dossiers`/`ecritures` — ces deux-là restent recalculés à la
-  volée pour la démo (`demo_chauffeurs_type.py`), jamais écrits en
-  Postgres ; contraindre une FK contre des tables jamais peuplées ferait
-  échouer tout `INSERT` (détail dans `orm.py`). Migration
+  tables (`decisions_humaines`, `annotations_dev`), append-only, FK
+  vers `dossiers` et `ecritures` depuis le 2026-09-22 (migration
+  `7cd5053e8209` ; elles manquaient tant que ces tables n'étaient pas
+  peuplées, détail dans `orm.py`). Migration
   `55cf8c93e5bf` (`migrations/versions/`). Testé contre un vrai conteneur
   (`tests/integration/test_decisions_repository.py`, comme
   `test_ledger_repository.py` pour le ledger).
@@ -56,6 +55,19 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   n'est donc plus la seule voie : Sophie passe maintenant par la vraie
   décision humaine, Karim/Yanis restent sur le stand-in (rien à trancher
   chez eux dans la démo).
+- `propositions.py` / `propositions_postgres.py` (**fait, 2026-09-21**) :
+  conserve la proposition d'origine du pipeline par écriture (étage,
+  confiance), nécessaire à la file de revue depuis que le ledger est
+  persisté et non recalculé. Table `propositions_categorisation`.
+- `emails.py` / `notifications.py` / `notifications_postgres.py` (**fait,
+  2026-09-22**) : e-mail « opérations à confirmer » (doc 19 §5.2), regroupé
+  par dossier, anti-harcèlement, sans donnée comptable dans le message.
+  Lancé par `axelcompta/notifier.py`. Table `notifications_envoyees`.
+- `synchro.py` (**fait, 2026-09-22**) : synchronisation d'un dossier réel
+  (lot du fournisseur, archive brute, catégorisation, écritures, curseur).
+  Idempotente, ledger append-only, cas modifiés/supprimés en quarantaine.
+  Politique d'acceptation automatique provisoire (règle ≥ 0,75, ML ≥ 0,90,
+  sinon compte 471). Lancée par `axelcompta/synchro_digifactory.py`.
 - `revue.py` — `resoudre_ecriture_a_trancher()`, `CategorieInconnueError`
   (**fait, 2026-09-07**) : reclasse une écriture « à trancher » vers le
   compte réel de la catégorie choisie par l'humain — 455 (SASU/EURL) pour

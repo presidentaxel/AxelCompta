@@ -11,7 +11,7 @@ pas été prise ici — à faire quand on remplacera Supabase Auth par
 l'implémentation maison (V1), pas avant.
 
 Supabase est la **seule source de vérité** pour qui a été invité :
-chaque utilisateur créé porte `user_metadata.dossier_id`, pas de table
+chaque utilisateur créé porte `app_metadata.dossier_id`, pas de table
 séparée à synchroniser. Simplification assumée par rapport à doc 19 §3.2 :
 seuls `non_invité` (absence d'utilisateur), `invité` (créé, e-mail non
 confirmé) et `actif` (e-mail confirmé) sont modélisés. `compte_créé`
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
@@ -55,9 +56,20 @@ class CompteRepository(ABC):
     démo, implémentation maison prévue en V1 (doc 17 §9 bloc B)."""
 
     @abstractmethod
-    def inviter(self, dossier_id: DossierId, email: str) -> Invitation:
+    def inviter(
+        self, dossier_id: DossierId, email: str, *, verifier_existant: bool = True
+    ) -> Invitation:
         """Envoie une invitation réelle (e-mail). Lève `CompteDejaInviteError`
-        si ce dossier a déjà un compte."""
+        si ce dossier a déjà un compte. `verifier_existant=False` quand
+        l'appelant vient déjà de le vérifier pour tout un lot (`statuts`) :
+        évite de relister tous les comptes à chaque invitation."""
+
+    def statuts(self, dossier_ids: Iterable[DossierId]) -> dict[DossierId, Invitation]:
+        """Statut de plusieurs dossiers (seuls ceux qui ont été invités
+        figurent dans le résultat). Par défaut un appel par dossier ;
+        l'implémentation Supabase le fait en une seule lecture des comptes."""
+        trouves = {d: self.statut(d) for d in dossier_ids}
+        return {d: inv for d, inv in trouves.items() if inv is not None}
 
     @abstractmethod
     def statut(self, dossier_id: DossierId) -> Invitation | None:
@@ -83,6 +95,10 @@ class SupabaseConfig:
         return SupabaseConfig(url=url, service_role_key=cle)
 
 
+_PAR_PAGE = 200
+_PAGES_MAX = 50
+
+
 class SupabaseCompteRepository(CompteRepository):
     def __init__(self, config: SupabaseConfig, client: httpx.Client | None = None) -> None:
         self._client = client or httpx.Client(
@@ -94,32 +110,54 @@ class SupabaseCompteRepository(CompteRepository):
             timeout=10.0,
         )
 
-    def inviter(self, dossier_id: DossierId, email: str) -> Invitation:
-        if self.statut(dossier_id) is not None:
+    def inviter(
+        self, dossier_id: DossierId, email: str, *, verifier_existant: bool = True
+    ) -> Invitation:
+        if verifier_existant and self.statut(dossier_id) is not None:
             raise CompteDejaInviteError(f"dossier déjà invité : {dossier_id}")
-        reponse = self._client.post(
-            "/invite", json={"email": email, "data": {"dossier_id": dossier_id}}
-        )
+        reponse = self._client.post("/invite", json={"email": email})
         reponse.raise_for_status()
+        # Le lien au dossier va dans `app_metadata`, écrit ici côté serveur
+        # (clé service role) : `user_metadata`, que l'invité pourrait
+        # modifier lui-même via l'API Auth pour s'attribuer le dossier d'un
+        # autre (`/invite` ne permet de poser que `user_metadata`, d'où ce
+        # second appel). Le compte n'est utilisable qu'après le clic sur le
+        # lien d'invitation, donc après ce PUT.
+        utilisateur_id = reponse.json()["id"]
+        lien = self._client.put(
+            f"/admin/users/{utilisateur_id}", json={"app_metadata": {"dossier_id": dossier_id}}
+        )
+        lien.raise_for_status()
         return Invitation(dossier_id=dossier_id, email=email, statut=StatutInvitation.INVITE)
 
     def statut(self, dossier_id: DossierId) -> Invitation | None:
-        utilisateur = self._trouver_par_dossier(dossier_id)
-        if utilisateur is None:
-            return None
-        confirme = utilisateur.get("email_confirmed_at") or utilisateur.get("confirmed_at")
-        statut = StatutInvitation.ACTIF if confirme else StatutInvitation.INVITE
-        return Invitation(dossier_id=dossier_id, email=utilisateur["email"], statut=statut)
+        return self.statuts([dossier_id]).get(dossier_id)
 
-    def _trouver_par_dossier(self, dossier_id: DossierId) -> dict[str, Any] | None:
-        # `GET /admin/users` paginé côté Supabase mais pas de filtre serveur
-        # par metadata — filtrage client, acceptable pour 3 dossiers de
-        # démo, pas un choix qui tiendrait pour 200 dossiers réels (V1).
-        reponse = self._client.get("/admin/users")
-        reponse.raise_for_status()
-        corps: dict[str, Any] = reponse.json()
-        utilisateurs: list[dict[str, Any]] = corps.get("users", [])
-        for utilisateur in utilisateurs:
-            if utilisateur.get("user_metadata", {}).get("dossier_id") == dossier_id:
-                return utilisateur
-        return None
+    def statuts(self, dossier_ids: Iterable[DossierId]) -> dict[DossierId, Invitation]:
+        voulus = set(dossier_ids)
+        resultat: dict[DossierId, Invitation] = {}
+        for utilisateur in self._tous_les_utilisateurs():
+            dossier_id = utilisateur.get("app_metadata", {}).get("dossier_id")
+            if dossier_id in voulus:
+                confirme = utilisateur.get("email_confirmed_at") or utilisateur.get("confirmed_at")
+                statut = StatutInvitation.ACTIF if confirme else StatutInvitation.INVITE
+                resultat[DossierId(dossier_id)] = Invitation(
+                    dossier_id=DossierId(dossier_id), email=utilisateur["email"], statut=statut
+                )
+        return resultat
+
+    def _tous_les_utilisateurs(self) -> list[dict[str, Any]]:
+        """`GET /admin/users` est **paginé** (50 par page par défaut) et n'a
+        pas de filtre par metadata. Avant le 2026-09-22 on ne lisait que la
+        première page : au-delà de 50 comptes, un dossier déjà invité passait
+        pour non invité et recevait une seconde invitation. Filtrage côté
+        client, acceptable pour quelques centaines de comptes."""
+        utilisateurs: list[dict[str, Any]] = []
+        for page in range(1, _PAGES_MAX + 1):
+            reponse = self._client.get("/admin/users", params={"page": page, "per_page": _PAR_PAGE})
+            reponse.raise_for_status()
+            lot: list[dict[str, Any]] = reponse.json().get("users", [])
+            utilisateurs.extend(lot)
+            if len(lot) < _PAR_PAGE:
+                return utilisateurs
+        raise RuntimeError(f"plus de {_PAGES_MAX * _PAR_PAGE} comptes : pagination à revoir")

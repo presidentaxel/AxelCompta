@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Badge } from "@/components/Badge";
-import { ApiError, inviterChauffeur } from "@/lib/api";
-import type { DossierResume } from "@/lib/types";
+import { ApiError } from "@/lib/api";
+import { inviterChauffeur } from "@/lib/auth-gestionnaire";
+import type { DossierAgregat } from "@/lib/types";
 
 /** doc 17 §9 bloc B, doc 19 §3.2 : visibilité de premier rang sur
  * l'onboarding du chauffeur — jamais caché dans un écran de paramètres.
@@ -13,8 +13,13 @@ import type { DossierResume } from "@/lib/types";
  * simulateur). Empêche la navigation du `<Link>` de la carte dossier
  * (`stopPropagation`) : ce widget vit dans une carte cliquable, mais ses
  * propres contrôles ne doivent pas déclencher la navigation. */
-export function InvitationActions({ dossier }: { dossier: DossierResume }) {
-  const router = useRouter();
+export function InvitationActions({
+  dossier,
+  onInvite,
+}: {
+  dossier: DossierAgregat;
+  onInvite: () => void;
+}) {
   const [email, setEmail] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -34,7 +39,7 @@ export function InvitationActions({ dossier }: { dossier: DossierResume }) {
     setErreur(null);
     try {
       await inviterChauffeur(dossier.dossier_id, email.trim());
-      router.refresh();
+      onInvite();
     } catch (exception) {
       setErreur(exception instanceof ApiError ? exception.message : "Échec de l'invitation.");
     } finally {

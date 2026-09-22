@@ -60,10 +60,15 @@ C'est l'actif le plus précieux du projet — et le chantier le plus sous-estim�
 
 ### 3.2 Modèles, dans l'ordre
 
-> **Spike Phase 0 terminé — décision prise (ADR-007).** Résumé : TF-IDF + PCG
-> préfixe = 94.4 %, sentence-transformers = 82.8 %, CamemBERT fine-tuné = 92.0 %.
-> Le TF-IDF gagne. Les étapes 2, 3, 4 ci-dessous restent la marche à suivre si
-> les exigences de précision augmentent à l'avenir.
+> **Spike Phase 0 terminé — décision prise (ADR-007, amendé le 2026-09-21).**
+> Le 94.4 % annoncé au départ venait du token compte PCG, qui n'existe pas à
+> l'inférence (les catégories sont dérivées de ce compte). **Mesure retenue :
+> TF-IDF libellé + bucket de montant = 79,5 %** sur dossiers jamais vus, contre
+> des labels du mapping et non une relecture humaine. Les chiffres
+> sentence-transformers (82.8 %) et CamemBERT (92.0 %) du spike d'origine
+> sont invérifiables (spike perdu) et n'étaient pas comparables si eux aussi
+> recevaient le token. Les étapes 2, 3, 4 ci-dessous redeviennent d'actualité
+> si les 500 lignes relues confirment une précision insuffisante.
 
 1. **Baseline obligatoire** : régression logistique sur TF-IDF. Simple, rapide,
    explicable. C'est la barre à battre — et elle est souvent dure à battre sur du

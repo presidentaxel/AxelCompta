@@ -103,9 +103,52 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 Pour l'intégration (doc 08 §4 étape 6, nécessite Postgres — voir ci-dessus) :
 
 ```bash
-export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
-.venv/bin/pytest -q -m integration
+# Base DÉDIÉE aux tests : chaque test fait `drop_all` en fin d'exécution,
+# ce qui viderait la base de dev (dossiers, ledger, décisions) si on la pointait ici.
+docker compose exec db psql -U user -d postgres -c "CREATE DATABASE axelcompta_test"
+export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_test"
+.venv/bin/pytest -q -m integration -k "not supabase"
 ```
+
+## Lancer l'API de démo sur Postgres (depuis le 2026-09-21)
+
+L'API lit dossiers, ledger et propositions dans Postgres (elle ne les
+recalcule plus à chaque requête). Une fois, puis à chaque nouveau schéma :
+
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
+.venv/bin/alembic upgrade head
+.venv/bin/python -m axelcompta.demo_seed      # idempotent, 3 dossiers de démo
+.venv/bin/uvicorn axelcompta.demo_api:app --port 8000
+```
+
+`python -m axelcompta.demo_seed` refuse de compléter un ledger à moitié
+écrit (`AmorcageIncompletError`) : dans ce cas, vider les tables et relancer.
+Synchroniser les transactions Digifactory d'un portefeuille (nécessite
+`DIGIFACTORY_BASE_URL`, `DIGIFACTORY_TOKEN` et des dossiers portant un
+`contact_nr`) :
+
+```bash
+.venv/bin/python -m axelcompta.synchro_digifactory --tenant <tenant_id>
+```
+
+Idempotent et reprenable (curseur par dossier) ; pas de planificateur pour
+l'instant, à lancer à la main ou depuis un cron.
+
+Prévenir les indivs qu'ils ont des opérations à confirmer (SMTP_* et
+APP_BASE_URL dans l'environnement, voir `.env.example`) :
+
+```bash
+.venv/bin/python -m axelcompta.notifier --tenant <tenant_id> --simulation  # sans envoi
+.venv/bin/python -m axelcompta.notifier --tenant <tenant_id>
+```
+
+À lancer après la synchro, depuis un cron. Seuls les comptes activés sont
+notifiés ; un même dossier n'est pas relancé avant 6 h (sauf rappel à 7 jours).
+
+Comptes Supabase : `scripts/creer_compte_gestionnaire.py` (gestionnaire) et
+`scripts/migrer_liens_vers_app_metadata.py` (comptes chauffeur créés avant
+le 2026-09-21).
 
 **Mise à jour 2026-09-09** : `pytest`, `mypy axelcompta tests migrations`,
 `ruff check .`, `ruff format --check .` et `lint-imports` passent tous à

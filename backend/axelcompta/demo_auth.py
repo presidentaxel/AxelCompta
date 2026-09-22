@@ -6,14 +6,13 @@ intentionnellement **hors** du découpage `axelcompta/*` défini en doc 03
 §3, pas une nouvelle brique d'architecture — même raisonnement que
 `demo_comptes.py` (implémentation maison prévue en V1, ADR-003).
 
-**Périmètre volontairement restreint (décidé avec Louis, 2026-09-08)** :
-ce module authentifie le chauffeur, pas le gestionnaire. Le dashboard
-gestionnaire reste sans login pour l'instant — `demo_api.UTILISATEUR_DEMO`
-reste le stub pour l'action de tranchage gestionnaire (bloc C), en attente
-d'un chantier d'auth gestionnaire qui n'est pas celui-ci. Ne pas confondre
-« aucune identité fournie » (aujourd'hui : le gestionnaire, pas encore
-authentifié) avec « identité invalide » (401) : le premier cas doit rester
-silencieux tant que le gestionnaire n'a pas de compte, le second non.
+**Deux liens indépendants sur un même compte (doc 03 §7, 2026-09-21)** :
+`dossier_id` (accès indiv) et `tenant_id` (accès gestionnaire), tous deux
+lus dans `app_metadata`, jamais `user_metadata`. Avant le 2026-09-21 ce
+module n'authentifiait que le chauffeur et le dashboard gestionnaire était
+sans login ; ce n'est plus le cas. Ne pas confondre « aucune identité
+fournie » (`None`, les routes concernées répondent alors 401) avec
+« identité invalide » (401 levée ici, avec le détail).
 
 **Découverte en testant contre le vrai projet Supabase (2026-09-08)** : ce
 projet signe ses jetons en ES256 via les « JWT Signing Keys » (clé
@@ -39,7 +38,7 @@ from typing import Annotated, Any
 import jwt
 from fastapi import Header, HTTPException
 
-from axelcompta.core.ids import DossierId, UserId
+from axelcompta.core.ids import DossierId, TenantId, UserId
 
 # ES256 : algorithme par défaut des « JWT Signing Keys » Supabase (constaté
 # 2026-09-08). RS256 accepté aussi : configuration possible côté Supabase,
@@ -52,15 +51,20 @@ _SUFFIXE_JWKS = "/auth/v1/.well-known/jwks.json"
 
 class JetonInvalideError(ValueError):
     """Jeton absent de contenu exploitable — signature/expiration invalide,
-    ou compte Supabase valide mais sans `dossier_id` (pas un compte
-    chauffeur, doc 19 §3 : chaque invité porte `user_metadata.dossier_id`)."""
+    ou compte Supabase valide sans `dossier_id` ni `tenant_id` (ni chauffeur
+    ni gestionnaire, doc 03 §7)."""
 
 
 @dataclass(frozen=True, slots=True)
 class IdentiteAuthentifiee:
+    """Un compte porte deux liens indépendants (doc 03 §7) : `dossier_id`
+    (indiv) et `tenant_id` (gestionnaire), tous deux lus dans
+    `app_metadata`. Au moins un des deux est toujours renseigné."""
+
     user_id: UserId
-    dossier_id: DossierId
     email: str
+    dossier_id: DossierId | None = None
+    tenant_id: TenantId | None = None
 
 
 @lru_cache(maxsize=1)
@@ -96,14 +100,26 @@ def verifier_jwt(jeton: str, cle_verification: Any) -> IdentiteAuthentifiee:
     except jwt.PyJWTError as exc:
         raise JetonInvalideError(f"jeton invalide : {exc}") from exc
 
-    dossier_id = charge_utile.get("user_metadata", {}).get("dossier_id")
-    if not dossier_id:
-        raise JetonInvalideError("compte sans dossier_id — pas un compte chauffeur")
+    # `app_metadata` et jamais `user_metadata` : ce dernier est modifiable par
+    # l'utilisateur lui-même (API Auth Supabase), donc inutilisable pour un
+    # droit d'accès. Avant le 2026-09-21, `dossier_id` était lu dans
+    # `user_metadata` : un chauffeur invité pouvait s'attribuer le dossier
+    # d'un autre. Pas de repli sur l'ancien emplacement, qui rouvrirait la
+    # faille (voir scripts/migrer_liens_vers_app_metadata.py pour les
+    # comptes existants).
+    app_metadata = charge_utile.get("app_metadata", {})
+    dossier_id = app_metadata.get("dossier_id")
+    tenant_id = app_metadata.get("tenant_id")
+    if not dossier_id and not tenant_id:
+        raise JetonInvalideError(
+            "compte sans dossier_id ni tenant_id — ni chauffeur ni gestionnaire"
+        )
 
     return IdentiteAuthentifiee(
         user_id=UserId(charge_utile["sub"]),
-        dossier_id=DossierId(dossier_id),
         email=charge_utile.get("email", ""),
+        dossier_id=DossierId(dossier_id) if dossier_id else None,
+        tenant_id=TenantId(tenant_id) if tenant_id else None,
     )
 
 

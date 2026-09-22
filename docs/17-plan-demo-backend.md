@@ -10,6 +10,13 @@
 > Le travail déjà fait sur le moteur (§12) n'est pas jeté — il devient le
 > cœur qu'on branche derrière ces deux interfaces.
 > Dernière mise à jour : 2026-09-06.
+>
+> **Mises à jour ultérieures (2026-09-21/22), qui rendent périmés plusieurs
+> passages ci-dessous** (« tout recalculé à chaque requête », « gestionnaire
+> sans login », « `user_metadata.dossier_id` ») : l'API lit désormais
+> dossiers, ledger et propositions en Postgres (`demo_seed` les amorce), le
+> gestionnaire est authentifié par le lien `tenant_id`, et le lien chauffeur
+> est dans `app_metadata`. Détail et raisons : [doc 18](18-organisation-code.md).
 
 ## 1. Objectif de la démo
 

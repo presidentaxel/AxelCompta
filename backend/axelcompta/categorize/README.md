@@ -21,7 +21,10 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
 ## Ce qui existe déjà et sera réutilisé
 
 - [`_AUDIT_DONNEES/modeles/tfidf_logreg_v1.joblib`](../../../_AUDIT_DONNEES/modeles/) —
-  94,4% accuracy, **aucun réentraînement nécessaire** pour la démo.
+  79,5% d'exactitude (libellé + bucket de montant, mesurée contre les labels
+  du mapping, pas une relecture humaine ; le 94,4% d'ADR-007 utilisait le
+  compte PCG, indisponible à l'inférence, voir l'amendement du 2026-09-21),
+  **aucun réentraînement nécessaire** pour la démo.
 - [`_AUDIT_DONNEES/resultats/fec_ml_taxonomie.csv`](../../../_AUDIT_DONNEES/resultats/) —
   36 152 lignes labellisées, déjà rejoué par `FileImportProvider` (chemin C,
   `ingestion/providers/file_import.py`, fait en semaine 1).

@@ -8,8 +8,8 @@ dans le code métier. Squelette : signatures uniquement, aucune implémentation.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, datetime
 
 from axelcompta.core.ids import DossierId, TenantId, TransactionId
 
@@ -31,6 +31,32 @@ class NormalizedTransaction:
     libelle: str
     source_provider: str
     raw_payload: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class Rejet:
+    """Une ligne du fournisseur que le parseur n'a pas pu normaliser. Jamais
+    ignorée en silence : elle part en quarantaine avec sa raison."""
+
+    payload: dict[str, object]
+    raison: str
+
+
+@dataclass(frozen=True, slots=True)
+class LotTransactions:
+    """Résultat d'une lecture incrémentale (doc 16 §5).
+
+    `brutes` : tout ce que le fournisseur a renvoyé, pour l'archivage
+    immuable (doc 12 §1.2). `supprimees` : ids marqués `deleted`, à ne jamais
+    comptabiliser mais à signaler s'ils l'étaient déjà. `curseur` : plus grand
+    `updated_at` vu (y compris sur les lignes filtrées), point de reprise du
+    prochain appel ; `None` si rien n'a été renvoyé."""
+
+    transactions: tuple[NormalizedTransaction, ...]
+    rejets: tuple[Rejet, ...] = ()
+    supprimees: tuple[TransactionId, ...] = ()
+    brutes: tuple[dict[str, object], ...] = field(default_factory=tuple)
+    curseur: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

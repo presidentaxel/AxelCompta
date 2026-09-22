@@ -30,7 +30,9 @@ export type SessionChauffeur = {
 
 export class ErreurAuthChauffeur extends Error {}
 
-function enTetesSupabase(accessToken?: string): Record<string, string> {
+export const URL_SUPABASE = SUPABASE_URL;
+
+export function enTetesSupabase(accessToken?: string): Record<string, string> {
   return {
     apikey: SUPABASE_ANON_KEY,
     Authorization: `Bearer ${accessToken ?? SUPABASE_ANON_KEY}`,
@@ -41,7 +43,7 @@ function enTetesSupabase(accessToken?: string): Record<string, string> {
 /** Décodage du payload d'un JWT — **aucune vérification de signature**,
  * uniquement pour peupler l'URL après connexion. La vérification réelle
  * est côté serveur (`demo_auth.verifier_jwt`) à chaque appel API. */
-function decoderChargeUtileJwt(jeton: string): Record<string, unknown> {
+export function decoderChargeUtileJwt(jeton: string): Record<string, unknown> {
   const partie = jeton.split(".")[1];
   const normalise = partie.replace(/-/g, "+").replace(/_/g, "/");
   return JSON.parse(atob(normalise)) as Record<string, unknown>;
@@ -49,7 +51,9 @@ function decoderChargeUtileJwt(jeton: string): Record<string, unknown> {
 
 function dossierIdDepuisJeton(accessToken: string): string {
   const charge = decoderChargeUtileJwt(accessToken);
-  const metadata = charge.user_metadata as { dossier_id?: string } | undefined;
+  // `app_metadata` (écrit côté serveur), jamais `user_metadata` (modifiable
+  // par l'utilisateur) : voir demo_auth.py.
+  const metadata = charge.app_metadata as { dossier_id?: string } | undefined;
   const dossierId = metadata?.dossier_id;
   if (!dossierId) {
     throw new ErreurAuthChauffeur("Ce compte n'est lié à aucun dossier.");
@@ -84,7 +88,7 @@ export function deconnecter(): void {
   }
 }
 
-async function extraireErreurSupabase(reponse: Response): Promise<never> {
+export async function extraireErreurSupabase(reponse: Response): Promise<never> {
   const corps = (await reponse.json().catch(() => ({}))) as { error_description?: string };
   throw new ErreurAuthChauffeur(
     corps.error_description ?? `Échec de l'authentification (HTTP ${reponse.status}).`,

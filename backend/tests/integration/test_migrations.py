@@ -15,7 +15,15 @@ from sqlalchemy.engine import Engine
 pytestmark = pytest.mark.integration
 
 BACKEND = Path(__file__).resolve().parent.parent.parent
-TABLES_ATTENDUES = {"dossiers", "ecritures", "lignes_ecriture"}
+TABLES_ATTENDUES = {
+    "tenants",
+    "dossiers",
+    "ecritures",
+    "lignes_ecriture",
+    "decisions_humaines",
+    "annotations_dev",
+    "propositions_categorisation",
+}
 
 
 def _config() -> Config:

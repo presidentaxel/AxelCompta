@@ -1,11 +1,36 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+
 import { Badge } from "@/components/Badge";
 import { InvitationActions } from "@/components/InvitationActions";
-import { listerDossiers } from "@/lib/api";
+import { InvitationsEnMasse } from "@/components/InvitationsEnMasse";
+import { ErreurAuthGestionnaire, listerDossiers } from "@/lib/auth-gestionnaire";
 import { formatMontant } from "@/lib/format";
-import type { DossierResume } from "@/lib/types";
+import type { DossierAgregat } from "@/lib/types";
 
-export default async function DashboardPage() {
-  const dossiers = await listerDossiers();
+/** Client component depuis le 2026-09-21 : le jeton gestionnaire vit dans
+ * `localStorage`, inaccessible à un composant serveur. Sans session ou sur
+ * 401/403, redirection vers `/connexion`. */
+export default function DashboardPage() {
+  const router = useRouter();
+  const [dossiers, setDossiers] = useState<DossierAgregat[] | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const charger = useCallback(() => {
+    listerDossiers()
+      .then(setDossiers)
+      .catch((exception) => {
+        if (exception instanceof ErreurAuthGestionnaire) {
+          router.replace("/connexion");
+        } else {
+          setErreur("Impossible de charger le portefeuille.");
+        }
+      });
+  }, [router]);
+
+  useEffect(charger, [charger]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -13,11 +38,14 @@ export default async function DashboardPage() {
       <p className="mb-6 text-sm text-subtle">
         3 dossiers de démo (doc 17 §4) — données synthétiques mais réalistes, calculs réels.
       </p>
+      {erreur && <p className="text-sm text-danger">{erreur}</p>}
+      {!dossiers && !erreur && <p className="text-sm text-subtle">Chargement…</p>}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {dossiers.map((dossier) => (
-          <DossierCard key={dossier.dossier_id} dossier={dossier} />
+        {dossiers?.map((dossier) => (
+          <DossierCard key={dossier.dossier_id} dossier={dossier} onInvite={charger} />
         ))}
       </div>
+      {dossiers && <InvitationsEnMasse onTermine={charger} />}
     </div>
   );
 }
@@ -27,14 +55,11 @@ export default async function DashboardPage() {
 // fiche dossier gestionnaire à ouvrir (le détail est exclusivement indiv,
 // doc 19 §5). D'où l'absence de `Link` ici, retiré le 2026-09-11 (avant :
 // toute la carte menait à `/dossiers/{id}`).
-function DossierCard({ dossier }: { dossier: DossierResume }) {
+function DossierCard({ dossier, onInvite }: { dossier: DossierAgregat; onInvite: () => void }) {
   return (
     <div className="rounded-lg border border-border bg-canvas p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3">
         <span className="text-base font-semibold text-ink">{dossier.nom}</span>
-        {dossier.nb_a_trancher > 0 && (
-          <Badge variant="pending">{dossier.nb_a_trancher} à trancher</Badge>
-        )}
       </div>
       <div className="mb-4 flex flex-wrap gap-2">
         <Badge variant="neutral">{dossier.tva_recettes_regime}</Badge>
@@ -59,7 +84,7 @@ function DossierCard({ dossier }: { dossier: DossierResume }) {
       {/* Onboarding chauffeur : premier rang, pas caché dans un écran de
        * paramètres (doc 19 §3.2). */}
       <div className="mt-4 border-t border-border pt-3">
-        <InvitationActions dossier={dossier} />
+        <InvitationActions dossier={dossier} onInvite={onInvite} />
       </div>
     </div>
   );

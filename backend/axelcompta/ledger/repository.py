@@ -69,7 +69,9 @@ def _ligne_vers_ligne(ecriture_id: EcritureId, ligne: LigneEcriture) -> dict[str
 
 def _lire_entetes(connexion: Connection, dossier_id: DossierId) -> dict[str, Ecriture]:
     resultat = connexion.execute(
-        select(ecritures).where(ecritures.c.dossier_id == dossier_id).order_by(ecritures.c.date)
+        select(ecritures)
+        .where(ecritures.c.dossier_id == dossier_id)
+        .order_by(ecritures.c.date, ecritures.c.id)
     )
     return {
         ligne.id: Ecriture(

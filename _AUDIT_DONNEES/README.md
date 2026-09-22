@@ -16,7 +16,7 @@
 - [x] Le lien **libellé bancaire ↔ compte PCG** existe sur l'échantillon
       benchmarké (48 042 transactions, le token `[PCG{3chars}]` a été extrait
       → le risque n°1 n'est pas confirmé partout, seulement sur cet échantillon).
-- [x] Précision globale mesurée (94.4 %) sur 500 lignes annotées à la main.
+- [x] ~~Précision globale mesurée (94.4 %) sur 500 lignes annotées à la main.~~ **Invalidé le 2026-09-21** : le 94,4 % utilisait le compte PCG comme feature (indisponible à l'inférence). Chiffre de référence : 79,5 % (voir ADR-007 amendé).
 
 ## Ce qu'il reste à produire (le vrai livrable d'audit)
 

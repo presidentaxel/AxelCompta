@@ -15,8 +15,10 @@ class InMemoryCompteRepository(CompteRepository):
     def __init__(self) -> None:
         self._invitations: dict[DossierId, Invitation] = {}
 
-    def inviter(self, dossier_id: DossierId, email: str) -> Invitation:
-        if dossier_id in self._invitations:
+    def inviter(
+        self, dossier_id: DossierId, email: str, *, verifier_existant: bool = True
+    ) -> Invitation:
+        if verifier_existant and dossier_id in self._invitations:
             raise CompteDejaInviteError(f"dossier déjà invité : {dossier_id}")
         invitation = Invitation(dossier_id=dossier_id, email=email, statut=StatutInvitation.INVITE)
         self._invitations[dossier_id] = invitation

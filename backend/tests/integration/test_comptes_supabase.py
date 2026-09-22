@@ -68,7 +68,7 @@ def repo(
 def _supprimer_si_existe(client_admin: httpx.Client, dossier_id: DossierId) -> None:
     utilisateurs: list[dict[str, Any]] = client_admin.get("/admin/users").json().get("users", [])
     for utilisateur in utilisateurs:
-        if utilisateur.get("user_metadata", {}).get("dossier_id") == dossier_id:
+        if utilisateur.get("app_metadata", {}).get("dossier_id") == dossier_id:
             client_admin.delete(f"/admin/users/{utilisateur['id']}")
 
 
@@ -83,7 +83,7 @@ def _creer_sans_email(
             "email": email,
             "password": f"Test!{uuid.uuid4().hex[:16]}",
             "email_confirm": confirme,
-            "user_metadata": {"dossier_id": dossier_id},
+            "app_metadata": {"dossier_id": dossier_id},
         },
     )
     reponse.raise_for_status()

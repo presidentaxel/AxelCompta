@@ -7,6 +7,7 @@ Settings-validé restent à écrire ; ceci ne fixe que la forme des objets.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from axelcompta.core.ids import DossierId, TenantId
 
@@ -16,6 +17,7 @@ class Tenant:
     """Mode portefeuille (1 → N dossiers) ou mono-entreprise (1 → 1), doc 01 §1."""
 
     id: TenantId
+    nom: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,3 +31,13 @@ class Dossier:
     forme_juridique: str  # ex. "SASU", "EURL" — à typer en enum (doc 06 §7)
     regime_imposition: str  # "IS" ou "option_IR" — option IR bornée à 5 exercices
     regime_tva: str  # "reel_normal" | "reel_simplifie" | "franchise"
+    nom: str
+    tva_recettes_regime: str  # "assujetti_taux_reduit" | "franchise" (doc 14 §1.2)
+    exercice_debut: date
+    plateformes: tuple[str, ...] = ()
+    # "gestionnaire" | "chauffeur_direct" (doc 19 §4) : qui connecte la banque.
+    mode_acces_bancaire: str = "gestionnaire"
+    # Numéro de contact Digifactory (doc 16 §9 point 5) : la table de
+    # correspondance `contact_nr -> dossier_id` qui manquait pour brancher
+    # `fetch_transactions`. Nullable : un dossier sans canal bancaire branché.
+    contact_nr: str | None = None

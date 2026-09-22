@@ -26,15 +26,23 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, cast
 
 import httpx
 
 from axelcompta.core.ids import DossierId, TenantId, TransactionId
+from axelcompta.tenants.models import Dossier
 
-from .base import DataProvider, NormalizedTransaction, PlatformSettlement, ProviderHealth
+from .base import (
+    DataProvider,
+    LotTransactions,
+    NormalizedTransaction,
+    PlatformSettlement,
+    ProviderHealth,
+    Rejet,
+)
 
 # Payload JSON brut du fournisseur — forme non figée à dessein (`Any` au
 # niveau compte) : un compte peut être une liste de transactions (doc 16
@@ -105,45 +113,126 @@ def _transactions_de_compte(valeur: Any) -> list[dict[str, Any]]:
     return cast("list[dict[str, Any]]", valeur)
 
 
+def _horodatage(valeur: object) -> datetime:
+    """`updated_at` sans fuseau (doc 16 §5, fuseau source encore à confirmer) :
+    normalisé en naïf UTC pour que les comparaisons ne mélangent jamais naïf
+    et aware."""
+    horodatage = datetime.fromisoformat(str(valeur))
+    if horodatage.tzinfo is not None:
+        horodatage = horodatage.astimezone(UTC).replace(tzinfo=None)
+    return horodatage
+
+
+def _normaliser(tx: dict[str, Any], dossier_id: DossierId) -> NormalizedTransaction:
+    """Lève `ValueError` avec une raison lisible si la ligne est inexploitable."""
+    for champ in ("id", "date", "amount", "updated_at"):
+        if tx.get(champ) in (None, ""):
+            raise ValueError(f"champ obligatoire manquant : {champ}")
+    try:
+        date_operation = datetime.fromisoformat(str(tx["date"])).date()
+        montant = _vers_centimes(tx["amount"])
+        _horodatage(tx["updated_at"])
+    except (ValueError, ArithmeticError) as erreur:
+        raise ValueError(f"valeur illisible : {erreur}") from erreur
+    return NormalizedTransaction(
+        id=TransactionId(str(tx["id"])),
+        dossier_id=dossier_id,
+        date=date_operation,
+        montant_cts=montant,
+        libelle=str(tx.get("provider_description", "")),
+        source_provider="digifactory",
+        raw_payload=tx,
+    )
+
+
+def parser_lot(
+    payload: PayloadTransactions,
+    dossier_id: DossierId,
+    depuis: date = date.min,
+    jusqua: date = date.max,
+) -> LotTransactions:
+    """Ne dépend pas de la clé du payload (⚠️ doc 16 §3.1) : la clé indexe la
+    réponse mais chaque transaction est prise telle quelle. Filtre
+    deleted/future (doc 16 §4) et déduplique par `id`, en gardant
+    l'`updated_at` le plus récent (doc 16 §5).
+
+    Une ligne malformée n'interrompt pas le lot : elle devient un `Rejet`
+    (quarantaine), les autres sont traitées. Avant le 2026-09-21, une seule
+    ligne sans `id` faisait échouer toute la synchro d'un dossier."""
+    brutes: list[dict[str, object]] = []
+    rejets: list[Rejet] = []
+    supprimees: set[str] = set()
+    plus_recentes: dict[str, dict[str, Any]] = {}
+    curseur: datetime | None = None
+
+    for compte in payload.values():
+        for tx in _transactions_de_compte(compte):
+            brutes.append(tx)
+            try:
+                maj = _horodatage(tx["updated_at"])
+                curseur = maj if curseur is None or maj > curseur else curseur
+            except (KeyError, ValueError):
+                pass  # signalé plus bas si la ligne est retenue
+            if tx.get("deleted"):
+                if tx.get("id") is not None:
+                    supprimees.add(str(tx["id"]))
+                continue
+            if tx.get("future"):
+                continue
+            try:
+                _normaliser(tx, dossier_id)
+            except ValueError as erreur:
+                rejets.append(Rejet(payload=tx, raison=str(erreur)))
+                continue
+            existante = plus_recentes.get(str(tx["id"]))
+            if existante is None or _horodatage(tx["updated_at"]) > _horodatage(
+                existante["updated_at"]
+            ):
+                plus_recentes[str(tx["id"])] = tx
+
+    retenues = [_normaliser(tx, dossier_id) for tx in plus_recentes.values()]
+    return LotTransactions(
+        transactions=tuple(
+            sorted((t for t in retenues if depuis <= t.date <= jusqua), key=lambda t: t.date)
+        ),
+        rejets=tuple(rejets),
+        supprimees=tuple(TransactionId(i) for i in sorted(supprimees)),
+        brutes=tuple(brutes),
+        curseur=curseur,
+    )
+
+
 def parser_transactions(
     payload: PayloadTransactions,
     dossier_id: DossierId,
     depuis: date,
     jusqua: date,
 ) -> list[NormalizedTransaction]:
-    """Ne dépend pas de la clé du payload (⚠️ doc 16 §3.1) : la clé indexe la
-    réponse mais chaque transaction est prise telle quelle. Filtre
-    deleted/future (doc 16 §4) et déduplique par `id`, en gardant
-    l'`updated_at` le plus récent (doc 16 §5).
-    """
-    plus_recentes: dict[str, dict[str, Any]] = {}
-    for compte in payload.values():
-        for tx in _transactions_de_compte(compte):
-            if tx.get("deleted") or tx.get("future"):
-                continue
-            existante = plus_recentes.get(tx["id"])
-            if existante is None or tx["updated_at"] > existante["updated_at"]:
-                plus_recentes[tx["id"]] = tx
-
-    resultat = []
-    for tx in plus_recentes.values():
-        date_operation = datetime.fromisoformat(tx["date"]).date()
-        if depuis <= date_operation <= jusqua:
-            resultat.append(
-                NormalizedTransaction(
-                    id=TransactionId(str(tx["id"])),
-                    dossier_id=dossier_id,
-                    date=date_operation,
-                    montant_cts=_vers_centimes(tx["amount"]),
-                    libelle=str(tx.get("provider_description", "")),
-                    source_provider="digifactory",
-                    raw_payload=tx,
-                )
-            )
-    return sorted(resultat, key=lambda t: t.date)
+    """Fenêtre de dates, sans le détail du lot (rejets, curseur) : voir
+    `parser_lot` pour la synchronisation incrémentale."""
+    return list(parser_lot(payload, dossier_id, depuis, jusqua).transactions)
 
 
 FORMAT_DATE_DIGIFACTORY = "%Y-%m-%d %H:%M:%S"  # doc 16 §1, sans fuseau (⚠️ à confirmer)
+
+
+class ContactNonMappeError(RuntimeError):
+    """Le dossier n'a pas de `contact_nr` : on ne devine jamais quel contact
+    Digifactory appeler (doc 16 §9 point 5)."""
+
+
+def _filtrer_depuis(lot: LotTransactions, depuis_maj: datetime) -> LotTransactions:
+    """Stand-in du filtre `since` de l'API pour le mode fixture : ne garde que
+    les transactions mises à jour depuis le curseur."""
+    return LotTransactions(
+        transactions=tuple(
+            t for t in lot.transactions if _horodatage(t.raw_payload["updated_at"]) >= depuis_maj
+        ),
+        rejets=lot.rejets,
+        supprimees=lot.supprimees,
+        brutes=lot.brutes,
+        curseur=lot.curseur,
+    )
 
 
 class DigifactoryAuthError(RuntimeError):
@@ -251,7 +340,36 @@ class DigifactoryProvider(DataProvider):
     async def fetch_transactions(
         self, tenant_id: TenantId, dossier_id: DossierId, since: date, until: date
     ) -> list[NormalizedTransaction]:
-        return parser_transactions(self._payload, dossier_id, since, until)
+        """Fenêtre de dates. Sans `client_reel`, la fixture ; avec, l'API réelle
+        **sans** filtre `since` (une fenêtre de dates ne se traduit pas en
+        `updated_at`) : lourd (doc 16 §5), à réserver aux relectures
+        ponctuelles. La synchro courante passe par `lire_lot`."""
+        if self._client_reel is None:
+            return parser_transactions(self._payload, dossier_id, since, until)
+        raise ContactNonMappeError(
+            "fetch_transactions ne connaît pas le contact Digifactory : "
+            "utiliser lire_lot(dossier, curseur)"
+        )
+
+    async def lire_lot(self, dossier: Dossier, depuis_maj: datetime | None) -> LotTransactions:
+        """Lecture incrémentale d'un dossier réel (doc 16 §5, §9 points 2 et 5) :
+        le `contact_nr` vient du dossier (`dossiers.contact_nr`), `depuis_maj`
+        est le curseur `updated_at` de la synchro précédente. Le recouvrement
+        (la borne est inclusive côté fournisseur, à confirmer) est sans effet :
+        la synchro est idempotente."""
+        if dossier.contact_nr is None:
+            raise ContactNonMappeError(
+                f"dossier {dossier.id} sans contact Digifactory (dossiers.contact_nr)"
+            )
+        if self._client_reel is None:
+            payload = self._payload
+        else:
+            payload = await self._client_reel.transactions(dossier.contact_nr, since=depuis_maj)
+        lot = parser_lot(payload, dossier.id)
+        if self._client_reel is not None or depuis_maj is None:
+            return lot
+        # Fixture : reproduire côté client le filtre `since` que l'API applique.
+        return _filtrer_depuis(lot, depuis_maj)
 
     async def fetch_platform_settlements(
         self, tenant_id: TenantId, dossier_id: DossierId, since: date, until: date

@@ -12,7 +12,9 @@ chargé (`.joblib`), jamais par import direct.
 Le travail d'entraînement de la baseline a déjà été fait dans l'audit :
 [`_AUDIT_DONNEES/entrainer_modele_baseline.py`](../../../_AUDIT_DONNEES/entrainer_modele_baseline.py)
 → [`_AUDIT_DONNEES/modeles/tfidf_logreg_v1.joblib`](../../../_AUDIT_DONNEES/modeles/)
-(94,4% accuracy). Ce module sera la version *packagée et réentraînable en
+(79,5% d'exactitude sur dossiers jamais vus, mesurée contre les labels du
+mapping ; le 94,4% d'ADR-007 utilisait le compte PCG, indisponible à
+l'inférence, voir l'amendement du 2026-09-21). Ce module sera la version *packagée et réentraînable en
 continu* de ce script.
 
 ## Statuts

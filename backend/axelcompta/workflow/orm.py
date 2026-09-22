@@ -7,17 +7,17 @@ mise à jour en place, `enregistrer_decision`/`enregistrer_annotation` ne
 font que des `INSERT` (doc 06 §1, même logique que `ledger/orm.py`).
 
 **Pas de `ForeignKey` vers `dossiers`/`ecritures`, contrairement à
-`ledger/orm.py`** : pour la démo, dossiers et écritures restent recalculés
-à la volée en mémoire (`demo_chauffeurs_type.py`), jamais écrits en
-Postgres — seules les décisions humaines et leurs annotations doivent
-survivre entre deux requêtes (doc 17 §9 bloc A). Contraindre une FK contre
-des tables jamais peuplées ferait échouer tout `INSERT`. À revoir quand
-dossiers/écritures seront eux aussi persistés (V1).
+`ledger/orm.py`, jusqu'au 2026-09-22** : à l'origine (2026-09-07),
+dossiers et écritures étaient recalculés en mémoire et jamais écrits, donc
+une FK aurait fait échouer tout `INSERT`. Ces tables sont peuplées depuis le
+2026-09-21 (`demo_seed`, synchro Digifactory) et les FK sont posées (migration
+`7cd5053e8209`) : décisions et annotations vers `dossiers` et `ecritures`,
+propositions vers `dossiers` seulement (voir le commentaire de la table).
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Column, DateTime, Float, String, Table
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, String, Table
 
 from axelcompta.core.db import metadata
 
@@ -25,8 +25,8 @@ decisions_humaines = Table(
     "decisions_humaines",
     metadata,
     Column("id", String, primary_key=True),
-    Column("dossier_id", String, nullable=False),
-    Column("ecriture_id", String, nullable=False),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False),
+    Column("ecriture_id", String, ForeignKey("ecritures.id"), nullable=False),
     Column("categorie", String, nullable=False),
     Column("etage_origine", String, nullable=False),
     Column("confiance_origine", Float, nullable=False),
@@ -38,10 +38,44 @@ annotations_dev = Table(
     "annotations_dev",
     metadata,
     Column("id", String, primary_key=True),
-    Column("dossier_id", String, nullable=False),
-    Column("ecriture_id", String, nullable=False),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False),
+    Column("ecriture_id", String, ForeignKey("ecritures.id"), nullable=False),
     Column("juste", Boolean, nullable=False),
     Column("note", String, nullable=False),
     Column("annote_par", String, nullable=False),
     Column("annote_le", DateTime, nullable=False),
+)
+
+# Ce que le pipeline avait proposé pour chaque écriture catégorisée
+# automatiquement. Nécessaire à la file de revue : une `DecisionHumaine`
+# garde `etage_origine`/`confiance_origine` (doc 07 §3.1), or ces valeurs
+# ne se retrouvent plus une fois le ledger persisté au lieu d'être
+# recalculé à chaque requête. Une seule ligne par écriture, jamais mise à
+# jour (la proposition d'origine ne change pas après coup).
+propositions_categorisation = Table(
+    "propositions_categorisation",
+    metadata,
+    # Pas de FK sur `ecriture_id`, volontairement : la synchro écrit la
+    # proposition AVANT l'écriture (une proposition orpheline est sans effet,
+    # une écriture à trancher sans proposition casserait la file de revue).
+    Column("ecriture_id", String, primary_key=True),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False),
+    Column("categorie", String, nullable=False),
+    Column("etage", String, nullable=False),
+    Column("confiance", Float, nullable=False),
+)
+
+# Historique des e-mails envoyés à l'indiv. Sert à ne pas le harceler : on
+# retient quelles écritures étaient déjà signalées, pour ne renvoyer que s'il
+# y en a de nouvelles (ou en rappel après un délai). Ni contenu ni adresse ne
+# sont conservés ici (minimisation, doc 10) : l'adresse vit chez le
+# fournisseur d'authentification.
+notifications_envoyees = Table(
+    "notifications_envoyees",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False, index=True),
+    Column("type", String, nullable=False),
+    Column("envoye_le", DateTime, nullable=False),
+    Column("ecriture_ids", JSON, nullable=False),
 )

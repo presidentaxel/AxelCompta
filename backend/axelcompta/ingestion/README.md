@@ -23,6 +23,18 @@ ne dépend jamais d'`ingestion` en retour, règle absolue doc 03 §3).
   Uber, `autoliquidation_ue` Bolt), taux de TVA recettes figé à 10% assujetti
   (profil unique démo, doc 17 §3).
 
+## Journal d'ingestion (fait le 2026-09-22)
+
+- `orm.py` / `journal.py` / `journal_postgres.py` : archive brute
+  insert-only (`ingestion_brut`, clé = empreinte du contenu), quarantaine
+  idempotente (`quarantaine_ingestion`), curseur de reprise par (dossier,
+  source) qui ne recule jamais (`curseurs_synchro`).
+- `providers/digifactory.py` : `parser_lot` (une ligne malformée devient un
+  rejet sans bloquer le lot), `DigifactoryProvider.lire_lot(dossier,
+  curseur)` (appelle `/transactions/{contact_nr}` avec le contact du dossier,
+  refuse un dossier sans contact). L'orchestration vit dans
+  `workflow/synchro.py`, pas ici (graphe de dépendances, doc 18).
+
 ## Contenu prévu (au-delà de la démo)
 
 - Normalisation `Decimal` → centimes à l'ingestion (fait dans les providers
@@ -36,8 +48,10 @@ ne dépend jamais d'`ingestion` en retour, règle absolue doc 03 §3).
 - **Démo (doc 17 semaines 0-2, fait)** : réconciliation réelle + génération
   d'écriture avec ventilation TVA réelle (golden test doc 13 §5.3 reproduit
   exactement, cas Bolt autoliquidation testé séparément).
-- **V1 (doc 12, phase 1)** : orchestration multi-dossiers, retries, monitoring
-  des flux par dossier, normalisation centralisée.
+- **V1 (doc 12, phase 1)** : retries, monitoring des flux par dossier,
+  planificateur (file de jobs, ADR-002), normalisation centralisée.
+  Orchestration multi-dossiers : **faite le 2026-09-22** en lancement manuel
+  (`python -m axelcompta.synchro_digifactory`).
 
 ## Doc de référence
 

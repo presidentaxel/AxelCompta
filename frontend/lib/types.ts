@@ -20,6 +20,23 @@ export type DossierResume = {
   greffe_inpi_signe: boolean; // doc 20 : dossier de dépôt signé (démo, jamais qualifié RGS)
 };
 
+// Vue gestionnaire (doc 19 §2.1/§2.4) : agrégats et onboarding seulement.
+// Miroir de `DossierAgregat` (demo_api.py), volontairement distinct de
+// `DossierResume` : rien de dérivé du détail d'un dossier n'y figure.
+export type DossierAgregat = {
+  dossier_id: string;
+  nom: string;
+  tva_recettes_regime: string;
+  plateformes: string[];
+  exercice_debut: string | null;
+  exercice_fin: string | null;
+  ca_ht_cts: number;
+  charges_cts: number;
+  resultat_cts: number;
+  statut_invitation: "invité" | "actif" | null;
+  mode_acces_bancaire: "gestionnaire" | "chauffeur_direct";
+};
+
 // doc 17 §9 Semaine 4 : les 5 exports de clôture, servis en téléchargement
 // direct par demo_api.py (mêmes renderers que demo_chauffeurs_type.py).
 export type DocumentCloture =

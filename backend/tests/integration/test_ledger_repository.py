@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Engine
 
 from axelcompta.core.db import metadata
@@ -13,7 +13,7 @@ from axelcompta.core.ids import DossierId, EcritureId
 from axelcompta.core.money import Money
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
-from axelcompta.tenants.orm import dossiers
+from axelcompta.tenants.orm import dossiers, tenants
 
 pytestmark = pytest.mark.integration
 
@@ -21,6 +21,7 @@ pytestmark = pytest.mark.integration
 def _dossier_bidon(engine: Engine, dossier_id: str) -> None:
     metadata.create_all(engine)
     with engine.begin() as connexion:
+        connexion.execute(insert(tenants).values(id="t1", nom="T1").on_conflict_do_nothing())
         connexion.execute(
             insert(dossiers).values(
                 id=dossier_id,
@@ -28,6 +29,11 @@ def _dossier_bidon(engine: Engine, dossier_id: str) -> None:
                 forme_juridique="SASU",
                 regime_imposition="IS",
                 regime_tva="reel_normal",
+                nom="Dossier de test",
+                tva_recettes_regime="assujetti_taux_reduit",
+                exercice_debut=date(2026, 1, 1),
+                plateformes=[],
+                mode_acces_bancaire="gestionnaire",
             )
         )
 

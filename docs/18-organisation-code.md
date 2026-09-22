@@ -220,7 +220,8 @@ mobile chauffeur complet (question de catégorisation, photo de
 justificatif, signature mockée), voir doc 17 §9 pour le détail. À cette
 occasion, `_trancher()` a été ouvert au chauffeur authentifié (plus
 seulement gestionnaire) : `UTILISATEUR_DEMO` reste en dur uniquement
-pour le chemin gestionnaire (toujours sans login), pas pour le chauffeur
+pour le chemin gestionnaire (sans login **à cette date ; remplacé le
+2026-09-21**, voir plus bas), pas pour le chauffeur
 qui est maintenant identifié par son vrai `user_id` Supabase.
 `demo_justificatifs.py` (nouveau, composition root de démo) tient le
 même rôle que `demo_comptes.py`/`demo_auth.py` — hors doc 03 §3.
@@ -267,10 +268,71 @@ stub `UTILISATEUR_DEMO` est retiré, et `workflow/signature_memory.py` garde
 l'historique complet des signatures (`lister()`) au lieu d'écraser la
 précédente — condition pour que ça vaille comme preuve.
 
-**Pas encore fait, donc pas dans l'arbre ci-dessus** : auth gestionnaire
-(pas commencé — **précisé 2026-09-11, doc 03 §7 : ce n'est plus un système
-à part**, juste le lien `tenant_id` en plus de `dossier_id` sur le même
-mécanisme `demo_auth.py`), écran `chauffeur_direct` de connexion
+**Auth gestionnaire faite (2026-09-21)** : `demo_auth.py` lit le lien
+`tenant_id` dans `app_metadata` (jamais `user_metadata`, modifiable par
+l'utilisateur) en plus de `dossier_id`. `GET /dossiers` et
+`POST /dossiers/{id}/inviter` exigent ce lien (avant : routes ouvertes, la
+liste exposait CA/résultat/trésorerie des dossiers à n'importe qui).
+`/dossiers` renvoie `DossierAgregat`, modèle distinct de `DossierResume` :
+plus de nombre de transactions, trésorerie, TVA ni statut de signature
+greffe (doc 19 §2.4). Frontend : `/connexion`, `lib/auth-gestionnaire.ts`,
+dashboard en composant client. Création du compte : 
+`backend/scripts/creer_compte_gestionnaire.py` (clé service role, non lancé
+depuis ce dépôt). (Les deux restes de ce paragraphe, `dossier_id` dans `user_metadata` et le
+tenant en constante, sont traités dans le paragraphe suivant.)
+
+**Postgres branché (2026-09-21)** : `demo_api.py` ne recalcule plus rien à
+la volée. Dossiers et tenants (`tenants/`, `DossierRepository`, tables
+`tenants` et `dossiers` étendue), ledger (`PostgresLedgerService`) et
+propositions d'origine du pipeline (`workflow/propositions*.py`, table
+`propositions_categorisation`) sont lus en base ; les décisions humaines
+restent une couche séparée appliquée par-dessus (append-only). L'appartenance
+d'un dossier à un portefeuille vient de `dossiers.tenant_id` (plus de
+constante). `python -m axelcompta.demo_seed` amorce la base depuis les
+profils de démo, et sera le point d'entrée des dossiers réels (Digifactory).
+`dossiers.contact_nr` (unique) est la table de correspondance
+`contact_nr -> dossier_id` qui bloquait le branchement de Digifactory (doc 16
+§9 point 5). Migration `614c1b3e65e8`, round-trip vérifié. Deux détails :
+les ids d'écritures sont préfixés par le dossier à l'amorçage (le pipeline les
+numérote par dossier, ils entraient en collision sur la clé primaire), et le
+lien chauffeur -> dossier est passé dans `app_metadata` (le `dossier_id` de
+`user_metadata` était modifiable par le chauffeur lui-même).
+
+**Synchro Digifactory (2026-09-22)** : `python -m axelcompta.synchro_digifactory
+--tenant X` lit chaque dossier du portefeuille via son `contact_nr`
+(`DigifactoryProvider.lire_lot`), archive tout le brut (`ingestion_brut`,
+insert-only, clé = empreinte du contenu), catégorise, écrit
+proposition puis écriture, et avance le curseur (`curseurs_synchro`) en
+dernier. Idempotent : l'id d'écriture dérive de l'id de transaction
+(`{dossier}:digifactory-{id}`), plus d'un compteur. Le ledger reste
+append-only : une transaction modifiée ou supprimée après comptabilisation
+part en `quarantaine_ingestion` (contre-passation à construire). Politique
+d'acceptation automatique **provisoire** (`workflow/synchro.py`) : règle
+haute/moyenne confiance ≥ 0,75, ML ≥ 0,90, sinon compte 471 donc file de
+revue de l'indiv ; les virements Uber/Bolt vont toujours en 471 tant qu'aucun
+settlement (Rollee) ne les réconcilie, jamais en 706 sans ventilation TVA.
+Migration `a016d1659a6e`. Pas de planificateur : cron ou lancement manuel
+tant que la file de jobs n'existe pas.
+
+**Clés étrangères, notifications, invitations en masse (2026-09-22)** :
+- Migration `7cd5053e8209` : FK des décisions, annotations, propositions et
+  tables du journal d'ingestion vers `dossiers` (et `ecritures` pour les
+  décisions et annotations). `propositions_categorisation.ecriture_id` n'en a
+  pas, volontairement : la synchro écrit la proposition avant l'écriture.
+- `workflow/notifications.py`, `emails.py` (interface + SMTP standard, sans
+  SDK propriétaire) et `python -m axelcompta.notifier --tenant X
+  [--simulation]` : e-mail « opérations à confirmer » regroupé par dossier,
+  anti-harcèlement (nouvelles opérations et 6 h d'écart, ou rappel à 7 jours),
+  aucun montant dans le message, envoi enregistré seulement s'il a réussi,
+  seuls les comptes **activés** sont notifiés. Table `notifications_envoyees`
+  (migration `ca7b37bba581`). Pas de planificateur : cron après la synchro.
+- `POST /invitations/en-masse` et écran gestionnaire correspondant.
+  **Bug corrigé au passage** : `GET /admin/users` de Supabase est paginé (50
+  par page) et n'était lu qu'en première page ; au-delà de 50 comptes, un
+  dossier déjà invité recevait une seconde invitation. Lecture paginée, et
+  `statuts()` lit les comptes une seule fois pour tout un lot.
+
+**Pas encore fait, donc pas dans l'arbre ci-dessus** : écran `chauffeur_direct` de connexion
 bancaire réelle (aujourd'hui un bouton désactivé, stub visuel), appel réel
 à l'API INPI (bloqué sur ADR-004, pas un problème de schéma, doc 20 §5),
 répétition avec run pré-cuit.

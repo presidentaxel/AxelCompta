@@ -1,8 +1,38 @@
 # ADR-007 — Modèle ML V1 pour la catégorisation des transactions
 
 **Date :** 2026-06-25  
-**Statut :** DÉCIDÉ  
+**Statut :** DÉCIDÉ, **amendé le 2026-09-21** (voir l'encadré ci-dessous)  
 **Décideurs :** Louis Vedovato
+
+> **Amendement du 2026-09-21 : le chiffre de 94,4 % ne tient pas.**
+> Les catégories du dataset sont dérivées du compte PCG (mapping
+> `packs_vtc/mapping_pcg_categorie.csv`). Ajouter `[PCG{3chars}]` au libellé
+> revient donc à donner la réponse au modèle. Or sur une transaction bancaire
+> brute, le compte PCG n'existe pas encore : c'est ce que le pipeline doit
+> produire. **Le token PCG est exclu des features en production.**
+>
+> Mesure refaite le 2026-09-21 avec le split par dossier de
+> `entrainer_modele_baseline.py` (58 dossiers train, 14 test) :
+>
+> | Features | Exactitude |
+> |---|---|
+> | libellé seul | 76,9 % |
+> | libellé + bucket de montant (**modèle retenu**) | **79,5 %** |
+> | libellé + montant + token PCG (inutilisable à l'inférence) | 96,3 % |
+>
+> Le 77,0 % « libellé seul » du tableau ci-dessous se retrouve, le 94,4 % est
+> le score du token PCG. **Chiffre de référence : 79,5 %**, mesuré contre les
+> labels du mapping et non contre une relecture humaine. La vraie précision
+> attend les 500 lignes relues (`_AUDIT_DONNEES/resultats/`, doc 12 §0.2).
+>
+> Deux réserves de traçabilité. Le spike d'origine (code, splits, scripts
+> sentence-transformers et CamemBERT, « 500 lignes annotées à la main ») n'est
+> plus dans le repo : le tableau de benchmark et le classement des modèles sont
+> donc **non vérifiables**, à lire comme indicatifs. Et le fichier
+> `tfidf_logreg_v1.joblib` actuel a été réécrit le 2026-09-02 par
+> `entrainer_modele_baseline.py` : 23 classes, n-grammes de caractères 2-4,
+> bucket de montant, pas de token PCG. La section « Décision » plus bas décrit
+> le modèle d'origine (n-grammes 2-5 avec token PCG), pas celui-là.
 
 ## Contexte
 

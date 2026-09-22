@@ -241,9 +241,11 @@ tout concentrer sur la période de clôture — risque déjà identifié doc 09
 7. **Photo de justificatif** au fil de l'eau, associée automatiquement à la
    transaction correspondante quand c'est possible.
 
-**Système de notification : entièrement à construire, rien n'existe
-aujourd'hui** (pas d'email transactionnel, pas de notif in-app/push) — un
-vrai chantier technique, pas une case UI à ajouter (à chiffrer, doc 12).
+**Système de notification : e-mail fait le 2026-09-22** (regroupé par
+dossier, anti-harcèlement, sans donnée comptable dans le message ; doc 18).
+Restent le push / in-app (pas décidé) et un déclencheur automatique. Écrit
+avant, à l'origine : « entièrement à construire, rien n'existe » — un vrai
+chantier technique, pas une case UI à ajouter.
 
 ### 5.3 Clôture — la boucle de complétude bancaire
 
@@ -307,11 +309,14 @@ plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
 
 **Ajoutés le 2026-09-11, chantiers réels pas encore scopés** :
 
-- **Système de notification** (§5.2) — canal (email transactionnel ? push ?
-  in-app seulement ?), déclencheurs, fréquence. Rien n'existe.
-- **Import en masse des invitations** (§3.1, §6) — parsing, validation,
-  rapport d'erreurs, format accepté (CSV a minima) ; distinct du CSV
-  dossiers déjà spécifié doc 14 §1.4.
+- **Système de notification** (§5.2) — **e-mail fait le 2026-09-22** : un
+  seul message regroupé par dossier, renvoyé seulement s'il y a des
+  opérations nouvelles (pas avant 6 h) ou en rappel hebdomadaire, sans aucun
+  montant ni libellé dans le message. Reste à trancher : push / in-app.
+- **Import en masse des invitations** (§3.1, §6) — **fait le 2026-09-22** :
+  collage ou fichier `dossier_id, e-mail`, 500 lignes au plus, résultat par
+  ligne ; distinct du CSV dossiers déjà spécifié doc 14 §1.4 (à faire pour
+  le pilote).
 - **Boucle de clôture/complétude bancaire** (§5.3, doc 06 §5bis) — durée du
   délai de battement et politique CCA/FNP précise à valider avec un
   expert-comptable ; mécanique de redemande de confirmation à chaque

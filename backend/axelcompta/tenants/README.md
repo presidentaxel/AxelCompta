@@ -22,15 +22,23 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 ## Fichiers
 
 - `models.py` — domaine pur (`Tenant`, `Dossier`).
-- `orm.py` — mapping SQLAlchemy Core de `Dossier` (doc 17 semaine 0, fait) :
-  table `dossiers`, un seul schéma, aucune colonne RLS.
+- `orm.py` — mapping SQLAlchemy Core (**étendu le 2026-09-21**) : tables
+  `tenants` et `dossiers` (nom, régime TVA recettes, début d'exercice,
+  plateformes, mode d'accès bancaire, `contact_nr` Digifactory unique). Un
+  seul schéma, aucune colonne RLS.
+- `repository.py` / `memory.py` / `postgres.py` (**fait, 2026-09-21**) :
+  `DossierRepository`. `lister_par_tenant` est **le** point d'isolation entre
+  portefeuilles ; `par_contact_nr` est la table de correspondance
+  Digifactory (doc 16 §9 point 5). Enregistrement idempotent, jamais de mise
+  à jour silencieuse d'une config comptable.
 
 ## Statuts
 
-- **Démo (doc 17 §3, semaine 0 fait pour la persistance)** : réduit à
-  l'extrême — **un seul profil dossier codé en dur** (SASU, IS, TVA réel
-  normal, assujetti 10%, pas d'option IR, pas de franchise), 2-3 dossiers de
-  test max. **Pas de multi-tenant, pas de RLS.**
+- **Démo (doc 17 §3)** : les 3 dossiers de démo sont persistés
+  (`python -m axelcompta.demo_seed`) et appartiennent à un tenant en base ;
+  le gestionnaire ne voit que ceux de son `tenant_id`. **Isolation dans les
+  requêtes du repository, pas de RLS Postgres** (V1). Un seul portefeuille
+  de démo, pas encore de création de dossier hors amorçage.
 - **V1 (doc 12, phase 1.1)** : multi-tenant complet, ~200 dossiers
   indépendants, matrice statut × pack pleinement opérationnelle.
 

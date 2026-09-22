@@ -217,13 +217,17 @@ peuvent être vraies indépendamment. Ni compte gestionnaire ni compte indiv
 n'a par défaut les deux liens ; les avoir tous les deux est le cas mono,
 pas l'inverse.
 
-**Conséquence pratique** : le futur « auth gestionnaire » (doc 17 §9,
-« chantier séparé, pas commencé ») n'est **pas** un système à part —
+**Conséquence pratique** (**fait le 2026-09-21**, doc 18) : l'« auth
+gestionnaire » (doc 17 §9, jadis « chantier séparé, pas commencé ») n'est
+**pas** un système à part —
 c'est la vérification de token Supabase déjà construite pour l'indiv
 (`demo_auth.py`, doc 17 §9 Semaine 3) à laquelle on ajoute la lecture du
 lien `tenant_id`. Pas de nouveau mécanisme d'authentification, juste une
 donnée en plus dans les métadonnées du compte et des vérifications d'accès
-supplémentaires côté API.
+supplémentaires côté API. **Les deux liens sont lus dans `app_metadata`**
+(écrit côté serveur, clé service role), jamais dans `user_metadata`, que
+l'utilisateur peut modifier lui-même via l'API Auth de Supabase : c'était
+la faille du lien `dossier_id`, corrigée le 2026-09-21.
 
 - **Auth** : email + mot de passe via Supabase Auth (ADR-003, exception
   actée pour la V1 aussi, doc 12 §0.1), MFA à évaluer en V1 pour le lien

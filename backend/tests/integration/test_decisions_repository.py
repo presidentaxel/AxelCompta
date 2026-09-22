@@ -3,10 +3,12 @@ bloc A)."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 
 import pytest
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
 
 from axelcompta.categorize.models import Etage
 from axelcompta.core.db import metadata
@@ -32,9 +34,13 @@ def _decision(
 
 
 def test_decision_enregistree_puis_relue_comme_decision_courante(
-    engine: Engine, id_unique: str
+    engine: Engine,
+    id_unique: str,
+    creer_dossier: Callable[[str], None],
+    creer_ecriture: Callable[[str, str], None],
 ) -> None:
-    metadata.create_all(engine)
+    creer_dossier(id_unique)
+    creer_ecriture(id_unique, "e1")
     repo = PostgresDecisionRepository(engine)
     decision = _decision(id_unique, "e1", "usage_personnel", datetime(2026, 9, 7, 10, 0))
 
@@ -44,9 +50,13 @@ def test_decision_enregistree_puis_relue_comme_decision_courante(
 
 
 def test_une_nouvelle_decision_devient_courante_sans_perdre_lhistorique(
-    engine: Engine, id_unique: str
+    engine: Engine,
+    id_unique: str,
+    creer_dossier: Callable[[str], None],
+    creer_ecriture: Callable[[str, str], None],
 ) -> None:
-    metadata.create_all(engine)
+    creer_dossier(id_unique)
+    creer_ecriture(id_unique, "e1")
     repo = PostgresDecisionRepository(engine)
     premiere = _decision(id_unique, "e1", "usage_personnel", datetime(2026, 9, 7, 10, 0))
     seconde = _decision(id_unique, "e1", "fournitures_administratives", datetime(2026, 9, 7, 11, 0))
@@ -58,8 +68,14 @@ def test_une_nouvelle_decision_devient_courante_sans_perdre_lhistorique(
     assert repo.lister_decisions(DossierId(id_unique)) == (premiere, seconde)
 
 
-def test_annotation_dev_persistee_sans_toucher_la_decision(engine: Engine, id_unique: str) -> None:
-    metadata.create_all(engine)
+def test_annotation_dev_persistee_sans_toucher_la_decision(
+    engine: Engine,
+    id_unique: str,
+    creer_dossier: Callable[[str], None],
+    creer_ecriture: Callable[[str, str], None],
+) -> None:
+    creer_dossier(id_unique)
+    creer_ecriture(id_unique, "e1")
     repo = PostgresDecisionRepository(engine)
     decision = _decision(id_unique, "e1", "usage_personnel", datetime(2026, 9, 7, 10, 0))
     repo.enregistrer_decision(decision)
@@ -84,3 +100,15 @@ def test_decision_courante_dune_ecriture_jamais_tranchee_est_none(
     metadata.create_all(engine)
     repo = PostgresDecisionRepository(engine)
     assert repo.decision_courante(DossierId(id_unique), EcritureId("inconnue")) is None
+
+
+def test_decision_sur_une_ecriture_inexistante_est_refusee_par_la_base(
+    engine: Engine, id_unique: str, creer_dossier: Callable[[str], None]
+) -> None:
+    creer_dossier(id_unique)
+    repo = PostgresDecisionRepository(engine)
+
+    with pytest.raises(IntegrityError):
+        repo.enregistrer_decision(
+            _decision(id_unique, "fantome", "usage_personnel", datetime(2026, 9, 7, 10, 0))
+        )

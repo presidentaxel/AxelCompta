@@ -1,6 +1,6 @@
 # 12 — Roadmap et TODO maître
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-07
+> Statut : brouillon à valider — Dernière mise à jour : 2026-09-21 (recalage)
 > Hypothèse de capacité : **1 dev (Louis, seul sur le produit)** — l'associé
 > initialement pressenti n'est plus sur ce produit (segmentation actée le
 > week-end du 2026-09-05/06, voir §0.1). Les durées de ce doc supposaient
@@ -14,6 +14,40 @@
 > corrigées pour refléter l'état réel ; le reste (phases 1-5) reste à
 > recaler sur ce qui existe déjà en code (doc 18) avant de servir à nouveau
 > de plan d'exécution fiable.
+
+## Recalage du 2026-09-21 (à lire avant tout le reste)
+
+Un imprévu a interrompu le travail du 2026-09-12 au 2026-09-20 environ : aucun
+commit depuis le 2026-09-11, seule la préparation de la relecture des 500
+lignes a avancé (le 13/09). Les échéances « week-end du 12/13 » ci-dessous ne
+sont pas tenues. Ce bloc les remplace ; le gantt et les durées des phases plus
+bas restent des ordres de grandeur non recalés, à ne pas lire comme des dates.
+
+**Fait pendant ce recalage :** écart ML tranché (ADR-007 amendé, 79,5 % de
+référence, le 94,4 % venait du token PCG absent à l'inférence).
+
+**Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
+n'est imposée, on suit l'ordre plutôt que les dates) :
+
+| Jalon | Cible | Pourquoi dans cet ordre |
+|---|---|---|
+| J1. 500 lignes relues (~2 h avec la pré-passe), **week-end uniquement** | 2026-09-26/27 | Débloque la vraie mesure ML et le premier jeu de test gelé |
+| J2. Liste pilote statut/régime/TVA par chauffeur + table `contact_nr → dossier_id` (accès aux données pilote, **week-end**) | 2026-09-26/27 | Débloque le branchement Digifactory et la création des dossiers |
+| J3. Digifactory branché, synchro idempotente avec curseur, archive brute et quarantaine (**code fait le 2026-09-22**, doc 18) ; reste : un vrai dossier de bout en bout, dépend des données de J2 | 2026-10-02 | Premier flux réel, remplace les fixtures |
+| J4. Auth gestionnaire réelle + Postgres branché dans l'API + migrations (**fait le 2026-09-21**, doc 18) | fait | Aujourd'hui tout est en mémoire, `UTILISATEUR_DEMO` en dur |
+| J5. Notifications e-mail + invitations en masse (**code fait le 2026-09-22**, doc 18) ; reste : SMTP à configurer (le nôtre et celui de Supabase Auth) | 2026-10-16 | Sans elles, le modèle « l'indiv traite au fil de l'eau » (doc 19) ne tourne pas |
+| J6. Premier échange expert-comptable (taxonomie, templates, question CCA/FNP) | contact pris avant le 2026-09-30, échange en octobre | Délai externe long, à lancer maintenant même si l'échange vient plus tard |
+
+**À lancer en parallèle dès cette semaine (attente externe, coût faible) :**
+devis de signature qualifiée RGS (ADR-004), trame CGU/CGV/DPA, relance
+Digifactory pour le volume initial découpé (doc 16 §5).
+
+**Contrainte de rythme (2026-09-21) :** les tâches qui demandent le jugement de Louis sur les données (relecture des 500 lignes, données pilote) ne se font que le week-end ; la semaine est réservée au code. Le J4 et le J5 sont donc les jalons de semaine, faisables sans attendre J1/J2.
+
+**Capacité :** 1 dev seul, et cette estimation ne réserve aucun temps pour
+d'autres engagements (mémoire, études). Si un autre chantier prend la même
+énergie, les cibles glissent d'autant ; le J1 et le J2 sont les seuls qui ne
+doivent pas glisser, parce que tout le reste en dépend.
 
 ## Vue d'ensemble des phases
 
@@ -51,9 +85,10 @@ la phase suivante avec des invariants non tenus.
       est donc satisfaite côté relecture — plus d'associé à attendre. Sujet
       clos, ne pas rouvrir.
 - [ ] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
-      **Prévu le week-end du 2026-09-12/13**, en même temps que la relecture
-      des 500 lignes (§0.2) — les deux nécessitent le même accès aux
-      données du pilote.
+      **Prévu le week-end du 2026-09-12/13, non fait (imprévu, voir recalage
+      du 2026-09-21).** Nouvelle cible : semaine du 21/09, en même temps que
+      la relecture des 500 lignes (§0.2) — les deux nécessitent le même accès
+      aux données du pilote.
 - [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
 - [x] Token Digifactory fonctionnel — **débloqué le 2026-09-11** (doc 16
@@ -64,8 +99,8 @@ la phase suivante avec des invariants non tenus.
       implémenté et testé en réel (`DigifactoryHttpClient`, doc 16 §7/§9
       point 1). Reste : brancher ce client sur `fetch_transactions` —
       bloqué sur la table `contact_nr → dossier_id` (doc 16 §9 point 5),
-      pas un problème technique, dépend de la liste pilote du week-end
-      2026-09-12/13.
+      pas un problème technique, dépend de la liste pilote, reportée à la semaine du 2026-09-21
+      (voir recalage).
 - [ ] Contrat Bridge direct : pricing, volumes, statut, sandbox — piste parallèle non bloquante, testée après le pilote Digifactory (doc 16 §8).
 - [ ] Contrat Rollee : conditions fleet mode, volumes, API sandbox, pricing.
 - [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign. **Précisé (2026-09-11, doc 20 §4)** : le dépôt des comptes annuels au greffe (INPI) exige spécifiquement une signature électronique **avancée avec certificat qualifié RGS** (C. com. art. R.123-5) — à vérifier explicitement dans le devis retenu, pas n'importe quel niveau de signature électronique.
@@ -80,13 +115,15 @@ la phase suivante avec des invariants non tenus.
 - [x] Table de mapping comptes historiques → taxonomie — **fait (2026-09-02)**, brouillon (`_AUDIT_DONNEES/packs_vtc/mapping_pcg_categorie.csv`), même réserve que ci-dessus.
 - [ ] 500 lignes relues à la main = premier jeu de test gelé. Échantillon
       généré (`_AUDIT_DONNEES/resultats/echantillon_500_a_relire.csv`),
-      **0/500 relues à ce jour (2026-09-07)**. **Prévu le week-end du
-      2026-09-12/13** par Louis.
+      **7/500 relues à ce jour (2026-09-21)**, outillage prêt
+      (`relecture_rapide.py`, pré-passe qui réduit à ~200 lignes à regarder).
+      Prévu le week-end du 2026-09-12/13, **non fait** ; nouvelle cible dans le
+      recalage ci-dessous.
 
 ### 0.3 Spike techniques (timeboxés, 2-3 jours chacun)
 - [x] Spike Digifactory : premier appel réussi — **fait le 2026-09-11** (doc 16 §7), les 4 routes en 200 réel. `/contacts` expose `siren`/`siret`/`vatno` en champs distincts (Pierre a corrigé le même jour un champ `siret` à double usage repéré lors du premier test, doc 16 §3.3) ; au moins un contact sans aucun des trois dans l'échantillon, confirmant qu'il faut une table de correspondance explicite. Poids réel mesuré : ~807 Ko/2029 transactions pour un seul contact sans filtre `since` (doc 16 §5) — confirme qu'un chargement initial sur 200 dossiers doit être découpé, pas lancé tel quel.
 - [ ] Spike Bridge sandbox direct : connexion, récupération transactions, webhooks — piste parallèle non bloquante, après stabilisation du canal Digifactory (doc 16 §8).
-- [x] Spike baseline ML : TF-IDF + régression logistique sur le même échantillon — **fait (2026-09-02)**, 79,5% d'exactitude sur dossiers jamais vus (`_AUDIT_DONNEES/rapport_audit_dataset.md` §6). **⚠️ Écart non résolu avec ADR-007** (qui annonçait 94,4% via le compte PCG en feature — suspicion de fuite de données, le compte n'étant pas connu à l'inférence en prod). **À trancher le week-end du 2026-09-12/13**, en même temps que la relecture des 500 lignes — c'est elle qui donnera la vraie mesure de précision. Volet embeddings de phrases (`sentence-transformers`) non fait, pas nécessaire tant que l'écart ci-dessus n'est pas tranché.
+- [x] Spike baseline ML : TF-IDF + régression logistique sur le même échantillon — **fait (2026-09-02)**, 79,5% d'exactitude sur dossiers jamais vus (`_AUDIT_DONNEES/rapport_audit_dataset.md` §6). **Écart avec ADR-007 tranché (2026-09-21)** : le 94,4% venait du token compte PCG, absent à l'inférence (mesure refaite : 96,3% avec le token, 79,5% sans). ADR-007 amendé, chiffre de référence 79,5%. Reste ouverte la vraie mesure de précision, qui dépend des 500 lignes relues (§0.2). Le spike d'origine n'est plus dans le repo, donc le classement sentence-transformers/CamemBERT est invérifiable ; volet embeddings non fait, à rouvrir seulement si les 500 lignes montrent une précision insuffisante.
 - [ ] Spike OCR : 30 tickets réels dans Tesseract vs PaddleOCR vs Vision LLM (ADR-005).
 - [ ] Spike FEC : générer un FEC minimal et le passer dans « Test Compta Demat ».
 - [ ] Maquettes Figma des 3 écrans clés (doc 11 §3) + retours de 2 utilisateurs cibles.
@@ -211,15 +248,27 @@ début.
 et la signature **quittent le gestionnaire pour devenir exclusivement
 indiv**. Nouveaux items concrets qui en découlent, aucun encore chiffré :
 
-- [ ] **Système de notification** (doc 19 §5.2) : dès qu'une transaction
-      arrive et que le pipeline ne sait pas trancher, notifier l'indiv —
-      rien n'existe (pas d'email transactionnel, pas de push/in-app).
+- [x] **Système de notification** (doc 19 §5.2) : **fait le 2026-09-22
+      pour l'e-mail** (`workflow/notifications.py`, `python -m
+      axelcompta.notifier`, doc 18). Reste : push / in-app (non fait, pas
+      décidé), un déclencheur automatique (cron ou file de jobs, aujourd'hui
+      lancement manuel), et un vrai fournisseur SMTP à configurer.
+      Avant : dès qu'une transaction arrive et que le pipeline ne sait pas
+      trancher, notifier l'indiv —
+      rien n'existait (pas d'email transactionnel, pas de push/in-app).
       Objectif produit : traitement au fil de l'eau, pas une revue de fin
       d'année (répartit aussi notre charge support/LLM sur l'année, doc 09
       §7).
-- [ ] **Import en masse des invitations** (doc 19 §3.1) : le gestionnaire
-      invite ses indivs depuis une base clients, pas seulement un par un —
-      distinct du CSV dossiers déjà spécifié (§1.1 ci-dessus).
+- [x] **Import en masse des invitations** (doc 19 §3.1) : **fait le
+      2026-09-22** : `POST /invitations/en-masse` (500 lignes max, résultat
+      ligne par ligne, dossiers d'un autre portefeuille traités comme
+      inconnus) et un écran de collage/fichier sur le dashboard gestionnaire.
+      Le gestionnaire invite ses indivs depuis une base clients, pas seulement
+      un par un — distinct du CSV dossiers (§1.1 ci-dessus), **qui reste à
+      faire pour le pilote** (pas pour la démo).
+      **Limite à connaître** : les invitations partent de Supabase Auth, dont
+      l'envoi d'e-mails est plafonné tant qu'un SMTP personnalisé n'y est pas
+      configuré. Sans lui, un lot de 200 invitations ne partira pas en entier.
 - [ ] **Boucle de clôture/complétude bancaire** (doc 19 §5.3, doc 06 §5bis) :
       confirmation de l'indiv + délai de battement + CCA/FNP pour le
       résiduel — la durée du délai et la politique CCA/FNP restent à
