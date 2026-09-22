@@ -1066,6 +1066,12 @@ les colonnes numériques.
   `review-card`, `table-*`, `sidebar-*` (le composant shadcn, pas les
   tokens), `toast-*`, `modal` restent des tokens DESIGN.md sans composant
   React, aucun écran actuel n'en a besoin pour l'instant.
+- **Parcours chauffeur : problème plus profond que le design system**
+  (retour de Louis, 2026-09-22 soir, doc 17 §14) — l'écran actuel (liste de
+  transactions qui défile) n'est pas structuré comme une « app », pas
+  seulement mal stylé. Discussion UI + psychologie utilisateur à part
+  entière prévue, avant toute nouvelle proposition d'écran — ne pas
+  assumer un design ici en attendant.
 - Thème sombre (dark mode global) — prévu en phase 5. La sidebar sombre n'est
   pas un dark mode, c'est un choix délibéré de contraste de navigation.
 - États disabled non documentés sur les boutons et inputs — à ajouter quand

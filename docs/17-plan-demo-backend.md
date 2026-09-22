@@ -894,3 +894,40 @@ Détail complet, fichier par fichier, commandes de reproduction :
 Les hypothèses de capacité, les phases et les critères de sortie du doc 12
 restent la référence pour la trajectoire produit réelle. Ce doc 17 est un
 sprint de preuve de concept isolé, pas une réduction du périmètre V1.
+
+## 14. Retour de Louis, 2026-09-22 (soir) — chantiers ouverts pour demain
+
+Trois points soulevés après avoir vu l'écran chauffeur pour de vrai
+(`/chauffeur/DEMO_sophie`, comptes de démo créés le même jour). Notés ici
+tels quels, **rien n'est tranché ni assumé** — à discuter avant toute
+nouvelle itération de code dessus.
+
+**Parcours chauffeur : à repenser, pas un problème de polish visuel.**
+Verdict de Louis : « c'est pas trop mal mais c'est pas une app, c'est un
+flow continuel vers le bas avec toutes les transactions ». Ce n'est pas la
+même chose que l'écart design system déjà connu (Semaine 4bis ci-dessus,
+qui est une question de composants/tokens) — c'est un problème de
+structure de l'expérience elle-même. Louis veut une vraie session UI +
+psychologie de l'utilisateur avant qu'un design soit choisi.
+**Personne ne doit avancer une proposition d'écran seul avant cette
+discussion** — à traiter en session dédiée, pas en continuant à itérer sur
+l'écran actuel (liste unique qui défile, doc 19 §5.5) en attendant.
+
+**Exports demandés en PDF** (aujourd'hui CSV, `filings/export_comptable.py`,
+routes `/dossiers/{id}/{grand-livre.csv, balance.csv}` de `demo_api.py`) :
+- Grand livre → PDF.
+- Balance → PDF.
+- FEC (`filings/fec.py`, .txt) : **pas de PDF demandé** — Louis ne sait pas
+  ce qu'est le FEC, à lui expliquer d'abord (pas fait ce soir, explicitement
+  reporté) avant de décider quoi que ce soit dessus.
+
+**Liasse jugée insuffisante pour la démo.** Mots de Louis : « la liasse est
+nulle, il me faut une vraie liasse, un truc qui fait officiel et bô ...
+comme c'est une démo, il faut show off ». La liasse actuelle
+(`filings/liasse_simplifiee.py`) est délibérément simplifiée depuis
+l'origine (doc 17 §3 : « pas conforme CERFA/DGFiP », limite assumée pour
+la démo) — mais ce n'est plus suffisant pour l'usage qu'il veut en faire.
+Le vrai overlay CERFA 2065 existe déjà et tourne
+(`filings/cerfa_2065.py`, doc 12 §0.3 « Hors plan initial ») : piste la
+plus évidente pour un rendu plus sérieux, à vérifier/discuter demain
+plutôt que décidé unilatéralement ici.
