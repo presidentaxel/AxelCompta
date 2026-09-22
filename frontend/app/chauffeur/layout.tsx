@@ -16,6 +16,10 @@ export default function ChauffeurLayout({ children }: { children: React.ReactNod
   const [connecte, setConnecte] = useState(false);
 
   useEffect(() => {
+    // `obtenirSession()` lit `localStorage`, indisponible côté serveur —
+    // l'effet (jamais exécuté en SSR) est le pont correct vers l'état
+    // React, pas un `useState(() => ...)` qui planterait au rendu serveur.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnecte(obtenirSession() !== null);
   }, []);
 

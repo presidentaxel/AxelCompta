@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -72,9 +73,9 @@ export default function AccepterInvitationPage() {
         <p className="text-sm text-danger">{erreur}</p>
         <p className="mt-2 text-sm text-subtle">
           Redemandez une invitation à votre gestionnaire, ou{" "}
-          <a href="/chauffeur/login" className="text-primary hover:underline">
+          <Link href="/chauffeur/login" className="text-primary hover:underline">
             connectez-vous
-          </a>{" "}
+          </Link>{" "}
           si vous avez déjà un mot de passe.
         </p>
       </div>
