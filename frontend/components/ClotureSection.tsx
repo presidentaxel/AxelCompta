@@ -12,6 +12,7 @@
 // l'enregistrement.
 import { useState } from "react";
 
+import { Card } from "@/components/ui/card";
 import { cheminTelechargementCloture } from "@/lib/api";
 import { ErreurAuthChauffeur, telechargerAvecAuthChauffeur } from "@/lib/auth-chauffeur";
 import { formatMontant } from "@/lib/format";
@@ -50,7 +51,7 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   }
 
   return (
-    <div className="mb-6 grid grid-cols-1 gap-6 rounded-lg border border-border bg-canvas p-5 shadow-xs md:grid-cols-2">
+    <Card className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
       <div>
         <SousTitre>Compte de résultat</SousTitre>
         <dl className="space-y-1.5 text-sm">
@@ -86,7 +87,7 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
           Démo — liasse simplifiée, pas conforme CERFA/DGFiP (doc 17 §3).
         </p>
       </div>
-    </div>
+    </Card>
   );
 }
 

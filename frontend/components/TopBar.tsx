@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
 import { deconnecterGestionnaire } from "@/lib/auth-gestionnaire";
 
 /** Top bar 56px (DESIGN.md). Pas de recherche ⌘K — hors scope pour 3
@@ -21,13 +22,9 @@ export function TopBar() {
       <span className="text-sm font-semibold text-ink">Portefeuille — 3 dossiers de démo</span>
       <div className="flex items-center gap-4">
         <span className="text-xs text-subtle">Données synthétiques, calculs réels (doc 17 §4)</span>
-        <button
-          type="button"
-          onClick={seDeconnecter}
-          className="rounded-md border border-border px-2 py-1 text-xs font-semibold text-ink hover:bg-canvas-app"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={seDeconnecter}>
           Se déconnecter
-        </button>
+        </Button>
       </div>
     </header>
   );

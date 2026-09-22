@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { ClotureSection } from "@/components/ClotureSection";
 import { GreffeInpiSection } from "@/components/GreffeInpiSection";
 import { JustificatifPhoto } from "@/components/JustificatifPhoto";
@@ -110,14 +111,9 @@ function ConnexionBancaireBadge({ mode }: { mode: DossierResume["mode_acces_banc
   return (
     <div className="flex items-center gap-2 text-xs text-subtle">
       <span>Connexion bancaire : à relier vous-même.</span>
-      <button
-        type="button"
-        disabled
-        title="Bientôt disponible — doc 19 §4"
-        className="rounded-md border border-border px-2 py-0.5 font-semibold text-subtle opacity-60"
-      >
+      <Button type="button" variant="secondary" size="sm" disabled title="Bientôt disponible — doc 19 §4">
         Connecter ma banque (bientôt)
-      </button>
+      </Button>
     </div>
   );
 }

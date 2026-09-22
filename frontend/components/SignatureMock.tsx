@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 /** doc 17 §9 Semaine 3, doc 17 §8 : signature « vrai faux » — décidé avec
  * Louis le 2026-09-07 (aucun prestataire choisi, ADR-004 toujours en
  * attente). Volontairement pas persistée (état local, perdu au
@@ -17,13 +19,9 @@ export function SignatureMock({ nomDocument }: { nomDocument: string }) {
       {signe ? (
         <p className="text-sm font-semibold text-validated">✓ Signé (démo — pas de valeur légale)</p>
       ) : (
-        <button
-          type="button"
-          onClick={() => setSigne(true)}
-          className="rounded-md border border-border bg-canvas-app px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-soft"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={() => setSigne(true)}>
           Signer
-        </button>
+        </Button>
       )}
     </div>
   );

@@ -1051,15 +1051,21 @@ les colonnes numériques.
   complétée avec tous les tokens DESIGN.md qui manquaient (`on-primary`,
   `auto-rule`/`auto-ml`/`auto-llm`, `alert-anomaly`, `missing`, `closed`,
   `info`, les couleurs `*-border`) — avant, seul un sous-ensemble existait.
-  Migré dans les écrans réels : dashboard gestionnaire (`DossierCard` →
-  `Card`), formulaire d'invitation (`InvitationActions` → `Input`/`Button`).
-  **Pas encore fait** : migrer les écrans restants (`ClotureSection`,
-  `GreffeInpiSection`, `Sidebar`, `TopBar`, les pages `/connexion` et
-  `/chauffeur/*`) sur ces composants — ils utilisent encore leurs classes
-  Tailwind ad hoc. La passe UX/UI proprement dite (revue visuelle une fois
-  la migration complète) n'a pas non plus été faite. `review-card`,
-  `table-*`, `sidebar-*`, `toast-*`, `modal` restent des tokens sans
-  composant React.
+  **Migration complète des écrans faite (même jour)** : dashboard
+  gestionnaire (`DossierCard` → `Card`), formulaire d'invitation
+  (`InvitationActions` → `Input`/`Button`), `ClotureSection`/
+  `GreffeInpiSection` (→ `Card` + `Button`), `TopBar` (déconnexion →
+  `Button`), `JustificatifPhoto`/`QuestionCategorisation`/`SignatureMock`
+  (→ `Button`/`Input`), pages `/connexion` et `/chauffeur/*` (formulaires →
+  `Input uiSize="lg"` + `Button`). `Sidebar` gardée en classes Tailwind
+  directes (pas de composant `ui/sidebar` shadcn installé) mais tokens
+  corrigés (`on-dark`/`on-dark-mute` au lieu de `white/*` en dur). Plus
+  aucun écran du produit n'a de bouton, carte ou champ de saisie en
+  classes Tailwind ad hoc. La passe UX/UI proprement dite (revue visuelle,
+  pas juste la conformité aux tokens) reste à faire — pas commencée.
+  `review-card`, `table-*`, `sidebar-*` (le composant shadcn, pas les
+  tokens), `toast-*`, `modal` restent des tokens DESIGN.md sans composant
+  React, aucun écran actuel n'en a besoin pour l'instant.
 - Thème sombre (dark mode global) — prévu en phase 5. La sidebar sombre n'est
   pas un dark mode, c'est un choix délibéré de contraste de navigation.
 - États disabled non documentés sur les boutons et inputs — à ajouter quand

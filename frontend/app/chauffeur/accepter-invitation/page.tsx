@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   accepterInvitation,
   definirMotDePasse,
@@ -86,24 +88,20 @@ export default function AccepterInvitationPage() {
         Choisissez un mot de passe pour vos prochaines connexions.
       </p>
       <form className="space-y-3" onSubmit={valider}>
-        <input
+        <Input
           type="password"
+          uiSize="lg"
           value={motDePasse}
           onChange={(evenement) => setMotDePasse(evenement.target.value)}
           placeholder="Nouveau mot de passe"
           required
           minLength={8}
           disabled={enCours}
-          className="w-full rounded-md border border-border px-3 py-2 text-sm"
         />
         {erreur && <p className="text-sm text-danger">{erreur}</p>}
-        <button
-          type="submit"
-          disabled={enCours}
-          className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={enCours} className="w-full">
           {enCours ? "Enregistrement…" : "Valider"}
-        </button>
+        </Button>
       </form>
     </div>
   );

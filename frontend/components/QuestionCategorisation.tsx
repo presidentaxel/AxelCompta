@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { trancherTransactionChauffeur } from "@/lib/auth-chauffeur";
 import type { TransactionVue } from "@/lib/types";
@@ -48,22 +50,12 @@ export function QuestionCategorisation({
       <p className="mb-2 text-sm font-medium text-ink">Cette dépense est-elle personnelle ?</p>
       {!afficherAutre ? (
         <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={enCours}
-            onClick={() => repondre("usage_personnel")}
-            className="rounded-md border border-border bg-canvas px-3 py-1 text-xs font-semibold text-ink hover:bg-canvas-app disabled:opacity-50"
-          >
+          <Button type="button" variant="secondary" size="sm" disabled={enCours} onClick={() => repondre("usage_personnel")}>
             Oui
-          </button>
-          <button
-            type="button"
-            disabled={enCours}
-            onClick={() => setAfficherAutre(true)}
-            className="rounded-md border border-border bg-canvas px-3 py-1 text-xs font-semibold text-ink hover:bg-canvas-app disabled:opacity-50"
-          >
+          </Button>
+          <Button type="button" variant="secondary" size="sm" disabled={enCours} onClick={() => setAfficherAutre(true)}>
             Non
-          </button>
+          </Button>
         </div>
       ) : (
         <form
@@ -73,22 +65,24 @@ export function QuestionCategorisation({
             void repondre(autreCategorie);
           }}
         >
-          <input
+          <Input
             type="text"
             value={autreCategorie}
             onChange={(evenement) => setAutreCategorie(evenement.target.value)}
             placeholder="à quoi correspond-elle ?"
             autoFocus
             disabled={enCours}
-            className="min-w-0 flex-1 rounded-md border border-border px-2 py-1 text-xs"
+            className="h-7 min-w-0 flex-1 text-xs"
           />
-          <button
+          <Button
             type="submit"
+            variant="secondary"
+            size="sm"
             disabled={enCours || !autreCategorie.trim()}
-            className="shrink-0 rounded-md border border-border bg-canvas px-2 py-1 text-xs font-semibold text-ink hover:bg-canvas-app disabled:opacity-50"
+            className="shrink-0"
           >
             Envoyer
-          </button>
+          </Button>
         </form>
       )}
       {erreur && <p className="mt-1 text-xs text-danger">{erreur}</p>}

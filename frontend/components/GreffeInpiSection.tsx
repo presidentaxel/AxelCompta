@@ -20,6 +20,8 @@
 // en 401.
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ApiError, cheminGreffeInpi } from "@/lib/api";
 import {
   ErreurAuthChauffeur,
@@ -73,7 +75,7 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
   }
 
   return (
-    <div className="mb-6 rounded-lg border border-border bg-canvas p-5 shadow-xs">
+    <Card className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">
           Dépôt greffe/INPI — comptes annuels
@@ -93,14 +95,9 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
           Dossier de dépôt (PDF)
         </button>
         {!signe && (
-          <button
-            type="button"
-            disabled={enCours}
-            onClick={() => void signer()}
-            className="rounded-md border border-border px-3 py-1 text-sm font-semibold text-ink hover:bg-canvas-app disabled:opacity-50"
-          >
+          <Button type="button" variant="secondary" size="sm" disabled={enCours} onClick={() => void signer()}>
             Signer (démo)
-          </button>
+          </Button>
         )}
       </div>
       {erreur && <p className="mt-2 text-xs text-danger">{erreur}</p>}
@@ -108,6 +105,6 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
         Démo — signature fictive, jamais une vraie signature qualifiée RGS (doc 20 §4). Le vrai
         dépôt reste bloqué sur le choix d&apos;un prestataire (ADR-004).
       </p>
-    </div>
+    </Card>
   );
 }

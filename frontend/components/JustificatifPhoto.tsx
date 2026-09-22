@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { joindreJustificatifChauffeur } from "@/lib/auth-chauffeur";
 import type { TransactionVue } from "@/lib/types";
@@ -54,18 +55,18 @@ export function JustificatifPhoto({
           evenement.target.value = ""; // permet de reprendre une photo si l'envoi échoue
         }}
       />
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         disabled={enCours}
         onClick={() => inputRef.current?.click()}
-        className={`rounded-md border px-2 py-1 text-xs font-semibold disabled:opacity-50 ${
-          aJustificatif
-            ? "border-success/30 bg-validated-subtle text-validated"
-            : "border-border bg-canvas text-ink hover:bg-canvas-app"
-        }`}
+        className={
+          aJustificatif ? "border-success-border bg-validated-subtle text-validated hover:bg-validated-subtle" : undefined
+        }
       >
         {aJustificatif ? "Photo jointe ✓" : enCours ? "Envoi…" : "Ajouter une photo"}
-      </button>
+      </Button>
       {erreur && <p className="mt-1 text-xs text-danger">{erreur}</p>}
     </div>
   );

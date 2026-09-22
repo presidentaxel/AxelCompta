@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { connexionParMotDePasse, ErreurAuthChauffeur } from "@/lib/auth-chauffeur";
 
 /** doc 19 §5.2 : « e-mail + mot de passe (ou lien magique), pas de
@@ -38,32 +40,28 @@ export default function ConnexionChauffeurPage() {
       <h1 className="mb-1 text-xl font-bold text-ink">Connexion</h1>
       <p className="mb-6 text-sm text-subtle">Retrouvez vos transactions et vos justificatifs.</p>
       <form className="space-y-3" onSubmit={seConnecter}>
-        <input
+        <Input
           type="email"
+          uiSize="lg"
           value={email}
           onChange={(evenement) => setEmail(evenement.target.value)}
           placeholder="Votre e-mail"
           required
           disabled={enCours}
-          className="w-full rounded-md border border-border px-3 py-2 text-sm"
         />
-        <input
+        <Input
           type="password"
+          uiSize="lg"
           value={motDePasse}
           onChange={(evenement) => setMotDePasse(evenement.target.value)}
           placeholder="Votre mot de passe"
           required
           disabled={enCours}
-          className="w-full rounded-md border border-border px-3 py-2 text-sm"
         />
         {erreur && <p className="text-sm text-danger">{erreur}</p>}
-        <button
-          type="submit"
-          disabled={enCours}
-          className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={enCours} className="w-full">
           {enCours ? "Connexion…" : "Se connecter"}
-        </button>
+        </Button>
       </form>
     </div>
   );
