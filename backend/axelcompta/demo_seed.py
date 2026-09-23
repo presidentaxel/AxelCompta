@@ -20,7 +20,8 @@ import sys
 
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import EcritureId, TenantId
-from axelcompta.demo_chauffeurs_type import construire_ledger
+from axelcompta.demo_chauffeurs_type import construire_ledger, fin_exercice
+from axelcompta.demo_identites import IDENTITES_DEMO
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO, ProfilChauffeurType
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
@@ -51,6 +52,8 @@ def _dossier_depuis_profil(profil: ProfilChauffeurType) -> Dossier:
         exercice_debut=profil.date_debut,
         plateformes=tuple(p.nom for p in profil.plateformes),
         mode_acces_bancaire=profil.mode_acces_bancaire,
+        exercice_fin=fin_exercice(profil),
+        identite=IDENTITES_DEMO[profil.dossier_id],
     )
 
 

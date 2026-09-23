@@ -64,6 +64,10 @@ CORRECTIONS_COMPTE_PAR_CATEGORIE = {
     "recettes_plateformes": "706",  # produit réel, pas 418 (créance temporaire)
     "honoraires_comptable_juridique": "6226",  # charge réelle, pas 201 (immobilisation)
     "charges_sociales_impots": "645",  # charge réelle, pas 431 (compte de tiers URSSAF)
+    # 6712 (pénalités, amendes fiscales et pénales) plutôt que 671, trop
+    # large : c'est ce compte précis que la clôture réintègre au résultat
+    # fiscal (CGI art. 39-2, 2033-B ligne 330).
+    "amendes_infractions": "6712",
 }
 
 

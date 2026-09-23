@@ -19,8 +19,9 @@ import { formatMontant } from "@/lib/format";
 import type { DocumentCloture, DossierResume } from "@/lib/types";
 
 const DOCUMENTS: Array<{ document: DocumentCloture; label: string }> = [
-  { document: "liasse.pdf", label: "Liasse (PDF)" },
-  { document: "cerfa-2065.pdf", label: "CERFA 2065 (PDF)" },
+  { document: "liasse-fiscale.pdf", label: "Liasse fiscale 2065 + 2033 (PDF)" },
+  { document: "cerfa-2065.pdf", label: "CERFA 2065 seul (PDF)" },
+  { document: "liasse.pdf", label: "Synthèse simplifiée (PDF)" },
   { document: "grand-livre.pdf", label: "Grand livre (PDF)" },
   { document: "balance.pdf", label: "Balance (PDF)" },
   { document: "fec.txt", label: "FEC" },
@@ -55,7 +56,7 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   return (
     <Card className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
       <div>
-        <SousTitre>Compte de résultat</SousTitre>
+        <SousTitre>Compte de résultat (après IS)</SousTitre>
         <dl className="space-y-1.5 text-sm">
           <Ligne label="CA HT" cents={dossier.ca_ht_cts} />
           <Ligne label="Charges" cents={dossier.charges_cts} />
@@ -86,7 +87,8 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
         </ul>
         {erreur && <p className="mt-2 text-xs text-danger">{erreur}</p>}
         <p className="mt-3 text-xs text-subtle">
-          Démo — liasse simplifiée, pas conforme CERFA/DGFiP (doc 17 §3).
+          Formulaires officiels 2026 remplis pour relecture et signature. Le
+          dépôt légal reste dématérialisé (EDI ou EFI), jamais ce PDF.
         </p>
       </div>
     </Card>

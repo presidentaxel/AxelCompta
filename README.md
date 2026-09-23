@@ -14,8 +14,10 @@ le premier.
 **Statut du projet : cadrage relu (Louis, 2026-09-02), sprint démo en cours.**
 Ces documents restent la référence à amender au fil de l'eau, mais ce ne sont
 plus des brouillons pré-code : le moteur comptable, l'ingestion, la
-catégorisation et une première interface (gestionnaire + comptes via
-Supabase Auth) tournent déjà en vrai sur des dossiers synthétiques, avec
+catégorisation, la clôture fiscale (liasse 2065 + 2033 sur les formulaires
+officiels, FEC au format légal, depuis le 2026-09-23) et une première
+interface (gestionnaire + comptes via Supabase Auth) tournent déjà en vrai
+sur des dossiers synthétiques, avec
 suite de tests, lint et vérification des frontières de modules en continu
 (doc 08). **L'état réel du code, module par module, se lit dans
 [doc 18 — Organisation du code](docs/18-organisation-code.md) ; le plan de

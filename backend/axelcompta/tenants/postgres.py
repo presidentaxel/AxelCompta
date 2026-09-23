@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from axelcompta.core.ids import DossierId, TenantId
 from axelcompta.core.rls import appliquer_rls
 
+from .identite_json import identite_depuis_json, identite_vers_json
 from .models import Dossier, Tenant
 from .orm import dossiers, tenants
 from .repository import DossierRepository
@@ -45,6 +46,8 @@ class PostgresDossierRepository(DossierRepository):
                     plateformes=list(dossier.plateformes),
                     mode_acces_bancaire=dossier.mode_acces_bancaire,
                     contact_nr=dossier.contact_nr,
+                    exercice_fin=dossier.exercice_fin,
+                    identite=identite_vers_json(dossier.identite),
                 )
                 .on_conflict_do_nothing(index_elements=[dossiers.c.id])
             )
@@ -89,4 +92,6 @@ def _vers_dossier(ligne: Any) -> Dossier:
         plateformes=tuple(ligne.plateformes),
         mode_acces_bancaire=ligne.mode_acces_bancaire,
         contact_nr=ligne.contact_nr,
+        exercice_fin=ligne.exercice_fin,
+        identite=identite_depuis_json(ligne.identite),
     )

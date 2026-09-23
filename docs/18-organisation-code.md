@@ -32,8 +32,8 @@ AxeLCompta/
 │   ├── categorize/            # réduit démo — règles + ML, pas de LLM ni revue humaine
 │   ├── anomaly/                # non prévu démo (V1 seulement)
 │   ├── ledger/                # ❤️ actif démo — moteur pur, golden test doc 17 §7
-│   ├── closing/                # réduit démo — clôture minimale
-│   ├── filings/                # réduit démo — PDF simplifié (V1 : FEC/EDI/INPI)
+│   ├── closing/                # clôture fiscale IS/RSI : TVA, IS, liasse 2033
+│   ├── filings/                # CERFA 2065 + 2033 officiels, FEC légal (V1 : EDI/INPI)
 │   ├── workflow/                # actif démo — décisions humaines + revue + signature démo (doc 20)
 │   ├── api/                    # réduit démo — pas d'auth (V1 : auth/MFA/permissions)
 │   └── ml/                      # non prévu démo — modèle déjà entraîné réutilisé tel quel
@@ -161,6 +161,15 @@ dépendance.
   `filings/export_comptable.py` (grand livre, balance) — le détail légal et
   comptable derrière les chiffres de la liasse, pour un contrôle fiscal ou
   pour tracer une erreur.
+- 2026-09-23 (doc 17 §15) : clôture fiscale complète dans `closing/`
+  (`cloture_fiscale.py` orchestre `ecritures_cloture.py`, `impot_societes.py`,
+  `liasse_2033.py`, `liasse_2033_annexes.py`, `rubriques_2033.py`) et liasse
+  officielle dans `filings/` (`cerfa_2033.py`, `cerfa_2065.py` complété,
+  `liasse_fiscale.py`, `overlay_cerfa.py`). Les coordonnées des cases du
+  2033 sont extraites du PDF officiel par `backend/scripts/extraire_cases_cerfa.py`
+  vers `filings/cerfa/cases_2033-sd_2026.json`. `fec.py` suit désormais
+  l'article A.47 A-1 à la lettre. Identité légale : `core/identite.py`,
+  persistée par `tenants/identite_json.py`.
 
 Détail et commandes : [backend/README.md](../backend/README.md).
 

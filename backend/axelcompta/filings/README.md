@@ -11,32 +11,39 @@ Renderers : FEC, PDF de liasse, EDI-TDFC, dossier INPI.
   compte de résultat + bilan + case-clé 2065, présentation lisible (reportlab).
   **Pas de conformité CERFA/DGFiP, pas d'EDI, pas d'INPI** — c'est écrit
   noir sur blanc dans le PDF lui-même pour qu'on ne s'y trompe jamais.
-- `cerfa/2065-sd_2026.pdf` + `cerfa_2065.py` — `PdfCerfa2065Renderer`
-  (**fait, 2026-09-05, complété le même jour suite à « il me faut tout sur
-  le dossier »**) : overlay sur le **vrai formulaire officiel** 2065-SD
-  (téléchargé depuis impots.gouv.fr). Cases remplies : résultat fiscal
-  (Cadre C.1), exercice ouvert/clos, régime réel normal, comptabilité
-  informatisée (OUI + logiciel "AxelCompta") — tous des faits qu'on connaît
-  vraiment. **Cadre A (désignation, SIRET, adresse) reste blanc exprès** :
-  aucune identité d'entreprise n'est modélisée, et un vrai dossier
-  historique est pseudonymisé à l'audit (doc 07 §2.2) — inventer un nom ou
-  un SIRET serait fabriquer une donnée, pas en afficher une vraie. Voir
-  ADR-006 pour le POC complet et ses limites — **toujours pas une
-  télédéclaration réelle** (EDI/EFI obligatoire, statut Partenaire EDI,
-  doc 02).
-- `fec.py` — `exporter_fec()` (**fait, 2026-09-05**) : le FEC, 18 colonnes
-  normées (art. A.47 A-1), même schéma que `_AUDIT_DONNEES/extraire_fec.py`.
-  **Le format légal exigé en cas de contrôle fiscal** — demandé explicitement
-  suite à « s'il est faux, on ne sait pas » (une liasse sans le détail
-  derrière ne permet pas de tracer une erreur). Pas passé dans « Test Compta
-  Demat » ni comparé octet à octet à un FEC de référence (doc 09 §3) — la
-  checklist complète reste V1.
+- `overlay_cerfa.py` : écriture par-dessus un formulaire officiel sans
+  AcroForm (ADR-006) ; montants alignés à droite, caractères centrés dans
+  les cases, croix.
+- `cerfa/2065-sd_2026.pdf` + `cerfa_2065.py` : `PdfCerfa2065Renderer`,
+  2065-SD et 2065-bis-SD officiels. Avec une clôture fiscale (2026-09-23) :
+  exercice, régime simplifié, identité complète (dénomination, siège,
+  SIRET, courriel), activité, bénéfice ventilé 15 % / taux normal ou
+  déficit, comptabilité informatisée, bloc signataire, cadre J. Sans
+  identité (dossier historique pseudonymisé), le cadre A reste blanc : on
+  n'invente pas d'identité réelle.
+- `cerfa/2033-sd_2026.pdf` + `cerfa/cases_2033-sd_2026.json` +
+  `cerfa_2033.py` : `PdfLiasse2033Renderer`, les 7 tableaux 2033-A à G
+  officiels. Coordonnées des cases extraites du PDF par
+  `scripts/extraire_cases_cerfa.py` (ADR-006, §Extension au 2033).
+- `liasse_fiscale.py` : `PdfLiasseFiscaleRenderer`, 2065 + 2065-bis +
+  2033-A à G en un PDF, sans les pages de notice. Route
+  `/dossiers/{id}/liasse-fiscale.pdf`.
+
+Aucun de ces PDF n'est une télédéclaration : le dépôt légal est EDI/EFI
+(statut Partenaire EDI, doc 02).
+- `fec.py` : `exporter_fec()`, conforme au texte de l'article A.47 A-1
+  depuis le 2026-09-23 (virgule décimale, `EcritureNum` continu, `CompteLib`
+  toujours renseigné, CR+LF, nom `<SIREN>FEC<AAAAMMJJ>.txt`). **Le format
+  légal exigé en cas de contrôle fiscal.** Pas encore passé dans « Test
+  Compta Demat » (outil DGFiP, Windows).
 - `export_comptable.py` — `exporter_grand_livre()`/`exporter_balance()`
   (**fait, 2026-09-05**) : CSV, doc 06 §6 (« pour l'expert-comptable du
   client »). Réutilisent les mêmes libellés de compte que le FEC.
 
 ## Statuts
 
+- **Démo, 2026-09-23 (doc 17 §15)** : liasse fiscale complète 2065 + 2033
+  sur les formulaires officiels, FEC conforme au texte.
 - **Démo (doc 17 semaine 3, fait)** : `PdfLiasseSimplifieeRenderer` produit
   un PDF qui présente un compte de résultat et un bilan simplifiés (plus le
   dump brut de comptes de la semaine 0/2, remplacé). `PdfCerfa2065Renderer`

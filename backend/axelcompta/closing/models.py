@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from axelcompta.core.identite import IdentiteEntreprise
 from axelcompta.core.ids import DossierId
 
 
@@ -30,3 +31,23 @@ class LiassePivot:
     cases: dict[str, int] = field(default_factory=dict)  # code case → centimes
     exercice_debut: date | None = None
     exercice_fin: date | None = None
+    # Renseignés seulement par une clôture avec `ParametresCloture` (liasse
+    # fiscale complète, cases `2033A.xxx`, `2033B.xxx`... en plus des cases
+    # historiques ci-dessus).
+    identite: IdentiteEntreprise | None = None
+    forme_juridique: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ParametresCloture:
+    """Ce que la clôture fiscale doit savoir du dossier, au-delà de ses
+    écritures : bornes déclarées de l'exercice (pas les dates des écritures),
+    identité pour les en-têtes, report des déficits de l'exercice précédent
+    (2033-D ligne 870, en euros) et effectif salarié moyen (2033-E)."""
+
+    exercice_debut: date
+    exercice_fin: date
+    forme_juridique: str
+    identite: IdentiteEntreprise | None = None
+    deficits_anterieurs: int = 0
+    effectif_moyen: int = 0

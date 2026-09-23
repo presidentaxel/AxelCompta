@@ -33,4 +33,8 @@ dossiers = Table(
     # Unique quand renseigné (Postgres autorise plusieurs NULL) : un contact
     # Digifactory ne peut pointer que vers un seul dossier.
     Column("contact_nr", String, nullable=True, unique=True),
+    Column("exercice_fin", Date, nullable=True),
+    # Identité légale (liasse fiscale, FEC) : un bloc lu et écrit d'un seul
+    # tenant, jamais requêté champ par champ — JSON plutôt que 15 colonnes.
+    Column("identite", JSON, nullable=True),
 )

@@ -22,7 +22,8 @@ from axelcompta.core.pcg import nature_depuis_compte
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.service import LedgerService
 
-from .models import LiassePivot
+from .cloture_fiscale import cloturer_fiscalement, ecritures_de_cloture, ecritures_exercice
+from .models import LiassePivot, ParametresCloture
 from .service import ClosingService
 
 
@@ -55,8 +56,23 @@ class ClotureSimplifieeService(ClosingService):
     def __init__(self, ledger: LedgerService) -> None:
         self._ledger = ledger
 
-    def cloturer(self, dossier_id: DossierId, exercice: str) -> LiassePivot:
+    def ecritures_de_cloture(
+        self, dossier_id: DossierId, parametres: ParametresCloture
+    ) -> tuple[Ecriture, ...]:
+        """Écritures d'inventaire (TVA, IS) à ajouter aux exports comptables
+        (FEC, grand livre, balance) pour qu'ils concordent avec la liasse."""
+        ecritures = ecritures_exercice(self._ledger.grand_livre(dossier_id), parametres)
+        return ecritures_de_cloture(dossier_id, ecritures, parametres)
+
+    def cloturer(
+        self, dossier_id: DossierId, exercice: str, parametres: ParametresCloture | None = None
+    ) -> LiassePivot:
+        """Avec `parametres` : clôture fiscale complète (écritures
+        d'inventaire, liasse 2065 + 2033, `cloture_fiscale`). Sans : le
+        compte de résultat et le bilan simplifiés d'origine (doc 17 §3)."""
         ecritures = self._ledger.grand_livre(dossier_id)
+        if parametres is not None:
+            return cloturer_fiscalement(dossier_id, exercice, ecritures, parametres)
         balance = _solde_par_compte(ecritures)
         produits, charges = _compte_de_resultat(balance)
         resultat = produits - charges

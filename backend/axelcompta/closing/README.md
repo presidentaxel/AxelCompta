@@ -12,7 +12,16 @@ pivot de liasse (`LiassePivot`) avant rendu par `filings/`.
 - `bilan_simplifie.py` — `ClotureSimplifieeService` (**fait, semaine 3**) :
   balance → compte de résultat (produits/charges via `core.pcg`) → bilan
   (trésorerie, résultat, TVA à payer) → `LiassePivot` avec une case-clé 2065
-  (résultat fiscal, aucune réintégration — hors scope démo).
+  (résultat fiscal, aucune réintégration — hors scope démo). Avec
+  `ParametresCloture`, délègue à la clôture fiscale ci-dessous.
+- `cloture_fiscale.py` (2026-09-23, doc 17 §15) : clôture IS au régime
+  simplifié. Écritures d'inventaire (`ecritures_cloture.py` : liquidation
+  TVA, IS 695/444), IS (`impot_societes.py` : 15 % jusqu'à 42 500 €
+  proratisé, 25 % au-delà), tableaux 2033-A/B (`liasse_2033.py`) et
+  2033-C/D/E (`liasse_2033_annexes.py`), le tout dans une `LiassePivot`
+  indexée par code officiel (`2033B.310`...). Correspondance comptes →
+  rubriques : `rubriques_2033.py`, d'après la notice 2033-NOT-SD, sans
+  relecture d'expert-comptable (décision démo).
 
 ## Statuts
 
