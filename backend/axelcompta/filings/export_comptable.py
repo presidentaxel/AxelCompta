@@ -18,6 +18,17 @@ from axelcompta.ledger.models import Ecriture, Sens
 from .fec import libelle_compte
 
 
+def _totaux_par_compte(ecritures: tuple[Ecriture, ...]) -> dict[str, list[int]]:
+    """compte → [débit_cts, crédit_cts]. Shared CSV + PDF (AXE-417/418)."""
+    totaux: dict[str, list[int]] = {}
+    for ecriture in ecritures:
+        for ligne in ecriture.lignes:
+            debit_credit = totaux.setdefault(ligne.compte, [0, 0])
+            index = 0 if ligne.sens is Sens.DEBIT else 1
+            debit_credit[index] += ligne.montant.centimes
+    return totaux
+
+
 def exporter_grand_livre(ecritures: tuple[Ecriture, ...]) -> str:
     """Une ligne par ligne d'écriture, triée par compte puis par date — la
     présentation attendue d'un grand livre, à l'inverse du FEC (trié par
@@ -48,13 +59,7 @@ def exporter_grand_livre(ecritures: tuple[Ecriture, ...]) -> str:
 
 def exporter_balance(ecritures: tuple[Ecriture, ...]) -> str:
     """compte, libellé, total débit, total crédit, solde (doc 06 §6)."""
-    totaux: dict[str, list[int]] = {}  # compte -> [debit_cts, credit_cts]
-    for ecriture in ecritures:
-        for ligne in ecriture.lignes:
-            debit_credit = totaux.setdefault(ligne.compte, [0, 0])
-            index = 0 if ligne.sens is Sens.DEBIT else 1
-            debit_credit[index] += ligne.montant.centimes
-
+    totaux = _totaux_par_compte(ecritures)
     tampon = io.StringIO()
     ecrivain = csv.writer(tampon)
     ecrivain.writerow(["compte", "libelle_compte", "debit", "credit", "solde"])

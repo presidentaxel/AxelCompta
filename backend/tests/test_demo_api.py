@@ -689,6 +689,18 @@ def test_telecharger_grand_livre_et_balance_sont_des_csv() -> None:
     assert balance.headers["content-type"].startswith("text/csv")
 
 
+def test_telecharger_grand_livre_et_balance_pdf() -> None:
+    client = _client()
+    en_tete = _en_tete("DEMO_karim")
+    grand_livre = client.get("/dossiers/DEMO_karim/grand-livre.pdf", headers=en_tete)
+    balance = client.get("/dossiers/DEMO_karim/balance.pdf", headers=en_tete)
+    assert grand_livre.status_code == balance.status_code == 200
+    assert grand_livre.headers["content-type"] == "application/pdf"
+    assert balance.headers["content-type"] == "application/pdf"
+    assert grand_livre.content.startswith(b"%PDF")
+    assert balance.content.startswith(b"%PDF")
+
+
 def test_telecharger_cloture_dossier_inconnu_est_un_404() -> None:
     reponse = _client().get("/dossiers/DEMO_inconnu/liasse.pdf", headers=_en_tete("DEMO_inconnu"))
     assert reponse.status_code == 404

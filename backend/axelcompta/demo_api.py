@@ -66,6 +66,7 @@ from axelcompta.filings.export_comptable import exporter_balance, exporter_grand
 from axelcompta.filings.fec import exporter_fec
 from axelcompta.filings.inpi_depot import PdfDepotInpiRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
+from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
@@ -802,10 +803,22 @@ def _enregistrer_routes_cloture(app: FastAPI) -> None:
             exporter_grand_livre(ecritures), "text/csv", f"grand-livre-{dossier.id}.csv"
         )
 
+    @app.get("/dossiers/{dossier_id}/grand-livre.pdf")
+    def telecharger_grand_livre_pdf(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        ecritures = ledger.grand_livre(dossier.id)
+        pdf = rendre_grand_livre_pdf(ecritures, dossier_id=str(dossier.id))
+        return _fichier(pdf, "application/pdf", f"grand-livre-{dossier.id}.pdf")
+
     @app.get("/dossiers/{dossier_id}/balance.csv")
     def telecharger_balance(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
         ecritures = ledger.grand_livre(dossier.id)
         return _fichier(exporter_balance(ecritures), "text/csv", f"balance-{dossier.id}.csv")
+
+    @app.get("/dossiers/{dossier_id}/balance.pdf")
+    def telecharger_balance_pdf(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        ecritures = ledger.grand_livre(dossier.id)
+        pdf = rendre_balance_pdf(ecritures, dossier_id=str(dossier.id))
+        return _fichier(pdf, "application/pdf", f"balance-{dossier.id}.pdf")
 
 
 def _document_greffe_inpi(dossier: Dossier, ledger: InMemoryLedgerService) -> bytes:

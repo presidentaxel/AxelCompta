@@ -37,13 +37,15 @@ export type DossierAgregat = {
   mode_acces_bancaire: "gestionnaire" | "chauffeur_direct";
 };
 
-// doc 17 §9 Semaine 4 : les 5 exports de clôture, servis en téléchargement
-// direct par demo_api.py (mêmes renderers que demo_chauffeurs_type.py).
+// doc 17 §9 Semaine 4 + AXE-417/418 : exports de clôture (PDF + CSV),
+// servis en téléchargement direct par demo_api.py.
 export type DocumentCloture =
   | "liasse.pdf"
   | "cerfa-2065.pdf"
   | "fec.txt"
+  | "grand-livre.pdf"
   | "grand-livre.csv"
+  | "balance.pdf"
   | "balance.csv";
 
 // doc 20 §4 : réponse de la signature greffe/INPI — déplacé ici le
