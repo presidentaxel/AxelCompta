@@ -21,6 +21,8 @@ import type { DocumentCloture, DossierResume } from "@/lib/types";
 const DOCUMENTS: Array<{ document: DocumentCloture; label: string }> = [
   { document: "liasse.pdf", label: "Liasse (PDF)" },
   { document: "cerfa-2065.pdf", label: "CERFA 2065 (PDF)" },
+  { document: "grand-livre.pdf", label: "Grand livre (PDF)" },
+  { document: "balance.pdf", label: "Balance (PDF)" },
   { document: "fec.txt", label: "FEC" },
   { document: "grand-livre.csv", label: "Grand livre (CSV)" },
   { document: "balance.csv", label: "Balance (CSV)" },
