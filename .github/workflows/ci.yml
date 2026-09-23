@@ -1,14 +1,12 @@
 name: CI
 
-# Première version de la CI (doc 12 §1.1, doc 08 §4) — couvre les étapes 1-6
-# du pipeline cible (ruff, mypy, import-linter, tests rapides + intégration
-# Postgres, tsc/lint/build front). Volontairement pas encore : golden tests
-# séparés (déjà dans la suite pytest normale), seuils de couverture, audit
-# dépendances/secrets, build Docker (doc 08 §4 étapes 7-10) — à ajouter une
-# fois qu'un premier passage vert est acquis, pas bloquant pour commencer.
-# Les tests marqués `supabase` (doc 17 §9 bloc B) restent hors CI : ils
-# consomment un quota d'e-mail réel sur le projet Supabase, à lancer
-# manuellement (backend/README.md).
+# Barrière de qualité (doc 12 §1.1, doc 08 §4) — bloquante sur chaque PR
+# vers main et sur chaque push à main. Couvre ruff / mypy / import-linter /
+# pytest rapide + intégration Postgres / lint+build front.
+#
+# Volontairement pas encore : seuils de couverture, audit deps/secrets,
+# build Docker (doc 08 §4 étapes 7-10). Les tests `supabase` restent hors
+# CI (quota e-mail réel — backend/README.md).
 
 on:
   push:
@@ -16,8 +14,13 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
+    name: backend (lint · types · tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -66,13 +69,15 @@ jobs:
       - name: Migrations Alembic (vers le Postgres du job)
         run: python -m alembic upgrade head
 
-      - name: Tests rapides (doc 08 §3 — sans Postgres ni Supabase)
-        run: python -m pytest
+      - name: Tests rapides (hors Postgres / Supabase)
+        # Explicit marker — ne pas dépendre seulement de addopts pyproject.
+        run: python -m pytest -m "not integration and not supabase"
 
-      - name: Tests d'intégration (doc 09 §4 — vrai Postgres)
+      - name: Tests d'intégration (vrai Postgres)
         run: python -m pytest -m integration
 
   frontend:
+    name: frontend (lint · build)
     runs-on: ubuntu-latest
     defaults:
       run:

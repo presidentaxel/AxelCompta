@@ -24,6 +24,8 @@ _MARGE_G = 40
 _MARGE_D = 40
 _MARGE_BAS = 50
 _Y_HAUT = 800
+# Assez large pour `…settlement-12` / `…categorise-3` sans écraser libellé.
+_LARGEUR_ID_ECRITURE = 24
 
 
 def _euros(centimes: int) -> str:
@@ -31,7 +33,17 @@ def _euros(centimes: int) -> str:
     return f"{centimes / 100:.2f} €"
 
 
-def _nouvelle_page(dessin: canvas.Canvas, titre: str, sous_titre: str) -> int:
+def _id_ecriture_affiche(ecriture_id: object, max_len: int = _LARGEUR_ID_ECRITURE) -> str:
+    """Garde la fin de l'id (discriminante) : les ids seedés sont
+    `DEMO_karim:settlement-N` — tronquer au début rendait toutes les lignes
+    identiques (Bugbot)."""
+    texte = str(ecriture_id)
+    if len(texte) <= max_len:
+        return texte
+    return "…" + texte[-(max_len - 1) :]
+
+
+def _nouvelle_page(dessin: canvas.Canvas, titre: str, sous_titre: str) -> float:
     dessin.setFont("Helvetica-Bold", 14)
     dessin.drawString(_MARGE_G, _Y_HAUT, titre)
     dessin.setFont("Helvetica", 9)
@@ -42,14 +54,45 @@ def _nouvelle_page(dessin: canvas.Canvas, titre: str, sous_titre: str) -> int:
         _Y_HAUT - 30,
         "Démo AxeLCompta — présentation, pas un export réglementaire",
     )
-    return _Y_HAUT - 50
+    return float(_Y_HAUT - 50)
 
 
-def _assurer_espace(dessin: canvas.Canvas, y: float, besoin: float, titre: str, sous_titre: str) -> float:
+def _assurer_espace(
+    dessin: canvas.Canvas, y: float, besoin: float, titre: str, sous_titre: str
+) -> tuple[float, bool]:
+    """Retourne (y, page_nouvelle). `page_nouvelle` permet de redessiner
+    les en-têtes de section après un saut (Bugbot)."""
     if y - besoin < _MARGE_BAS:
         dessin.showPage()
-        return float(_nouvelle_page(dessin, titre, sous_titre))
-    return y
+        return _nouvelle_page(dessin, titre, sous_titre), True
+    return y, False
+
+
+def _entete_compte(dessin: canvas.Canvas, y: float, compte: str) -> float:
+    dessin.setFont("Helvetica-Bold", 11)
+    dessin.drawString(_MARGE_G, y, f"Compte {compte} — {libelle_compte(compte)}")
+    y -= 14
+    dessin.setFont("Helvetica", 8)
+    dessin.drawString(_MARGE_G, y, "Date")
+    dessin.drawString(_MARGE_G + 55, y, "Écriture")
+    dessin.drawString(_MARGE_G + 160, y, "Libellé")
+    dessin.drawRightString(_LARGEUR - _MARGE_D - 90, y, "Débit")
+    dessin.drawRightString(_LARGEUR - _MARGE_D, y, "Crédit")
+    y -= 4
+    dessin.line(_MARGE_G, y, _LARGEUR - _MARGE_D, y)
+    return y - 12
+
+
+def _entete_colonnes_balance(dessin: canvas.Canvas, y: float) -> float:
+    dessin.setFont("Helvetica-Bold", 8)
+    dessin.drawString(_MARGE_G, y, "Compte")
+    dessin.drawString(_MARGE_G + 50, y, "Libellé")
+    dessin.drawRightString(_LARGEUR - _MARGE_D - 140, y, "Débit")
+    dessin.drawRightString(_LARGEUR - _MARGE_D - 70, y, "Crédit")
+    dessin.drawRightString(_LARGEUR - _MARGE_D, y, "Solde")
+    y -= 4
+    dessin.line(_MARGE_G, y, _LARGEUR - _MARGE_D, y)
+    return y - 14
 
 
 def rendre_grand_livre_pdf(ecritures: tuple[Ecriture, ...], *, dossier_id: str) -> bytes:
@@ -63,7 +106,7 @@ def rendre_grand_livre_pdf(ecritures: tuple[Ecriture, ...], *, dossier_id: str) 
 
     tampon = io.BytesIO()
     dessin = canvas.Canvas(tampon, pagesize=A4)
-    y = float(_nouvelle_page(dessin, titre, sous_titre))
+    y = _nouvelle_page(dessin, titre, sous_titre)
 
     if not paires:
         dessin.setFont("Helvetica", 10)
@@ -74,25 +117,16 @@ def rendre_grand_livre_pdf(ecritures: tuple[Ecriture, ...], *, dossier_id: str) 
 
     for compte, groupe in groupby(paires, key=lambda paire: paire[1].compte):
         mouvements = list(groupe)
-        y = _assurer_espace(dessin, y, 48, titre, sous_titre)
-        dessin.setFont("Helvetica-Bold", 11)
-        dessin.drawString(_MARGE_G, y, f"Compte {compte} — {libelle_compte(compte)}")
-        y -= 14
-        dessin.setFont("Helvetica", 8)
-        dessin.drawString(_MARGE_G, y, "Date")
-        dessin.drawString(_MARGE_G + 55, y, "Écriture")
-        dessin.drawString(_MARGE_G + 160, y, "Libellé")
-        dessin.drawRightString(_LARGEUR - _MARGE_D - 90, y, "Débit")
-        dessin.drawRightString(_LARGEUR - _MARGE_D, y, "Crédit")
-        y -= 4
-        dessin.line(_MARGE_G, y, _LARGEUR - _MARGE_D, y)
-        y -= 12
+        y, _ = _assurer_espace(dessin, y, 48, titre, sous_titre)
+        y = _entete_compte(dessin, y, compte)
 
         for ecriture, ligne in mouvements:
-            y = _assurer_espace(dessin, y, 14, titre, sous_titre)
+            y, page_nouvelle = _assurer_espace(dessin, y, 14, titre, sous_titre)
+            if page_nouvelle:
+                y = _entete_compte(dessin, y, compte)
             dessin.setFont("Helvetica", 8)
             dessin.drawString(_MARGE_G, y, ecriture.date.isoformat())
-            dessin.drawString(_MARGE_G + 55, y, str(ecriture.id)[:18])
+            dessin.drawString(_MARGE_G + 55, y, _id_ecriture_affiche(ecriture.id))
             libelle = ecriture.libelle[:42] + ("…" if len(ecriture.libelle) > 42 else "")
             dessin.drawString(_MARGE_G + 160, y, libelle)
             montant = _euros(ligne.montant.centimes)
@@ -117,17 +151,8 @@ def rendre_balance_pdf(ecritures: tuple[Ecriture, ...], *, dossier_id: str) -> b
 
     tampon = io.BytesIO()
     dessin = canvas.Canvas(tampon, pagesize=A4)
-    y = float(_nouvelle_page(dessin, titre, sous_titre))
-
-    dessin.setFont("Helvetica-Bold", 8)
-    dessin.drawString(_MARGE_G, y, "Compte")
-    dessin.drawString(_MARGE_G + 50, y, "Libellé")
-    dessin.drawRightString(_LARGEUR - _MARGE_D - 140, y, "Débit")
-    dessin.drawRightString(_LARGEUR - _MARGE_D - 70, y, "Crédit")
-    dessin.drawRightString(_LARGEUR - _MARGE_D, y, "Solde")
-    y -= 4
-    dessin.line(_MARGE_G, y, _LARGEUR - _MARGE_D, y)
-    y -= 14
+    y = _nouvelle_page(dessin, titre, sous_titre)
+    y = _entete_colonnes_balance(dessin, y)
 
     total_debit = 0
     total_credit = 0
@@ -135,7 +160,9 @@ def rendre_balance_pdf(ecritures: tuple[Ecriture, ...], *, dossier_id: str) -> b
         debit_cts, credit_cts = totaux[compte]
         total_debit += debit_cts
         total_credit += credit_cts
-        y = _assurer_espace(dessin, y, 14, titre, sous_titre)
+        y, page_nouvelle = _assurer_espace(dessin, y, 14, titre, sous_titre)
+        if page_nouvelle:
+            y = _entete_colonnes_balance(dessin, y)
         dessin.setFont("Helvetica", 8)
         dessin.drawString(_MARGE_G, y, compte)
         dessin.drawString(_MARGE_G + 50, y, libelle_compte(compte)[:36])
@@ -144,7 +171,9 @@ def rendre_balance_pdf(ecritures: tuple[Ecriture, ...], *, dossier_id: str) -> b
         dessin.drawRightString(_LARGEUR - _MARGE_D, y, _euros(debit_cts - credit_cts))
         y -= 12
 
-    y = _assurer_espace(dessin, y, 28, titre, sous_titre)
+    y, page_nouvelle = _assurer_espace(dessin, y, 28, titre, sous_titre)
+    if page_nouvelle:
+        y = _entete_colonnes_balance(dessin, y)
     y -= 4
     dessin.line(_MARGE_G, y, _LARGEUR - _MARGE_D, y)
     y -= 14
