@@ -16,7 +16,7 @@ se remplissent sans centimes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 PLAFOND_TAUX_REDUIT_EUROS = 42_500
@@ -30,10 +30,22 @@ def arrondir_euros(centimes: int) -> int:
     return int((Decimal(centimes) / 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def _douze_mois_exactement(debut: date, fin: date) -> bool:
+    """Vrai pour un exercice de douze mois, bissextile ou non (366 jours
+    compris) : le plafond n'est proratisé que pour un exercice plus court
+    ou plus long."""
+    lendemain = fin + timedelta(days=1)
+    return (
+        (lendemain.year, lendemain.month, lendemain.day) == (debut.year + 1, debut.month, debut.day)
+        or (debut.month, debut.day) == (2, 29)
+        and lendemain == date(debut.year + 1, 3, 1)
+    )
+
+
 def plafond_taux_reduit(debut: date, fin: date) -> int:
-    jours = (fin - debut).days + 1
-    if jours == JOURS_ANNEE:
+    if _douze_mois_exactement(debut, fin):
         return PLAFOND_TAUX_REDUIT_EUROS
+    jours = (fin - debut).days + 1
     prorata = Decimal(PLAFOND_TAUX_REDUIT_EUROS) * jours / JOURS_ANNEE
     return int(prorata.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 

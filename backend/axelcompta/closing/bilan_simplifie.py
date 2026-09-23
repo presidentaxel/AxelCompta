@@ -64,6 +64,15 @@ class ClotureSimplifieeService(ClosingService):
         ecritures = ecritures_exercice(self._ledger.grand_livre(dossier_id), parametres)
         return ecritures_de_cloture(dossier_id, ecritures, parametres)
 
+    def ecritures_exercice_completes(
+        self, dossier_id: DossierId, parametres: ParametresCloture
+    ) -> tuple[Ecriture, ...]:
+        """Écritures de l'exercice (mêmes bornes que la liasse) suivies des
+        écritures d'inventaire : ce que doivent contenir le FEC, le grand
+        livre et la balance pour concorder avec la liasse au centime."""
+        ecritures = ecritures_exercice(self._ledger.grand_livre(dossier_id), parametres)
+        return ecritures + ecritures_de_cloture(dossier_id, ecritures, parametres)
+
     def cloturer(
         self, dossier_id: DossierId, exercice: str, parametres: ParametresCloture | None = None
     ) -> LiassePivot:

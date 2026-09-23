@@ -186,9 +186,7 @@ def _executer_un_chauffeur(profil: ProfilChauffeurType, racine_sortie: Path) -> 
     cloture = ClotureSimplifieeService(ledger)
     parametres = parametres_cloture(profil)
     liasse = cloture.cloturer(profil.dossier_id, exercice=exercice, parametres=parametres)
-    ecritures = ledger.grand_livre(profil.dossier_id) + cloture.ecritures_de_cloture(
-        profil.dossier_id, parametres
-    )
+    ecritures = cloture.ecritures_exercice_completes(profil.dossier_id, parametres)
 
     (dossier_sortie / "liasse.pdf").write_bytes(PdfLiasseSimplifieeRenderer().rendre(liasse))
     (dossier_sortie / "cerfa_2065.pdf").write_bytes(PdfCerfa2065Renderer().rendre(liasse))

@@ -4,9 +4,13 @@ les commentaires), pas recopiés depuis la sortie du code."""
 
 from __future__ import annotations
 
+import dataclasses
+from datetime import date
+
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.cloture_fiscale import soldes
 from axelcompta.closing.models import LiassePivot
+from axelcompta.core.ids import EcritureId
 from axelcompta.demo_chauffeurs_type import construire_ledger, parametres_cloture
 from axelcompta.demo_identites import IDENTITES_DEMO
 from axelcompta.ingestion.providers.chauffeurs_demo import (
@@ -73,3 +77,19 @@ def test_identite_et_bornes_declarees_dans_le_pivot() -> None:
     liasse, _ = _cloturer(PROFIL_KARIM)
     assert liasse.identite is not None and liasse.identite.siren == "987142031"
     assert liasse.exercice_fin is not None and liasse.exercice_fin.isoformat() == "2025-12-31"
+
+
+def test_exports_limites_a_l_exercice_comme_la_liasse() -> None:
+    # Une écriture hors exercice ne doit pas entrer dans le FEC / grand livre
+    # quand la liasse l'ignore : sinon les documents ne concordent plus.
+    ledger, _ = construire_ledger(PROFIL_KARIM)
+    premiere = ledger.grand_livre(PROFIL_KARIM.dossier_id)[0]
+    ledger.enregistrer(
+        dataclasses.replace(premiere, id=EcritureId("hors-exercice"), date=date(2026, 2, 1))
+    )
+    service = ClotureSimplifieeService(ledger)
+    ecritures = service.ecritures_exercice_completes(
+        PROFIL_KARIM.dossier_id, parametres_cloture(PROFIL_KARIM)
+    )
+    assert all(e.date <= date(2025, 12, 31) for e in ecritures)
+    assert ecritures[-1].reference_piece == "CLOTURE-IS-2025"

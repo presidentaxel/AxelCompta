@@ -30,6 +30,12 @@ def test_plafond_proratise_sur_un_exercice_court() -> None:
     assert plafond_taux_reduit(date(2025, 1, 6), date(2025, 12, 31)) == 41_918
 
 
+def test_annee_bissextile_de_douze_mois_non_proratisee() -> None:
+    # 366 jours mais douze mois : plafond légal plein, pas 42 616 €.
+    assert plafond_taux_reduit(date(2024, 1, 1), date(2024, 12, 31)) == 42_500
+    assert plafond_taux_reduit(date(2023, 7, 1), date(2024, 6, 30)) == 42_500
+
+
 def test_arrondi_commercial() -> None:
     assert arrondir_euros(1_346_50) == 1_347
     assert arrondir_euros(1_346_49) == 1_346

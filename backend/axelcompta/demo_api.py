@@ -251,12 +251,12 @@ def _parametres(dossier: Dossier) -> ParametresCloture:
 def _ecritures_avec_cloture(
     dossier: Dossier, ledger: InMemoryLedgerService
 ) -> tuple[Ecriture, ...]:
-    """Grand livre + écritures d'inventaire (TVA, IS) : FEC, grand livre et
-    balance téléchargés concordent ainsi avec la liasse, au centime."""
-    cloture = ClotureSimplifieeService(ledger).ecritures_de_cloture(
+    """Écritures de l'exercice (mêmes bornes que la liasse) + écritures
+    d'inventaire (TVA, IS) : FEC, grand livre et balance téléchargés
+    concordent ainsi avec la liasse, au centime."""
+    return ClotureSimplifieeService(ledger).ecritures_exercice_completes(
         dossier.id, _parametres(dossier)
     )
-    return ledger.grand_livre(dossier.id) + cloture
 
 
 def _resume(
