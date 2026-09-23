@@ -23,3 +23,23 @@ def test_dossier_porte_sa_config_complete() -> None:
 
 def test_tenant_ne_porte_que_son_id() -> None:
     assert Tenant(id=TenantId("t1")).id == "t1"
+
+
+def test_fin_exercice_par_defaut_douze_mois_apres_le_debut() -> None:
+    def dossier(debut: date, fin: date | None = None) -> Dossier:
+        return Dossier(
+            id=DossierId("d"),
+            tenant_id=TenantId("t"),
+            forme_juridique="SASU",
+            regime_imposition="IS",
+            regime_tva="reel_normal",
+            nom="n",
+            tva_recettes_regime="franchise",
+            exercice_debut=debut,
+            exercice_fin=fin,
+        )
+
+    assert dossier(date(2025, 1, 1)).fin_exercice() == date(2025, 12, 31)
+    assert dossier(date(2024, 7, 1)).fin_exercice() == date(2025, 6, 30)
+    assert dossier(date(2024, 2, 29)).fin_exercice() == date(2025, 2, 28)
+    assert dossier(date(2025, 1, 6), date(2025, 12, 31)).fin_exercice() == date(2025, 12, 31)

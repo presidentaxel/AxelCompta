@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from axelcompta.categorize.models import Etage, ProposedEntry
 from axelcompta.core.db import metadata
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, TransactionId
+from axelcompta.demo_identites import IDENTITE_KARIM
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.workflow.propositions_postgres import PostgresPropositionRepository
@@ -49,6 +50,21 @@ def test_dossier_relu_a_lidentique(engine: Engine, id_unique: str) -> None:
     assert repo.obtenir(dossier.id) == dossier
     assert repo.par_contact_nr("42") == dossier
     assert repo.obtenir(DossierId("inexistant")) is None
+
+
+def test_identite_et_fin_d_exercice_relues_a_lidentique(engine: Engine, id_unique: str) -> None:
+    metadata.create_all(engine)
+    repo = PostgresDossierRepository(engine)
+    repo.enregistrer_tenant(Tenant(id=TenantId(id_unique), nom="T"))
+    dossier = dataclasses.replace(
+        _dossier(f"d-{id_unique}", id_unique),
+        exercice_fin=date(2025, 12, 31),
+        identite=IDENTITE_KARIM,
+    )
+
+    repo.enregistrer(dossier)
+
+    assert repo.obtenir(dossier.id) == dossier
 
 
 def test_lister_par_tenant_isole_les_portefeuilles(engine: Engine, id_unique: str) -> None:

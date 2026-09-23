@@ -132,6 +132,19 @@ reste celui des scripts d'administration ci-dessus (`demo_seed`,
 
 `python -m axelcompta.demo_seed` refuse de compléter un ledger à moitié
 écrit (`AmorcageIncompletError`) : dans ce cas, vider les tables et relancer.
+
+**Réamorçage obligatoire après le 2026-09-23** (doc 17 §15) : chaque
+dossier de démo a désormais une écriture de libération du capital et une
+identité légale. Une base amorcée avant cette date lève
+`AmorcageIncompletError`. Repartir d'une base vide (les décisions, annotations
+et notifications de démo en base sont perdues ; les comptes Supabase ne
+bougent pas, ils sont chez Supabase) :
+
+```bash
+docker compose down -v && docker compose up -d --wait db
+.venv/bin/alembic upgrade head
+.venv/bin/python -m axelcompta.demo_seed
+```
 Synchroniser les transactions Digifactory d'un portefeuille (nécessite
 `DIGIFACTORY_BASE_URL`, `DIGIFACTORY_TOKEN` et des dossiers portant un
 `contact_nr`) :

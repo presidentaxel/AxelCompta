@@ -40,6 +40,7 @@ export type DossierAgregat = {
 // doc 17 §9 Semaine 4 + AXE-417/418 : exports de clôture (PDF + CSV),
 // servis en téléchargement direct par demo_api.py.
 export type DocumentCloture =
+  | "liasse-fiscale.pdf"
   | "liasse.pdf"
   | "cerfa-2065.pdf"
   | "fec.txt"

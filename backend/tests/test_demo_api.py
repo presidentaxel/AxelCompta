@@ -724,7 +724,8 @@ def test_fec_reflete_une_decision_tranchee_pas_le_ledger_brut() -> None:
     en_tete = _en_tete("DEMO_sophie")
     ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
     avant = client.get("/dossiers/DEMO_sophie/fec.txt", headers=en_tete).text
-    assert "455" not in avant
+    # Zone CompteNum exacte : « 455 » seul figure aussi dans 44551 (TVA).
+    assert "\t455\t" not in avant
 
     client.post(
         f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
@@ -733,7 +734,22 @@ def test_fec_reflete_une_decision_tranchee_pas_le_ledger_brut() -> None:
     )
 
     apres = client.get("/dossiers/DEMO_sophie/fec.txt", headers=en_tete).text
-    assert "455" in apres
+    assert "\t455\t" in apres
+
+
+def test_fec_nom_legal_et_ecritures_de_cloture() -> None:
+    reponse = _client().get("/dossiers/DEMO_karim/fec.txt", headers=_en_tete("DEMO_karim"))
+    assert reponse.status_code == 200
+    assert 'filename="987142031FEC20251231.txt"' in reponse.headers["content-disposition"]
+    assert "CLOTURE-IS-2025" in reponse.text and "\t695\t" in reponse.text
+
+
+def test_telecharger_la_liasse_fiscale_complete() -> None:
+    reponse = _client().get(
+        "/dossiers/DEMO_karim/liasse-fiscale.pdf", headers=_en_tete("DEMO_karim")
+    )
+    assert reponse.status_code == 200
+    assert reponse.content.startswith(b"%PDF-")
 
 
 # --- Greffe/INPI (doc 20, Louis 2026-09-11) --------------------------------

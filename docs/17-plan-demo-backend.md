@@ -931,3 +931,51 @@ Le vrai overlay CERFA 2065 existe déjà et tourne
 (`filings/cerfa_2065.py`, doc 12 §0.3 « Hors plan initial ») : piste la
 plus évidente pour un rendu plus sérieux, à vérifier/discuter demain
 plutôt que décidé unilatéralement ici.
+
+## 15. Traité le 2026-09-23 : exports PDF, FEC légal, liasse fiscale complète
+
+Suite directe du §14. Trois décisions de Louis ce jour-là :
+
+- **Grand livre et balance en PDF** : faits (PR #1, `filings/pdf_export_comptable.py`).
+- **FEC** : pas de PDF, mais un format qui respecte **à la lettre** l'article
+  A.47 A-1 du LPF. Écarts corrigés dans `filings/fec.py` : virgule décimale
+  (le point était faux), `EcritureNum` en séquence continue et
+  chronologique (au lieu des identifiants internes `settlement-34`),
+  `CompteLib` jamais vide, zones nettoyées des tabulations et retours,
+  enregistrements CR+LF, nom légal `<SIREN>FEC<AAAAMMJJ>.txt`. Les écritures
+  d'inventaire (TVA, IS) y figurent, pour que le FEC concorde avec la liasse.
+- **Liasse** : « un CERFA bien rempli, complet, on ne skip rien ». Faite sur
+  les **vrais formulaires officiels 2026** : 2065-SD, 2065-bis-SD et 2033-A
+  à G (régime simplifié d'imposition, celui d'une SASU/EURL de chauffeur),
+  en un seul PDF (`/dossiers/{id}/liasse-fiscale.pdf`). Pas d'expert-comptable
+  dans la boucle pour la démo, décision de Louis : la table comptes →
+  rubriques (`closing/rubriques_2033.py`) suit la notice 2033-NOT-SD ligne à
+  ligne, sans relecture professionnelle.
+
+Ce qui a changé pour y arriver, au-delà du rendu :
+
+- **Clôture fiscale** (`closing/cloture_fiscale.py`) : liquidation de la TVA
+  (4457/4456 vers 44551), résultat fiscal avec réintégrations (IS en 324,
+  amendes en 330), IS au taux réduit 15 % jusqu'à 42 500 € (proratisé) puis
+  25 %, écriture 695/444, déficit reportable en 2033-D. Montants en euros
+  entiers, écart d'arrondi du bilan absorbé par la rubrique la plus proche
+  de sa valeur exacte.
+- **Identité légale des dossiers** (`core/identite.py`, colonne
+  `dossiers.identite`, migration `b3d91e7a2c40`) : dénomination, SIREN,
+  siège, associés. Les 3 chauffeurs de démo reçoivent une identité
+  **fictive** (`demo_identites.py`), SIREN à clé valide vérifiés non
+  attribués dans l'annuaire des entreprises. Un dossier sans identité reste
+  valide, en-têtes blancs (dossier historique pseudonymisé).
+- **Capital social** : écriture de libération du capital au premier jour
+  (512/1013). Sans elle, le 2033-A affichait un capital nul.
+- **Amendes** : catégorie `amendes_infractions` sur 6712 (et plus 671),
+  le compte que la clôture réintègre.
+- **Exercice déclaré** : 06/01/2025 → 31/12/2025 (`Dossier.exercice_fin`),
+  et non plus les dates de la première et de la dernière écriture.
+
+Limites qui restent vraies : le PDF sert à relire et signer, le dépôt légal
+reste dématérialisé (EDI/EFI) ; le 2033-C ne gère pas les cessions (pas de
+registre des immobilisations) ; le FEC n'est pas passé dans « Test Compta
+Demat » (outil Windows) ; une base de démo amorcée avant ce jour doit être
+réamorcée (le ledger a une écriture de plus, `demo_seed` refuse de
+compléter un ledger partiel).

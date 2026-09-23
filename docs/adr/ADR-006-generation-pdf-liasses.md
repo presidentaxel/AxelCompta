@@ -1,8 +1,8 @@
 # ADR-006 — Génération PDF des liasses fiscales (fidèle CERFA)
 
 **Date :** 2026-06-16
-**Statut :** en attente d'évaluation pour la V1 complète (2050/2033/2031) —
-POC concret fait sur le 2065 pour la démo (2026-09-05), voir §Résultat du POC.
+**Statut :** overlay retenu pour le 2065 et le 2033-A à G (2026-09-23, voir
+§Extension au 2033) ; reste à évaluer pour le 2050-2059 et le 2031.
 **Décideurs :** Louis Vedovato
 
 ## Contexte
@@ -43,11 +43,11 @@ Si les CERFA DGFiP n'ont pas assez de champs AcroForm nommés (certains millési
       par **overlay reportlab** (pas de l'AcroForm, puisqu'il n'y en a
       pas) — coordonnées repérées via les bordures de cellule réelles du
       PDF (pdfplumber), pas devinées. Voir `filings/cerfa_2065.py`.
-- [ ] Télécharger et vérifier 2050, 2033, 2031 (pas fait — hors scope démo,
-      2065 seul demandé).
-- [ ] POC sur un formulaire à tableaux denses (2050/2033 : bien plus de
-      cases que le 2065, qui n'est qu'un récapitulatif) — le 2065 ne
-      valide que la mécanique overlay, pas sa tenue à l'échelle.
+- [x] Télécharger et vérifier le 2033 (2033-SD millésime 2026, 7 tableaux,
+      **pas d'AcroForm** non plus) : `filings/cerfa/2033-sd_2026.pdf`.
+      2050 et 2031 : pas faits.
+- [x] POC sur un formulaire à tableaux denses : le 2033 complet (environ
+      340 cases numérotées), voir §Extension au 2033.
 - [ ] Décision finale sur l'outil pour toute la liasse (2050 à 2059G) —
       **overlay reportlab par coordonnées** fonctionne mais suppose de
       retrouver/maintenir les coordonnées à chaque millésime (pas de
@@ -77,3 +77,26 @@ historique est pseudonymisé exprès à l'audit (doc 07 §2.2) — y écrire un 
 ou un SIRET serait fabriquer une donnée d'identité, pas en afficher une
 vraie. Si une vraie identité de dossier existe un jour (V1), cette case se
 remplit alors normalement.
+
+## Extension au 2033 (2026-09-23)
+
+Demande de Louis : une liasse « complète, on ne skip rien ». Le 2033-SD
+2026 n'a pas d'AcroForm, donc overlay, comme le 2065. Ce qui change par
+rapport au POC : les coordonnées ne sont plus relevées à la main case par
+case. Chaque code de case (« 084 », « 310 »...) est imprimé dans une petite
+cellule bordée, et la zone de saisie est la cellule suivante à droite ;
+`backend/scripts/extraire_cases_cerfa.py` lit ces bordures (pdfplumber) et
+écrit `filings/cerfa/cases_2033-sd_2026.json`. Un nombre à trois chiffres
+qui n'est pas encadré serré (« art. 302 septies ») est écarté. Une seule
+case n'est pas du texte sur ce millésime (460, dessinée en vectoriel) : elle
+est déduite de sa ligne et de sa colonne, et c'est écrit dans le script.
+
+Seuls les en-têtes (désignation, SIREN, dates en cases, « Néant ») restent
+positionnés à la main dans `filings/cerfa_2033.py`.
+
+Garde-fous : un test vérifie que chaque case calculée par la clôture a une
+coordonnée sur le formulaire (sinon elle disparaîtrait du PDF sans erreur),
+et le rendu a été relu à l'œil page par page sur les trois dossiers de
+démo. À chaque nouveau millésime : télécharger le PDF, relancer le script,
+relire le rendu. Le risque noté plus haut reste entier : un décalage de mise
+en page ne lève aucune erreur.

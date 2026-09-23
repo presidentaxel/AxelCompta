@@ -26,6 +26,12 @@ bas restent des ordres de grandeur non recalés, à ne pas lire comme des dates.
 **Fait pendant ce recalage :** écart ML tranché (ADR-007 amendé, 79,5 % de
 référence, le 94,4 % venait du token PCG absent à l'inférence).
 
+**Fait le 2026-09-23 (doc 17 §15), hors jalons :** liasse fiscale complète
+(2065, 2065-bis, 2033-A à G) sur les formulaires officiels 2026, clôture
+fiscale (TVA, IS, réintégrations), FEC conforme au texte de l'A.47 A-1,
+identité légale des dossiers. Pas d'expert-comptable pour la démo (décision
+de Louis) : le J6 ne bloque pas la démo, il reste un prérequis de la V1.
+
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
 
@@ -291,8 +297,8 @@ zéro fuite au test de pseudonymisation.
 ## Phase 3 — Production comptable complète
 
 - [ ] Checklist de clôture automatisée (doc 06 §5) : CCA/FNP assistées, cadrage TVA, dotations, réintégrations fiscales (plafonds VP, LOA), IS.
-- [ ] **Liasse pivot** case-par-case alignée dictionnaire TDFC, formulaires sélectionnés par le statut du dossier : 2065 + 2050/2033 (IS) et 2031 + annexes (option IR) + contrôles de cohérence inter-cases.
-- [ ] Renderers : FEC final (CI « Test Compta Demat »), PDF liasse fidèle CERFA, balance/GL/journaux exports, CA3 pré-remplie (CA12 en lecture d'historique seulement, doc 02 §7bis).
+- [ ] **Liasse pivot** case-par-case alignée dictionnaire TDFC, formulaires sélectionnés par le statut du dossier : 2065 + 2050/2033 (IS) et 2031 + annexes (option IR) + contrôles de cohérence inter-cases. **Avancé le 2026-09-23 (doc 17 §15)** : 2065 + 2033-A à G complets pour l'IS au régime simplifié, cases indexées par le code officiel, sans relecture d'expert-comptable (décision démo). Restent : 2050-2059 (réel normal), 2031 (option IR), alignement sur le dictionnaire TDFC, contrôles inter-cases formalisés.
+- [ ] Renderers : FEC final (CI « Test Compta Demat »), PDF liasse fidèle CERFA, balance/GL/journaux exports, CA3 pré-remplie (CA12 en lecture d'historique seulement, doc 02 §7bis). **Avancé le 2026-09-23** : FEC conforme au texte de l'A.47 A-1 (pas encore passé dans Test Compta Demat), PDF 2065 + 2033 sur les formulaires officiels 2026, grand livre et balance en PDF.
 - [ ] Dossier de dépôt comptes annuels (Guichet Unique INPI) — génération, dépôt manuel documenté.
 - [ ] Dossiers de référence supplémentaires (EURL avec LOA, EURL option IR clôturée, dossier traversant la **fin d'option IR** : exercice N en IR → N+1 en IS) en golden tests — un par colonne opérationnelle de la matrice doc 06 §7.
 - [ ] Circuit de validation/relecture interne (statuts, verrous, doc 02 §2.3 — l'humain valide, c'est journalisé).

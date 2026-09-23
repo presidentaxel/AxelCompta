@@ -41,7 +41,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
-from axelcompta.closing.models import LiassePivot
+from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.core.rls import contexte_identite
@@ -63,8 +63,9 @@ from axelcompta.demo_justificatifs import (
 )
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
-from axelcompta.filings.fec import exporter_fec
+from axelcompta.filings.fec import exporter_fec, nom_fichier_fec
 from axelcompta.filings.inpi_depot import PdfDepotInpiRenderer
+from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
 from axelcompta.ledger.memory import InMemoryLedgerService
@@ -232,7 +233,29 @@ def _construire_liasse(dossier: Dossier, ledger: InMemoryLedgerService) -> Liass
     (`_ledger_avec_decisions`) : une transaction tranchée en 455/108 doit
     sortir de la liasse téléchargée, pas seulement du dashboard."""
     return ClotureSimplifieeService(ledger).cloturer(
-        dossier.id, exercice=str(dossier.exercice_debut.year)
+        dossier.id, exercice=str(dossier.exercice_debut.year), parametres=_parametres(dossier)
+    )
+
+
+def _parametres(dossier: Dossier) -> ParametresCloture:
+    """Bornes déclarées de l'exercice et identité du dossier : ce qui fait
+    passer la clôture du bilan simplifié à la liasse fiscale complète."""
+    return ParametresCloture(
+        exercice_debut=dossier.exercice_debut,
+        exercice_fin=dossier.fin_exercice(),
+        forme_juridique=dossier.forme_juridique,
+        identite=dossier.identite,
+    )
+
+
+def _ecritures_avec_cloture(
+    dossier: Dossier, ledger: InMemoryLedgerService
+) -> tuple[Ecriture, ...]:
+    """Écritures de l'exercice (mêmes bornes que la liasse) + écritures
+    d'inventaire (TVA, IS) : FEC, grand livre et balance téléchargés
+    concordent ainsi avec la liasse, au centime."""
+    return ClotureSimplifieeService(ledger).ecritures_exercice_completes(
+        dossier.id, _parametres(dossier)
     )
 
 
@@ -585,6 +608,9 @@ def _configurer_cors(app: FastAPI) -> None:
         allow_origins=[ORIGINE_FRONTEND_DEV],
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
+        # Lu par le front pour enregistrer un fichier sous le nom choisi par
+        # le serveur (FEC : `<SIREN>FEC<AAAAMMJJ>.txt`, nom légal A.47 A-1).
+        expose_headers=["Content-Disposition"],
     )
 
 
@@ -784,6 +810,11 @@ def _enregistrer_routes_cloture(app: FastAPI) -> None:
         pdf = PdfLiasseSimplifieeRenderer().rendre(_construire_liasse(dossier, ledger))
         return _fichier(pdf, "application/pdf", f"liasse-{dossier.id}.pdf")
 
+    @app.get("/dossiers/{dossier_id}/liasse-fiscale.pdf")
+    def telecharger_liasse_fiscale(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        pdf = PdfLiasseFiscaleRenderer().rendre(_construire_liasse(dossier, ledger))
+        return _fichier(pdf, "application/pdf", f"liasse-fiscale-{dossier.id}.pdf")
+
     @app.get("/dossiers/{dossier_id}/cerfa-2065.pdf")
     def telecharger_cerfa(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
         pdf = PdfCerfa2065Renderer().rendre(_construire_liasse(dossier, ledger))
@@ -791,32 +822,36 @@ def _enregistrer_routes_cloture(app: FastAPI) -> None:
 
     @app.get("/dossiers/{dossier_id}/fec.txt")
     def telecharger_fec(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
-        ecritures = ledger.grand_livre(dossier.id)
-        return _fichier(
-            exporter_fec(ecritures), "text/plain; charset=utf-8", f"fec-{dossier.id}.txt"
+        ecritures = _ecritures_avec_cloture(dossier, ledger)
+        # Nom légal `<SIREN>FEC<clôture>.txt` (A.47 A-1) quand l'identité est connue.
+        nom = (
+            nom_fichier_fec(dossier.identite.siren, dossier.fin_exercice())
+            if dossier.identite is not None
+            else f"fec-{dossier.id}.txt"
         )
+        return _fichier(exporter_fec(ecritures), "text/plain; charset=utf-8", nom)
 
     @app.get("/dossiers/{dossier_id}/grand-livre.csv")
     def telecharger_grand_livre(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
-        ecritures = ledger.grand_livre(dossier.id)
+        ecritures = _ecritures_avec_cloture(dossier, ledger)
         return _fichier(
             exporter_grand_livre(ecritures), "text/csv", f"grand-livre-{dossier.id}.csv"
         )
 
     @app.get("/dossiers/{dossier_id}/grand-livre.pdf")
     def telecharger_grand_livre_pdf(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
-        ecritures = ledger.grand_livre(dossier.id)
+        ecritures = _ecritures_avec_cloture(dossier, ledger)
         pdf = rendre_grand_livre_pdf(ecritures, dossier_id=str(dossier.id))
         return _fichier(pdf, "application/pdf", f"grand-livre-{dossier.id}.pdf")
 
     @app.get("/dossiers/{dossier_id}/balance.csv")
     def telecharger_balance(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
-        ecritures = ledger.grand_livre(dossier.id)
+        ecritures = _ecritures_avec_cloture(dossier, ledger)
         return _fichier(exporter_balance(ecritures), "text/csv", f"balance-{dossier.id}.csv")
 
     @app.get("/dossiers/{dossier_id}/balance.pdf")
     def telecharger_balance_pdf(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
-        ecritures = ledger.grand_livre(dossier.id)
+        ecritures = _ecritures_avec_cloture(dossier, ledger)
         pdf = rendre_balance_pdf(ecritures, dossier_id=str(dossier.id))
         return _fichier(pdf, "application/pdf", f"balance-{dossier.id}.pdf")
 

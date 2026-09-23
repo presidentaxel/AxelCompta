@@ -18,18 +18,21 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, ModeleSklearn, charger_modele
 from axelcompta.categorize.models import ProposedEntry
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
-from axelcompta.closing.models import LiassePivot
+from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.ids import EcritureId, TenantId
+from axelcompta.core.money import Money
+from axelcompta.demo_identites import IDENTITES_DEMO
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
 from axelcompta.filings.fec import exporter_fec
+from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.ingestion.ecritures_settlement import construire_ecriture_settlement
 from axelcompta.ingestion.providers.base import NormalizedTransaction, PlatformSettlement
@@ -40,6 +43,7 @@ from axelcompta.ingestion.providers.chauffeurs_demo import (
 )
 from axelcompta.ingestion.reconciliation import EtatReconciliation, reconcilier
 from axelcompta.ledger.memory import InMemoryLedgerService
+from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.packs.vtc_demo import charger_compte_par_categorie, charger_regles
 from axelcompta.workflow.auto_accept import construire_ecriture_categorisee
 
@@ -94,6 +98,7 @@ def construire_ledger(
     resultats = reconcilier(transactions, settlements)
 
     ledger = InMemoryLedgerService()
+    ledger.enregistrer(ecriture_apport_capital(profil))
     propositions: dict[EcritureId, ProposedEntry] = {}
     id_transactions_reconciliees = {
         r.transaction.id for r in resultats if r.transaction is not None
@@ -121,6 +126,40 @@ def construire_ledger(
     return ledger, propositions
 
 
+def fin_exercice(profil: ProfilChauffeurType) -> date:
+    """Société créée le premier jour des données, premier exercice clos au
+    31/12 de la même année (doc 06 §7 : un premier exercice peut être court)."""
+    return date(profil.date_debut.year, 12, 31)
+
+
+def parametres_cloture(profil: ProfilChauffeurType) -> ParametresCloture:
+    return ParametresCloture(
+        exercice_debut=profil.date_debut,
+        exercice_fin=fin_exercice(profil),
+        forme_juridique=profil.forme_juridique,
+        identite=IDENTITES_DEMO[profil.dossier_id],
+    )
+
+
+def ecriture_apport_capital(profil: ProfilChauffeurType) -> Ecriture:
+    """Libération du capital à la création de la société, premier jour de
+    l'exercice : sans elle, le bilan d'une SASU/EURL afficherait un capital
+    nul (2033-A ligne 120), ce qui n'existe pas."""
+    capital = Money(IDENTITES_DEMO[profil.dossier_id].capital_social_cts)
+    return Ecriture(
+        id=EcritureId("apport-capital"),
+        dossier_id=profil.dossier_id,
+        journal=Journal.BQ,
+        date=profil.date_debut,
+        libelle="Libération du capital social",
+        reference_piece="STATUTS",
+        lignes=(
+            LigneEcriture(compte="512", sens=Sens.DEBIT, montant=capital),
+            LigneEcriture(compte="1013", sens=Sens.CREDIT, montant=capital),
+        ),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ResultatChauffeur:
     profil: ProfilChauffeurType
@@ -143,12 +182,15 @@ def _executer_un_chauffeur(profil: ProfilChauffeurType, racine_sortie: Path) -> 
     )
 
     ledger, _propositions = construire_ledger(profil)
-    ecritures = ledger.grand_livre(profil.dossier_id)
     exercice = str(profil.date_debut.year)
-    liasse = ClotureSimplifieeService(ledger).cloturer(profil.dossier_id, exercice=exercice)
+    cloture = ClotureSimplifieeService(ledger)
+    parametres = parametres_cloture(profil)
+    liasse = cloture.cloturer(profil.dossier_id, exercice=exercice, parametres=parametres)
+    ecritures = cloture.ecritures_exercice_completes(profil.dossier_id, parametres)
 
     (dossier_sortie / "liasse.pdf").write_bytes(PdfLiasseSimplifieeRenderer().rendre(liasse))
     (dossier_sortie / "cerfa_2065.pdf").write_bytes(PdfCerfa2065Renderer().rendre(liasse))
+    (dossier_sortie / "liasse_fiscale.pdf").write_bytes(PdfLiasseFiscaleRenderer().rendre(liasse))
     (dossier_sortie / "journal.fec.txt").write_text(exporter_fec(ecritures), encoding="utf-8")
     (dossier_sortie / "grand_livre.csv").write_text(
         exporter_grand_livre(ecritures), encoding="utf-8"
@@ -185,7 +227,8 @@ def _ligne_rapport(resultat: ResultatChauffeur) -> str:
       <td>{liasse.cases.get("CHARGES", 0) / 100:.2f} €</td>
       <td class="{"perte" if resultat_euros < 0 else "profit"}">{resultat_euros:.2f} €</td>
       <td>
-        <a href="{dossier_relatif}/liasse.pdf">liasse</a> ·
+        <a href="{dossier_relatif}/liasse_fiscale.pdf">liasse fiscale 2065 + 2033</a> ·
+        <a href="{dossier_relatif}/liasse.pdf">liasse simplifiée</a> ·
         <a href="{dossier_relatif}/cerfa_2065.pdf">CERFA 2065</a> ·
         <a href="{dossier_relatif}/journal.fec.txt">FEC</a> ·
         <a href="{dossier_relatif}/grand_livre.csv">grand livre</a> ·

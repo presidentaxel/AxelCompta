@@ -37,6 +37,18 @@ def test_amorcage_cree_les_3_dossiers_du_portefeuille_demo() -> None:
     assert dossiers.lister_par_tenant(TenantId("autre")) == ()
 
 
+def test_amorcage_porte_identite_et_fin_d_exercice() -> None:
+    dossiers, ledger, propositions = _depots()
+    amorcer_demo(dossiers, ledger, propositions)
+    karim = dossiers.obtenir(DossierId("DEMO_karim"))
+    assert karim is not None and karim.identite is not None
+    assert karim.identite.denomination == "AMRANI VTC"
+    assert karim.fin_exercice().isoformat() == "2025-12-31"
+    # Le capital est libéré dans le ledger : sans lui, bilan à capital nul.
+    apport = [e for e in ledger.grand_livre(karim.id) if e.id.endswith("apport-capital")]
+    assert len(apport) == 1
+
+
 def test_amorcage_est_idempotent() -> None:
     dossiers, ledger, propositions = _depots()
     amorcer_demo(dossiers, ledger, propositions)

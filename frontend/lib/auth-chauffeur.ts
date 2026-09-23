@@ -205,11 +205,18 @@ export async function telechargerAvecAuthChauffeur(
   try {
     const lien = document.createElement("a");
     lien.href = urlObjet;
-    lien.download = nomFichier;
+    // Nom choisi par le serveur quand il en donne un (FEC : nom légal
+    // `<SIREN>FEC<AAAAMMJJ>.txt`), sinon celui proposé par l'appelant.
+    lien.download = nomDepuisContentDisposition(reponse) ?? nomFichier;
     lien.click();
   } finally {
     URL.revokeObjectURL(urlObjet);
   }
+}
+
+function nomDepuisContentDisposition(reponse: Response): string | null {
+  const entete = reponse.headers.get("Content-Disposition");
+  return entete?.match(/filename="([^"]+)"/)?.[1] ?? null;
 }
 
 /** doc 17 §9 Semaine 3 : le chauffeur tranche sa propre écriture (question
