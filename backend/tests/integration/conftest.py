@@ -28,12 +28,23 @@ from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.tenants.postgres import PostgresDossierRepository
 
+HOTES_LOCAUX = frozenset({"localhost", "127.0.0.1", "::1", "db"})
+
 
 @pytest.fixture
 def engine() -> Iterator[Engine]:
     if not os.environ.get("DATABASE_URL"):
         pytest.skip("DATABASE_URL non définie — voir backend/README.md")
     moteur = engine_depuis_env()
+    # Ces tests vident toutes les tables (drop_all) : jamais sur la base
+    # Supabase de la démo (ADR-003, 2026-09-24), seulement un Postgres local.
+    if moteur.url.host not in HOTES_LOCAUX:
+        moteur.dispose()
+        pytest.exit(
+            f"tests d'intégration refusés sur une base non locale ({moteur.url.host}) : "
+            "ils suppriment toutes les tables. Voir backend/README.md.",
+            returncode=2,
+        )
     yield moteur
     metadata.drop_all(moteur)  # nettoyage après chaque test, no-op si rien à supprimer
     # `alembic_version` n'est pas dans `metadata` (bookkeeping propre à
