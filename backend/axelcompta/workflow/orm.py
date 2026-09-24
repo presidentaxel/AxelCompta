@@ -104,3 +104,16 @@ documents_signes = Table(
     Column("provider", String, nullable=False),
     Column("qualifie", Boolean, nullable=False),
 )
+
+# Piste des actes déjà persistés (décision, signature). Append-only :
+# le détail métier reste dans sa table, ici seulement qui a fait quoi.
+journal_audit = Table(
+    "journal_audit",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False, index=True),
+    Column("type_acte", String, nullable=False),
+    Column("reference", String, nullable=False),
+    Column("acteur", String, nullable=False),
+    Column("acte_le", DateTime(timezone=True), nullable=False),
+)

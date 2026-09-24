@@ -16,6 +16,7 @@ from sqlalchemy.engine import Engine, Row
 from axelcompta.core.ids import DossierId, UserId
 from axelcompta.core.rls import appliquer_rls
 
+from .audit import noter
 from .orm import documents_signes
 from .signature import DocumentSigne, SignatureRepository
 
@@ -29,9 +30,10 @@ class PostgresSignatureRepository(SignatureRepository):
     ) -> None:
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
+            identifiant = str(uuid.uuid4())
             connexion.execute(
                 documents_signes.insert().values(
-                    id=str(uuid.uuid4()),
+                    id=identifiant,
                     dossier_id=dossier_id,
                     type_document=type_document,
                     contenu_pdf=document.contenu_pdf,
@@ -40,6 +42,14 @@ class PostgresSignatureRepository(SignatureRepository):
                     provider=document.provider,
                     qualifie=document.qualifie,
                 )
+            )
+            noter(
+                connexion,
+                dossier_id,
+                "signature",
+                identifiant,
+                document.signataire,
+                document.signe_le,
             )
 
     def dernier(self, dossier_id: DossierId, type_document: str) -> DocumentSigne | None:
