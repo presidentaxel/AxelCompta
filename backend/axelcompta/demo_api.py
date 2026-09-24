@@ -374,9 +374,7 @@ def _compte_affiche(ecriture: Ecriture) -> str:
     return autres[0] if len(autres) == 1 else "règlement plateforme"
 
 
-def _transaction_vue(
-    ecriture: Ecriture, a_justificatif: bool, annulee: bool = False
-) -> TransactionVue:
+def _transaction_vue(ecriture: Ecriture, a_justificatif: bool, annulee: bool) -> TransactionVue:
     a_trancher = not annulee and any(ligne.compte == COMPTE_ATTENTE for ligne in ecriture.lignes)
     return TransactionVue(
         ecriture_id=ecriture.id,
@@ -700,7 +698,10 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         ecriture = _trancher(
             dossier, ecriture_id, entree.categorie, base, decisions, propositions, identite.user_id
         )
-        return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id))
+        # `_trancher` refuse une écriture contre-passée : celle-ci ne l'est pas.
+        return _transaction_vue(
+            ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id), annulee=False
+        )
 
     @app.post(
         "/dossiers/{dossier_id}/transactions/{ecriture_id}/justificatif",
@@ -716,7 +717,11 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         """Justificatif d'une transaction de **son propre dossier** (doc 19
         §5.7) : `DossierDep` refuse tout autre accès, gestionnaire compris."""
         ecriture = _joindre_justificatif(dossier, ecriture_id, fichier, ledger, justificatifs)
-        return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id))
+        return _transaction_vue(
+            ecriture,
+            justificatifs.a_un_justificatif(dossier.id, ecriture_id),
+            ecriture.id in annulees(ledger.grand_livre(dossier.id)),
+        )
 
 
 def _enregistrer_routes_invitation(app: FastAPI) -> None:

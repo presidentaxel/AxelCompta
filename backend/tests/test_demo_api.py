@@ -40,6 +40,7 @@ from axelcompta.demo_chauffeurs_type import construire_ledger
 from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
+from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Tenant
@@ -874,3 +875,33 @@ def test_invitations_en_masse_ignorent_les_dossiers_dun_autre_portefeuille() -> 
 def test_un_lot_trop_gros_est_refuse() -> None:
     lignes = [{"dossier_id": f"d{i}", "email": f"{i}@example.com"} for i in range(501)]
     assert _en_masse(_client(), lignes).status_code == 422
+
+
+def test_une_ecriture_contre_passee_nest_plus_a_trancher_nulle_part() -> None:
+    """Bugbot, PR #11 : la paire originale + inverse ne doit revenir en revue
+    ni dans la liste, ni après un justificatif, ni via une décision."""
+    client = _client()
+    en_tete = _en_tete("DEMO_sophie")
+    url = "/dossiers/DEMO_sophie/transactions"
+    ecriture_id = next(
+        t["ecriture_id"]
+        for t in client.get(url, headers=en_tete).json()
+        if t["statut"] == "à trancher"
+    )
+    ledger = client.app.dependency_overrides[get_ledger]()  # type: ignore[attr-defined]
+    originale = next(e for e in ledger.grand_livre("DEMO_sophie") if e.id == ecriture_id)
+    ledger.enregistrer(contrepasser(originale))
+
+    statuts = {t["ecriture_id"]: t["statut"] for t in client.get(url, headers=en_tete).json()}
+    assert statuts[ecriture_id] == "validé"
+    assert statuts[f"{ecriture_id}:contrepassation"] == "validé"
+    justificatif = client.post(
+        f"{url}/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "image/jpeg")},
+        headers=en_tete,
+    )
+    assert justificatif.json()["statut"] == "validé"
+    decision = client.post(
+        f"{url}/{ecriture_id}/decision", json={"categorie": "carburant"}, headers=en_tete
+    )
+    assert decision.status_code == 409
