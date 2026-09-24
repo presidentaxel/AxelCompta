@@ -1005,6 +1005,14 @@ Conséquence pour la démo : une base amorcée avant ce jour doit passer
 `alembic upgrade head` (trois migrations de plus : `b7e2d4a81c06`,
 `c2f91ab84e30`, `d8b41c6e0a27`). Le seed lui-même ne change pas.
 
+Revue Bugbot de la PR de rattrapage (#11), deux bugs réels de #9 corrigés
+avant le merge : une contre-passation passait par le 471 et revenait donc
+dans la file « à trancher », sans suivre la décision de son originale (la
+paire ne s'annulait plus dans la liasse) ; et une ligne bancaire revenue à
+l'identique après contre-passation passait pour « déjà connue » alors
+qu'elle n'était plus comptabilisée. Helpers `origine`/`annulees` dans
+`ledger/contrepassation.py`.
+
 Incident de process, corrigé le même jour : les PR #6 à #10 étaient
 empilées (chacune basée sur la précédente) et ont été mergées dans leur
 branche parente après que #5 était déjà partie dans `main`. Elles

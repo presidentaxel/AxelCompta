@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from axelcompta.core.ids import DossierId, EcritureId
+from axelcompta.ledger.contrepassation import annulees
 from axelcompta.ledger.service import LedgerService
 
 from .decisions import DecisionRepository
@@ -67,12 +68,14 @@ class InMemoryNotificationRepository(NotificationRepository):
 def ecritures_a_trancher(
     ledger: LedgerService, decisions: DecisionRepository, dossier_id: DossierId
 ) -> tuple[EcritureId, ...]:
-    """Écritures au compte d'attente sans décision humaine."""
-    tranchees = {d.ecriture_id for d in decisions.lister_decisions(dossier_id)}
+    """Écritures au compte d'attente sans décision humaine, hors paires
+    originale + contre-passation."""
+    ecritures = ledger.grand_livre(dossier_id)
+    exclues = {d.ecriture_id for d in decisions.lister_decisions(dossier_id)} | annulees(ecritures)
     return tuple(
         e.id
-        for e in ledger.grand_livre(dossier_id)
-        if e.id not in tranchees and any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
+        for e in ecritures
+        if e.id not in exclues and any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
     )
 
 

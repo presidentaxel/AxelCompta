@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from axelcompta.categorize.models import Etage
 from axelcompta.core.ids import DossierId, EcritureId, UserId
 from axelcompta.core.money import Money
+from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.workflow.decisions import DecisionHumaine
@@ -161,3 +162,10 @@ def test_le_message_ne_contient_ni_montant_ni_libelle() -> None:
 def test_singulier_et_pluriel() -> None:
     assert composer(1, LIEN).sujet == "Une opération attend votre confirmation"
     assert composer(4, LIEN).sujet == "4 opérations attendent votre confirmation"
+
+
+def test_une_ecriture_contre_passee_ne_reste_pas_a_trancher() -> None:
+    env = Env()
+    env.ledger.enregistrer(contrepasser(_ecriture("e1", "471")))
+
+    assert ecritures_a_trancher(env.ledger, env.decisions, D) == ()

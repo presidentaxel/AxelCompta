@@ -201,6 +201,23 @@ def test_le_meme_signalement_nest_pas_repete_a_chaque_synchro() -> None:
     assert len(contres) == 1
 
 
+def test_ligne_revenue_a_lidentique_apres_contre_passation_nest_pas_deja_connue() -> None:
+    env = Env()
+    env.synchroniser()
+    env.payload["acc"][0] = _modifiee()
+    env.synchroniser()
+    env.payload["acc"][0] = _tx(
+        "t1", "CARTE TOTAL STATION", -60.0, "2026-03-01", "2026-03-07 08:00:00"
+    )
+
+    rapport = env.synchroniser()
+
+    assert (rapport.deja_connues, rapport.modifiees_signalees) == (0, 1)
+    assert len(env.journal.lister_quarantaine(DOSSIER.id)) == 2
+    contres = [e for e in env.ledger.grand_livre(DOSSIER.id) if e.id.endswith(":contrepassation")]
+    assert len(contres) == 1
+
+
 def test_transaction_supprimee_apres_comptabilisation_est_signalee() -> None:
     env = Env()
     env.synchroniser()

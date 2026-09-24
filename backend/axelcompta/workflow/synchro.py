@@ -27,7 +27,7 @@ from axelcompta.categorize.pipeline import CategorizationPipeline
 from axelcompta.core.ids import EcritureId
 from axelcompta.ingestion.journal import JournalIngestion
 from axelcompta.ingestion.providers.base import LotTransactions
-from axelcompta.ledger.contrepassation import contrepasser
+from axelcompta.ledger.contrepassation import contrepasser, id_contrepassation
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.service import LedgerService
 from axelcompta.tenants.models import Dossier
@@ -143,7 +143,12 @@ def _traiter_transactions(
         ecriture_id = _id_ecriture(dossier, source_nom, transaction.id)
         existante = comptabilisees.get(ecriture_id)
         if existante is not None:
-            if _signature(existante) == (transaction.montant_cts, transaction.date):
+            # Une fois contre-passée, l'originale ne compte plus : même revenue
+            # à l'identique, la ligne bancaire n'est plus comptabilisée et
+            # repart en quarantaine plutôt que de passer pour « déjà connue ».
+            deja_annulee = id_contrepassation(ecriture_id) in comptabilisees
+            inchangee = _signature(existante) == (transaction.montant_cts, transaction.date)
+            if inchangee and not deja_annulee:
                 compteurs.connues += 1
             else:
                 compteurs.modifiees += 1
