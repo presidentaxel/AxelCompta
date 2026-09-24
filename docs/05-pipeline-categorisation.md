@@ -143,6 +143,11 @@ Détails d'entraînement dans doc 07. Ici, le contrat d'intégration :
   l'algo » (signal ML interne, jamais exposé côté client comme une
   correction). Précisé le 2026-09-07, suite à une discussion sur la démo
   (doc 17) mais s'applique à l'architecture cible, pas qu'à la démo.
+  Depuis le 2026-09-24, ce n'est plus seulement une convention du dépôt :
+  `UPDATE` et `DELETE` sont refusés en base sur `decisions_humaines`
+  (migration `d8b41c6e0a27`, même fonction que les écritures). Corriger
+  une décision, c'est en enregistrer une nouvelle. L'insertion est tracée
+  dans `journal_audit` (`workflow/audit.py`), dans la même transaction.
 
 ## 6. Détection d'anomalies et d'abus (module `anomaly`)
 

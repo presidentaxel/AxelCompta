@@ -30,7 +30,7 @@ appels LLM, injection via fichiers importés, exfiltration base, erreur interne
 | Uploads | Antivirus (ClamAV), validation de type réelle (magic bytes), taille max, pas d'exécution de formules, images re-encodées. |
 | Accès prod | Nominatif, par bastion, journalisé ; pas de dump prod sur les laptops — les données de dev sont synthétiques (doc 03 §9). |
 | Sauvegardes | PITR Postgres + sauvegardes chiffrées hors-site ; restauration testée trimestriellement. |
-| Journal d'audit | Table append-only : qui a vu/modifié/validé/exporté quoi, quand, depuis où. Consultable par tenant. C'est aussi un argument commercial face à une banque. |
+| Journal d'audit | Table append-only : qui a vu/modifié/validé/exporté quoi, quand, depuis où. Consultable par tenant. C'est aussi un argument commercial face à une banque. **Tranche faite le 2026-09-24** : `journal_audit` trace les décisions et les signatures (acteur, horodatage, référence), verrouillée en base. Consultations et exports, et l'écran de consultation, restent à faire. |
 
 ## 3. Cycle de vie des données (RGPD opérationnel)
 
