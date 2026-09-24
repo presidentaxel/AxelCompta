@@ -13,10 +13,10 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   stand-in minimal, accepte toute `ProposedEntry` sans validation humaine et
   construit une écriture 512/compte-catégorie (pas de ventilation TVA — ça,
   c'est réservé au settlement plateforme, `ingestion/ecritures_settlement.py`).
-  **Pas l'architecture cible** : la vraie file de revue (doc 05 §5) reste à
-  construire, ceci ne fait que satisfaire la règle de dépendance (« seul
-  workflow transforme une ProposedEntry en écriture ») pour que la démo
-  tourne sans revue humaine.
+  **Pas l'architecture cible** : la file de revue (doc 05 §5) couvre les
+  cas « à trancher » (`revue.py`) ; ceci satisfait la règle de dépendance
+  (« seul workflow transforme une ProposedEntry en écriture ») pour les
+  écritures acceptées sans clic humain.
 - `decisions.py` — `DecisionHumaine`, `AnnotationDev`, `DecisionRepository`
   (**fait, 2026-09-07, doc 17 §9 bloc A**) : modèle de la vraie décision
   humaine (immuable, doc 05 §5 précisé) et de l'annotation dev séparée pour
@@ -33,16 +33,25 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   peuplées, détail dans `orm.py`). Migration
   `55cf8c93e5bf` (`migrations/versions/`). Testé contre un vrai conteneur
   (`tests/integration/test_decisions_repository.py`, comme
-  `test_ledger_repository.py` pour le ledger).
+  `test_ledger_repository.py` pour le ledger). Depuis le 2026-09-24,
+  `UPDATE`/`DELETE` sont refusés en base sur `decisions_humaines`
+  (migration `d8b41c6e0a27`) et chaque insertion écrit `journal_audit`
+  (`audit.py`, migration `c2f91ab84e30`).
+- `signature.py` / `signature_postgres.py` — signature greffe append-only.
+  Même verrou en base sur `documents_signes` (2026-09-24) et même ligne
+  d'audit à l'enregistrement.
+- `audit.py` — `noter()` : insert seul, dans la transaction déjà ouverte.
+  Champs : dossier, type d'acte (`decision` ou `signature`), référence,
+  acteur, horodatage. Pas de libellé, pas de PDF.
 
 ## Contenu prévu (V1)
 
-- File de revue humaine (étage 4 de la catégorisation, doc 05 §5) — le
-  modèle existe (`decisions.py`), l'écran et la persistance réelle restent
-  à faire (doc 17 §9 bloc A/C).
 - Circuit de validation avant écriture définitive.
-- Signature électronique — prestataire à choisir (ADR-004, devis
-  Yousign/Docusign) ; pour la démo, un simulateur d'écran suffit (doc 17 §8).
+- Signature électronique qualifiée — prestataire à choisir (ADR-004, devis
+  Yousign/Docusign). La démo a un tampon et une persistance Postgres
+  (`documents_signes`, verrouillée le 2026-09-24) ; `qualifie` reste faux.
+- Journal d'audit des consultations et des exports (doc 10). Décisions et
+  signatures sont déjà tracées (`audit.py`).
 
 ## Statuts
 
@@ -65,7 +74,10 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   Lancé par `axelcompta/notifier.py`. Table `notifications_envoyees`.
 - `synchro.py` (**fait, 2026-09-22**) : synchronisation d'un dossier réel
   (lot du fournisseur, archive brute, catégorisation, écritures, curseur).
-  Idempotente, ledger append-only, cas modifiés/supprimés en quarantaine.
+  Idempotente, ledger append-only. Une transaction modifiée ou supprimée
+  après comptabilisation est contre-passée (`ledger/contrepassation.py`,
+  une seule fois) et signalée en quarantaine ; le nouveau montant n'est
+  pas rejoué (2026-09-24).
   Politique d'acceptation automatique provisoire (règle ≥ 0,75, ML ≥ 0,90,
   sinon compte 471). Lancée par `axelcompta/synchro_digifactory.py`.
 - `revue.py` — `resoudre_ecriture_a_trancher()`, `CategorieInconnueError`

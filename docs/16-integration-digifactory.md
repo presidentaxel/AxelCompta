@@ -271,7 +271,8 @@ parseur dédié.
 
 **Déduplication.** Clé = `id` de transaction. Un `id` déjà connu dont
 l'`updated_at` a changé est une **mise à jour**, pas un doublon : il doit
-déclencher la révision de l'écriture associée, pas être ignoré silencieusement.
+déclencher la contre-passation de l'écriture associée (doc 06 I2,
+`ledger/contrepassation.py`), pas être ignoré ni réécrit.
 
 **Pagination.** Aucune pagination documentée sur ces routes. Le `since` borne le
 volume en régime courant, mais le **premier appel sans filtre peut être
@@ -301,7 +302,7 @@ interprétable comme une absence d'activité.
 | Sujet | Impact |
 |---|---|
 | Profondeur d'historique conservée chez Digifactory | Détermine si la reprise d'antériorité passe par cette API ou uniquement par les FEC |
-| ~~Date d'expiration du consentement DSP2 exposée ?~~ | **Résolu (2026-09-11)** : oui, `item.authentication_expires_at` sur `/accounts/{contactNr}` (§3.2). La relance J-14 du dashboard consentements (doc 14 §2.3) est donc buildable, reste à implémenter. |
+| ~~Date d'expiration du consentement DSP2 exposée ?~~ | **Résolu (2026-09-11)** : oui, `item.authentication_expires_at` sur `/accounts/{contactNr}` (§3.2). **Classement persisté le 2026-09-24** (`ingestion/consentement.py`, table `consentements_bancaires`) : `actif` / `a_renouveler` (≤ 14 jours) / `expire` / `jamais_connecte`, à chaque synchro. Le dashboard et les e-mails de relance (doc 14 §2.2-2.3) restent à faire. |
 | Cycle de vie du token | Rotation, révocation, procédure d'incident |
 | Chaîne de sous-traitance RGPD | chauffeur → Bridge → Digifactory → nous. Le consentement DSP2 signé couvre-t-il la retransmission ? Art. 28 à trois parties. **Non traité, à instruire en phase 0** (doc 02 §3, doc 10). |
 | Qui gère le lien Bridge Connect pour un nouveau chauffeur | Digifactory possède la relation Bridge ; pas confirmé si l'ouverture d'une nouvelle connexion pour un chauffeur pilote passe par eux ou reste hors de notre contrôle (doc 14 §1.5). |
@@ -451,7 +452,9 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
    `/transactions` (`/accounts` vide `[]` est couvert, §3.2). Depuis le
    2026-09-22, une ligne malformée est mise en quarantaine sans bloquer le
    lot, et une transaction modifiée ou supprimée après comptabilisation est
-   signalée en quarantaine (`workflow/synchro.py`).
+   signalée en quarantaine (`workflow/synchro.py`). **Depuis le 2026-09-24**,
+   ces deux cas ajoutent aussi l'écriture inverse (journal OD, une seule
+   fois) ; l'originale et le nouveau montant ne sont pas réécrits.
 8. Ajouter `digifactory_contact_nr` au CSV d'onboarding et à la documentation
    associée (doc 14 §1.2), **en plus de** `bridge_item_id` qui reste réservé au
    futur provider Bridge direct (§8) — pas de renommage, les deux colonnes
