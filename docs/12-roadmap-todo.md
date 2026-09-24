@@ -1,6 +1,6 @@
 # 12 — Roadmap et TODO maître
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-21 (recalage)
+> Statut : brouillon à valider — Dernière mise à jour : 2026-09-24
 > Hypothèse de capacité : **1 dev (Louis, seul sur le produit)** — l'associé
 > initialement pressenti n'est plus sur ce produit (segmentation actée le
 > week-end du 2026-09-05/06, voir §0.1). Les durées de ce doc supposaient
@@ -31,6 +31,18 @@ référence, le 94,4 % venait du token PCG absent à l'inférence).
 fiscale (TVA, IS, réintégrations), FEC conforme au texte de l'A.47 A-1,
 identité légale des dossiers. Pas d'expert-comptable pour la démo (décision
 de Louis) : le J6 ne bloque pas la démo, il reste un prérequis de la V1.
+
+**Fait le 2026-09-24, hors démo et prévu (doc 17 §16) :** durcissement V1
+tiré des items §1.1 à §1.3 de ce doc, pas du plan de démo. Signature greffe
+persistée en Postgres (PR #4), écritures validées verrouillées (I2, PR #5),
+classement du consentement bancaire à J-14 à chaque synchro (PR #6), journal
+d'audit append-only des décisions et signatures (PR #7), décisions et
+signatures verrouillées en base (PR #8), contre-passation d'une transaction
+modifiée ou supprimée côté Digifactory (PR #9). scikit-learn épinglé en 1.9.0
+(PR #3). Le détail est coché dans §1.1 (journal), §1.2 (consentements) et
+§1.3 (verrous) ci-dessous. Les PR #6 à #10 avaient été mergées dans des
+branches empilées au lieu de `main` ; rattrapées le même jour par une PR
+unique.
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
