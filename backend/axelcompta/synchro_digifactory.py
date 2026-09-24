@@ -17,13 +17,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime
 
 from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, charger_modele
 from axelcompta.categorize.pipeline import CategorizationPipeline
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, TenantId
+from axelcompta.ingestion.consentement import classer, expiration_la_plus_proche
+from axelcompta.ingestion.consentement_postgres import PostgresConsentementRepository
 from axelcompta.ingestion.journal import JournalIngestion
 from axelcompta.ingestion.journal_postgres import PostgresJournalIngestion
 from axelcompta.ingestion.providers.digifactory import DigifactoryHttpClient, DigifactoryProvider
@@ -45,6 +48,7 @@ class ResultatDossier:
     rapport: RapportSynchro | None = None
     ignore: str | None = None  # raison, si le dossier n'a pas été traité
     erreur: str | None = None
+    consentement: str | None = None
 
 
 async def synchroniser_dossiers(
@@ -83,7 +87,35 @@ def _afficher(resultat: ResultatDossier) -> None:
             f"{resultat.dossier_id} : {r.nouvelles} nouvelles ({r.a_trancher} à trancher), "
             f"{r.deja_connues} déjà connues, {r.modifiees_signalees} modifiées et "
             f"{r.supprimees_signalees} supprimées signalées, {r.rejets} rejetées"
+            + (f", consentement {resultat.consentement}" if resultat.consentement else "")
         )
+
+
+async def _relever_consentements(
+    client: DigifactoryHttpClient,
+    dossiers: tuple[Dossier, ...],
+    resultats: list[ResultatDossier],
+    depot: PostgresConsentementRepository,
+    aujourd_hui: date,
+) -> list[ResultatDossier]:
+    """Après la synchro des transactions : lit `/accounts` et mémorise le
+    statut. Un échec ici n'annule pas les écritures déjà posées."""
+    releves: list[ResultatDossier] = []
+    for dossier, resultat in zip(dossiers, resultats, strict=True):
+        if dossier.contact_nr is None:
+            expire_le = None
+        else:
+            try:
+                payload = await client.accounts(dossier.contact_nr)
+            except Exception as exc:  # noqa: BLE001 — le relevé ne doit pas effacer la synchro
+                releves.append(resultat)
+                print(f"{dossier.id} : consentement non relu ({type(exc).__name__})")
+                continue
+            expire_le = expiration_la_plus_proche(payload)
+        statut = classer(expire_le, aujourd_hui)
+        depot.enregistrer(dossier.id, expire_le, statut, datetime.now(UTC))
+        releves.append(replace(resultat, consentement=statut.value))
+    return releves
 
 
 def main() -> int:
@@ -117,7 +149,7 @@ def main() -> int:
             if not sante.ok:
                 print(f"Digifactory indisponible : {sante.message}", file=sys.stderr)
                 return [ResultatDossier(d.id, erreur=sante.message) for d in dossiers]
-            return await synchroniser_dossiers(
+            resultats = await synchroniser_dossiers(
                 dossiers,
                 DigifactoryProvider(client_reel=client),
                 PostgresJournalIngestion(engine),
@@ -125,6 +157,9 @@ def main() -> int:
                 PostgresPropositionRepository(engine),
                 pipeline,
                 charger_compte_par_categorie(),
+            )
+            return await _relever_consentements(
+                client, dossiers, resultats, PostgresConsentementRepository(engine), date.today()
             )
         finally:
             await client.aclose()

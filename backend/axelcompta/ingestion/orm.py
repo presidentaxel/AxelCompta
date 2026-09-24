@@ -4,7 +4,7 @@ qu'avancer."""
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Table
+from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, String, Table
 
 from axelcompta.core.db import metadata
 
@@ -48,4 +48,15 @@ curseurs_synchro = Table(
     Column("source", String, primary_key=True),
     Column("dernier_updated_at", DateTime, nullable=False),
     Column("maj_le", DateTime, nullable=False),
+)
+
+# État courant du consentement DSP2, une ligne par dossier. Ce n'est pas une
+# écriture comptable : on remplace le relevé précédent (doc 14 §2.2).
+consentements_bancaires = Table(
+    "consentements_bancaires",
+    metadata,
+    Column("dossier_id", String, ForeignKey("dossiers.id"), primary_key=True),
+    Column("expire_le", Date, nullable=True),
+    Column("statut", String, nullable=False),
+    Column("releve_le", DateTime(timezone=True), nullable=False),
 )
