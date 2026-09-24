@@ -177,7 +177,7 @@ def test_ecriture_liee_isolee_via_sa_transaction_parente(
     with contexte_identite(dossier_id="karim", tenant_id=None):
         with engine_web.connect() as connexion:
             appliquer_rls(connexion)
-            nb = connexion.execute(text("SELECT count(*) FROM lignes_ecriture")).scalar_one()
+            nb: int = connexion.execute(text("SELECT count(*) FROM lignes_ecriture")).scalar_one()
             assert nb == 2  # les 2 lignes de l'écriture de karim, jamais celles de yanis
 
     with contexte_identite(dossier_id="yanis", tenant_id=None):
