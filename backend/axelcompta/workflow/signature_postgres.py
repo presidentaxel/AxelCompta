@@ -67,7 +67,7 @@ class PostgresSignatureRepository(SignatureRepository):
                 )
                 .order_by(documents_signes.c.signe_le)
             )
-        return tuple(_ligne_vers_document(ligne) for ligne in resultat)
+            return tuple(_ligne_vers_document(ligne) for ligne in resultat)
 
 
 def _ligne_vers_document(ligne: Row[tuple[object, ...]]) -> DocumentSigne:
