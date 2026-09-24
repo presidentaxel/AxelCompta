@@ -23,6 +23,7 @@ TABLES_ATTENDUES = {
     "decisions_humaines",
     "annotations_dev",
     "propositions_categorisation",
+    "documents_signes",
 }
 
 

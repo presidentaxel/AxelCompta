@@ -83,7 +83,7 @@ from axelcompta.workflow.propositions_postgres import PostgresPropositionReposit
 from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
 from axelcompta.workflow.signature import SignatureRepository
 from axelcompta.workflow.signature_demo import SignatureDemoProvider
-from axelcompta.workflow.signature_memory import InMemorySignatureRepository
+from axelcompta.workflow.signature_postgres import PostgresSignatureRepository
 
 # doc 17 §9 Semaine 3 : racine de stockage des justificatifs de démo — pas
 # le stockage WORM réel (V1, doc 04 §1), juste de quoi prouver que la photo
@@ -504,19 +504,12 @@ def get_justificatifs() -> JustificatifRepository:
 JustificatifsDep = Annotated[JustificatifRepository, Depends(get_justificatifs)]
 
 
-_SIGNATURES_INPI = InMemorySignatureRepository()
-
-
 def get_signatures_inpi() -> SignatureRepository:
-    """Dépendance FastAPI — en mémoire seulement, contrairement à
-    `get_decisions` (doc 20 : pas de vraie signature qualifiée possible en
-    démo de toute façon, la persistance Postgres n'apporterait rien
-    aujourd'hui ; graduera vers une vraie persistance le jour où le
-    prestataire réel — ADR-004 — sera branché). Instance de niveau module
-    directement (pas de connexion externe à retarder comme pour
-    Postgres/Supabase). Les tests surchargent avec une instance fraîche
-    pour s'isoler les uns des autres."""
-    return _SIGNATURES_INPI
+    """Dépendance FastAPI — même persistance que `get_decisions` :
+    append-only en Postgres, pour que la preuve survive à un redémarrage.
+    `qualifie` reste False tant que le prestataire réel (ADR-004) n'est pas
+    branché. Les tests surchargent avec `InMemorySignatureRepository`."""
+    return PostgresSignatureRepository(_engine())
 
 
 SignaturesInpiDep = Annotated[SignatureRepository, Depends(get_signatures_inpi)]
