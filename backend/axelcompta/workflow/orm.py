@@ -17,7 +17,17 @@ propositions vers `dossiers` seulement (voir le commentaire de la table).
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, String, Table
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    LargeBinary,
+    String,
+    Table,
+)
 
 from axelcompta.core.db import metadata
 
@@ -78,4 +88,19 @@ notifications_envoyees = Table(
     Column("type", String, nullable=False),
     Column("envoye_le", DateTime, nullable=False),
     Column("ecriture_ids", JSON, nullable=False),
+)
+
+# Preuve de signature, append-only : un INSERT par signature, jamais de
+# mise à jour. Isolation par `dossier_id` (policy RLS), comme les décisions.
+documents_signes = Table(
+    "documents_signes",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False, index=True),
+    Column("type_document", String, nullable=False),
+    Column("contenu_pdf", LargeBinary, nullable=False),
+    Column("signataire", String, nullable=False),
+    Column("signe_le", DateTime(timezone=True), nullable=False),
+    Column("provider", String, nullable=False),
+    Column("qualifie", Boolean, nullable=False),
 )

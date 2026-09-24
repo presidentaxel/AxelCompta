@@ -35,6 +35,8 @@ from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.workflow.decisions import DecisionHumaine
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
+from axelcompta.workflow.signature import DocumentSigne
+from axelcompta.workflow.signature_postgres import PostgresSignatureRepository
 
 pytestmark = pytest.mark.integration
 
@@ -203,6 +205,25 @@ def test_ecrire_une_decision_hors_de_son_dossier_est_refuse(
     with contexte_identite(dossier_id="sophie", tenant_id=None):
         with pytest.raises((ProgrammingError, DBAPIError)):
             PostgresDecisionRepository(engine_web).enregistrer_decision(decision)
+
+
+def test_signer_hors_de_son_dossier_est_refuse(
+    engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """Même barrière que les décisions : Sophie ne peut pas enregistrer une
+    signature sur le dossier de Karim."""
+    document = DocumentSigne(
+        contenu_pdf=b"%PDF-1.4 demo",
+        signataire=UserId("sophie"),
+        signe_le=datetime.now(UTC),
+        provider="demo",
+        qualifie=False,
+    )
+    with contexte_identite(dossier_id="sophie", tenant_id=None):
+        with pytest.raises((ProgrammingError, DBAPIError)):
+            PostgresSignatureRepository(engine_web).enregistrer(
+                DossierId("karim"), "greffe_inpi", document
+            )
 
 
 def test_le_role_administrateur_nest_jamais_soumis_aux_policies(

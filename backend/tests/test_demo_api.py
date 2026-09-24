@@ -128,9 +128,8 @@ def _client_et_stubs() -> tuple[
     decisions_stub = InMemoryDecisionRepository()
     comptes_stub = InMemoryCompteRepository()
     justificatifs_stub = InMemoryJustificatifRepository()
-    # `get_signatures_inpi` retourne par défaut un singleton de niveau
-    # module (demo_api.py) — surchargé ici pour isoler chaque test, sinon
-    # une signature posée par un test resterait visible dans les suivants.
+    # `get_signatures_inpi` parle à Postgres en vrai — surchargé ici pour
+    # que la suite rapide n'ouvre pas de connexion, et pour isoler les tests.
     signatures_stub = InMemorySignatureRepository()
     dossiers_stub = InMemoryDossierRepository()
     ledger_stub = InMemoryLedgerService()

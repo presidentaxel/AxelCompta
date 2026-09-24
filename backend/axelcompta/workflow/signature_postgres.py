@@ -1,0 +1,81 @@
+"""Implémentation Postgres de SignatureRepository. Seul endroit qui fait
+de l'I/O pour les signatures — `signature.py` reste pur, comme
+`decisions_postgres.py` vis-à-vis de `decisions.py`.
+
+Append-only : `enregistrer` ne fait qu'un INSERT. L'historique est la
+preuve, jamais écrasé.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.engine import Engine, Row
+
+from axelcompta.core.ids import DossierId, UserId
+from axelcompta.core.rls import appliquer_rls
+
+from .orm import documents_signes
+from .signature import DocumentSigne, SignatureRepository
+
+
+class PostgresSignatureRepository(SignatureRepository):
+    def __init__(self, engine: Engine) -> None:
+        self._engine = engine
+
+    def enregistrer(
+        self, dossier_id: DossierId, type_document: str, document: DocumentSigne
+    ) -> None:
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                documents_signes.insert().values(
+                    id=str(uuid.uuid4()),
+                    dossier_id=dossier_id,
+                    type_document=type_document,
+                    contenu_pdf=document.contenu_pdf,
+                    signataire=document.signataire,
+                    signe_le=document.signe_le,
+                    provider=document.provider,
+                    qualifie=document.qualifie,
+                )
+            )
+
+    def dernier(self, dossier_id: DossierId, type_document: str) -> DocumentSigne | None:
+        with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
+            ligne = connexion.execute(
+                select(documents_signes)
+                .where(
+                    documents_signes.c.dossier_id == dossier_id,
+                    documents_signes.c.type_document == type_document,
+                )
+                .order_by(documents_signes.c.signe_le.desc())
+                .limit(1)
+            ).fetchone()
+        return _ligne_vers_document(ligne) if ligne is not None else None
+
+    def lister(self, dossier_id: DossierId, type_document: str) -> tuple[DocumentSigne, ...]:
+        with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
+            resultat = connexion.execute(
+                select(documents_signes)
+                .where(
+                    documents_signes.c.dossier_id == dossier_id,
+                    documents_signes.c.type_document == type_document,
+                )
+                .order_by(documents_signes.c.signe_le)
+            )
+        return tuple(_ligne_vers_document(ligne) for ligne in resultat)
+
+
+def _ligne_vers_document(ligne: Row[tuple[object, ...]]) -> DocumentSigne:
+    contenu = ligne.contenu_pdf
+    return DocumentSigne(
+        contenu_pdf=bytes(contenu),
+        signataire=UserId(ligne.signataire),
+        signe_le=ligne.signe_le,
+        provider=ligne.provider,
+        qualifie=ligne.qualifie,
+    )
