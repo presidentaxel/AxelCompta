@@ -13,11 +13,6 @@ reste.
 - Toute écriture équilibrée (débit = crédit) ou rejetée, jamais persistée
   déséquilibrée.
 - Immutabilité : une écriture validée ne se modifie pas, elle se contre-passe.
-  **En base depuis le 2026-09-24** : trigger sur `ecritures` et
-  `lignes_ecriture` (migration `a91c4e2b7d10`). `contrepassation.py` construit
-  l'inverse (journal OD, id `{origine}:contrepassation`) ; `workflow/synchro.py`
-  l'enregistre quand Digifactory modifie ou supprime une transaction déjà
-  comptabilisée.
 
 ## Fichiers
 
@@ -31,8 +26,6 @@ reste.
 - `orm.py` / `repository.py` — `PostgresLedgerService` : implémentation
   réelle contre Postgres (SQLAlchemy Core). `orm.py` définit les tables,
   séparé de `models.py` pour garder le domaine pur (doc 08 §2.1).
-- `contrepassation.py` — `contrepasser()` (**fait, 2026-09-24**, doc 06 I2) :
-  pure, sans I/O. Inverse les sens, garde les montants, journal `OD`.
 
 ## Statuts
 

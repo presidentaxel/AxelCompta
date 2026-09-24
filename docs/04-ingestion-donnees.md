@@ -1,6 +1,6 @@
 # 04 — Ingestion des données : Bridge, fichiers, OCR & justificatifs
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-24
+> Statut : brouillon à valider — Dernière mise à jour : 2026-06-12
 
 ## 1. Principes
 
@@ -10,10 +10,7 @@
    quel import.
 2. **Idempotence.** Rejouer un import ne crée jamais de doublons. Clé de
    déduplication : `(compte, date, montant, hash(libellé brut), index_intra_jour)` +
-   l'ID transaction Digifactory quand il existe. Une transaction déjà
-   comptabilisée dont le montant ou la date change, ou qui disparaît, n'est
-   pas réécrite : contre-passation et quarantaine (doc 06 I2,
-   `workflow/synchro.py`, 2026-09-24).
+   l'ID transaction Digifactory quand il existe.
 3. **Le justificatif est optionnel par conception.** Une transaction sans ticket est
    traitée et comptabilisée ; elle porte un statut `piece_manquante` qui alimente la
    liste de relance, jamais un blocage.

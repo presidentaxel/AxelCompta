@@ -2,7 +2,7 @@
 
 > Statut : moteur démo + deux interfaces (gestionnaire, chauffeur) en
 > construction, voir état détaillé ci-dessous. Dernière mise à jour :
-> 2026-09-24.
+> 2026-09-11.
 
 Ce doc fait le lien entre l'arborescence réelle du repo (`backend/`,
 `frontend/`) et le découpage en modules défini en [doc 03 §3](03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
@@ -315,38 +315,13 @@ proposition puis écriture, et avance le curseur (`curseurs_synchro`) en
 dernier. Idempotent : l'id d'écriture dérive de l'id de transaction
 (`{dossier}:digifactory-{id}`), plus d'un compteur. Le ledger reste
 append-only : une transaction modifiée ou supprimée après comptabilisation
-est contre-passée et part en `quarantaine_ingestion` (précisé le
-2026-09-24, paragraphe suivant). Politique
+part en `quarantaine_ingestion` (contre-passation à construire). Politique
 d'acceptation automatique **provisoire** (`workflow/synchro.py`) : règle
 haute/moyenne confiance ≥ 0,75, ML ≥ 0,90, sinon compte 471 donc file de
 revue de l'indiv ; les virements Uber/Bolt vont toujours en 471 tant qu'aucun
 settlement (Rollee) ne les réconcilie, jamais en 706 sans ventilation TVA.
 Migration `a016d1659a6e`. Pas de planificateur : cron ou lancement manuel
 tant que la file de jobs n'existe pas.
-
-**Verrous, journal, consentement, contre-passation (2026-09-24)** :
-- Migration `a91c4e2b7d10` : `UPDATE` et `DELETE` refusés sur `ecritures`
-  et `lignes_ecriture` (`axelcompta_interdire_mutation()`). Le propriétaire
-  de la base est soumis au trigger, comme le rôle web.
-- `ingestion/consentement.py` + table `consentements_bancaires` (migration
-  `b7e2d4a81c06`) : à chaque synchro, le statut DSP2 est classé
-  (`actif` / `a_renouveler` à J-14 / `expire` / `jamais_connecte`) depuis
-  `item.authentication_expires_at` et enregistré. Pas d'e-mail, pas
-  d'écran : le dashboard et les relances de doc 14 §2.2-2.3 restent à faire.
-  La table est l'état courant (mise à jour autorisée), pas une écriture.
-- `workflow/audit.py`, table `journal_audit` (migration `c2f91ab84e30`) :
-  chaque décision et chaque signature écrivent une ligne dans la même
-  transaction (dossier, type d'acte, référence, acteur, horodatage). Pas
-  de libellé bancaire, pas de PDF. Le journal « qui a consulté / exporté »
-  de doc 10 n'est pas couvert.
-- Migration `d8b41c6e0a27` : le même trigger sur `decisions_humaines` et
-  `documents_signes`. Une correction est une nouvelle ligne.
-- `ledger/contrepassation.py`, appelée par `workflow/synchro.py` : une
-  transaction déjà comptabilisée que Digifactory modifie ou supprime
-  reçoit une écriture inverse (journal OD, mêmes montants, sens opposés,
-  id `{écriture}:contrepassation`, une seule fois). L'originale ne change
-  pas et le nouveau montant n'est pas comptabilisé tout seul. La
-  quarantaine reste posée. Pas de migration : aucun changement de schéma.
 
 **Clés étrangères, notifications, invitations en masse (2026-09-22)** :
 - Migration `7cd5053e8209` : FK des décisions, annotations, propositions et

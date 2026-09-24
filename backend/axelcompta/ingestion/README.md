@@ -34,12 +34,6 @@ ne dépend jamais d'`ingestion` en retour, règle absolue doc 03 §3).
   curseur)` (appelle `/transactions/{contact_nr}` avec le contact du dossier,
   refuse un dossier sans contact). L'orchestration vit dans
   `workflow/synchro.py`, pas ici (graphe de dépendances, doc 18).
-- `consentement.py` / `consentement_postgres.py` (**fait, 2026-09-24**,
-  doc 14 §2.2) : classe le consentement DSP2
-  (`actif` / `a_renouveler` à 14 jours / `expire` / `jamais_connecte`)
-  et enregistre l'état courant (`consentements_bancaires`). Pas d'e-mail,
-  pas d'écran. Relevé par `synchro_digifactory.py` ; un échec de lecture
-  des comptes ne fait pas échouer la synchro des transactions.
 
 ## Contenu prévu (au-delà de la démo)
 

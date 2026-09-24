@@ -1,6 +1,6 @@
 # 06 — Moteur comptable (`ledger` + `closing` + `filings`)
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-24
+> Statut : brouillon à valider — Dernière mise à jour : 2026-08-01
 
 Le module le plus critique du système. C'est lui qui doit être « incassable » :
 déterministe, pur, couvert à 100 % par les tests, vérifié par invariants.
@@ -17,19 +17,6 @@ déterministe, pur, couvert à 100 % par les tests, vérifié par invariants.
 | I6 | Toute écriture référence sa source (transaction, pièce, OD documentée) | Champ obligatoire, non nullable |
 | I7 | La balance générale s'équilibre à tout instant t | Test d'intégrité quotidien en prod (job) + après chaque batch |
 | I8 | Le FEC exporté repasse les contrôles DGFiP | Test CI sur dossiers de référence |
-
-**I2 en code (2026-09-24).** `UPDATE` et `DELETE` sont refusés sur une
-écriture validée et ses lignes (`axelcompta_interdire_mutation()`, migration
-`a91c4e2b7d10`). Le même verrou couvre `decisions_humaines`,
-`documents_signes` et `journal_audit` (migrations `c2f91ab84e30`,
-`d8b41c6e0a27`). Une transaction bancaire déjà comptabilisée que le
-fournisseur modifie ou supprime n'est pas réécrite : `contrepasser()`
-(`ledger/contrepassation.py`, appelée par `workflow/synchro.py`) ajoute
-l'écriture inverse — journal `OD`, date et montants d'origine, sens
-opposés, `reference_piece` = id d'origine, id stable
-`{id}:contrepassation`. La quarantaine reste posée ; le nouveau montant
-n'est pas comptabilisé tout seul. I4 (période clôturée) n'est pas fait :
-délai et CCA/FNP ne sont pas tranchés (§5bis).
 
 ## 2. Objets du domaine
 

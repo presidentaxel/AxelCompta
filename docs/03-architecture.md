@@ -1,6 +1,6 @@
 # 03 — Architecture technique
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-24
+> Statut : brouillon à valider — Dernière mise à jour : 2026-09-11
 
 ## 1. Principes directeurs
 
@@ -18,10 +18,7 @@ Calibrés pour une équipe de 1-2 devs visant une fiabilité « comptable » :
    exercice.
 4. **Event-sourcing léger sur les faits comptables.** Les écritures sont immuables
    (append-only) ; les corrections sont des contre-passations. La piste d'audit est
-   un sous-produit gratuit de ce choix. **En code depuis le 2026-09-24**
-   (doc 06 I2) : trigger Postgres sur les écritures, les décisions et les
-   signatures ; contre-passation d'une transaction bancaire déjà
-   comptabilisée que Digifactory modifie ou supprime.
+   un sous-produit gratuit de ce choix.
 5. **Multi-tenant dès le jour 1.** Isolation par `tenant_id` partout, vérifiée par
    des tests et par Row Level Security en base.
 6. **Un tenant = un portefeuille de 1 à N dossiers.** Le mode « gestionnaire »

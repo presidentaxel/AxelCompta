@@ -319,10 +319,8 @@ cet ordre — chacun est un prérequis du suivant :
 séparée, doc 05 §5), `decisions_memory.py` (tests rapides) et
 `orm.py`/`decisions_postgres.py` (persistance réelle, deux tables
 append-only, migration `55cf8c93e5bf`) — testé contre un vrai Postgres
-(`tests/integration/test_decisions_repository.py`). Depuis le 2026-09-24,
-`decisions_humaines` est aussi verrouillée en base (migration
-`d8b41c6e0a27`) et chaque décision est recopiée dans `journal_audit`.
-Détail dans `backend/axelcompta/workflow/README.md`.
+(`tests/integration/test_decisions_repository.py`). Détail dans
+`backend/axelcompta/workflow/README.md`.
 
 **Pas encore fait, trouvé en cours de route** : `construire_ledger()`
 (`demo_chauffeurs_type.py`) calcule la `ProposedEntry` de chaque

@@ -147,11 +147,6 @@ signer un devis pour ce cas d'usage spécifiquement.
 > la suivante. Condition nécessaire pour que la signature « validation »
 > ci-dessous vaille comme preuve, indépendamment du choix de prestataire
 > pour la signature « légale ».
->
-> **Verrou en base, 2026-09-24** : `UPDATE` et `DELETE` sur
-> `documents_signes` lèvent une erreur (migration `d8b41c6e0a27`).
-> L'enregistrement écrit aussi une ligne dans `journal_audit` (acteur,
-> horodatage, référence). Le PDF signé n'est pas recopié dans ce journal.
 
 Clarification de Louis, importante pour ne pas tout confondre dans
 `workflow/signature.py` (doc 18) : le parcours de clôture (doc 19 §5.3)

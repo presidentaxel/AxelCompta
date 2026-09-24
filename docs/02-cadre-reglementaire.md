@@ -100,7 +100,7 @@ veulent une). À garder pour la phase 2, ce n'est pas bloquant pour la V1.
 |------------|--------|----------------|
 | Plan Comptable Général (PCG 2025, règlement ANC n° 2022-06) | ANC | Référentiel de comptes embarqué, versionné. |
 | Partie double, balance toujours équilibrée | PCG | Invariant logiciel absolu (voir doc 06). |
-| Caractère **définitif** des écritures validées (intangibilité) | PCG art. 921-2 ; LPF | Pas de modification d'une écriture validée : contre-passation uniquement. Journalisation immuable. Trigger et contre-passation d'une transaction bancaire déjà comptabilisée : en code le 2026-09-24 (doc 06 I2). |
+| Caractère **définitif** des écritures validées (intangibilité) | PCG art. 921-2 ; LPF | Pas de modification d'une écriture validée : contre-passation uniquement. Journalisation immuable. |
 | Numérotation séquentielle, datation, pièce justificative référencée | PCG | Chaque écriture porte une référence de pièce (ou un statut « pièce manquante »). |
 | **FEC** (fichier des écritures comptables) conforme art. A.47 A-1 LPF | DGFiP | Export FEC testé contre l'outil officiel « Test Compta Demat » en CI. |
 | Conservation 10 ans des pièces | Code de commerce L.123-22 | Archivage WORM (write once read many) des justificatifs et écritures. |

@@ -352,15 +352,11 @@ peut faire les appels avec les jetons pour la sécu... et avec des logs, je
 veux pouvoir prouver légalement que la personne a signé donc il faut une
 trace électronique. »
 
-**Doc déjà écrite pour ça, pas inventée ici** : doc 10 spécifie déjà
+**Doc déjà écrite pour ça, pas inventée ici** : doc 10 §RGPD spécifie déjà
 « Journal d'audit : table append-only — qui a vu/modifié/validé/exporté
-quoi, quand, depuis où » (V1, doc 12 §1.1). Une première tranche existe
-depuis le 2026-09-24 (`journal_audit`, migration `c2f91ab84e30`) : qui a
-posé une décision ou une signature, quand, sur quel dossier. Pas de
-libellé bancaire, pas de PDF. Le journal « qui a consulté / exporté »,
-consultable dans l'UI, reste à faire. Ce lot du 2026-09-11 en avait fait
-la version minimale, appliquée aux deux points qui en avaient le plus
-besoin :
+quoi, quand, depuis où » (V1, doc 12 §1.1, jamais construit) — c'est le
+mécanisme général. Ce lot en fait la version minimale, appliquée aux deux
+points qui en avaient le plus besoin :
 
 1. **Jeton obligatoire sur toutes les routes indiv** (`_verifier_acces_dossier`
    renvoie désormais `IdentiteAuthentifiee`, pas `None` — 401 si aucun jeton,
@@ -374,14 +370,12 @@ besoin :
    pouvait être écrasée par la suivante (« pas besoin d'historique pour la
    démo », raisonnement erroné une fois qu'il faut prouver légalement
    qu'une personne a signé). `dernier()` reste l'API principale, `lister()`
-   expose l'historique complet, jamais purgé. Depuis le 2026-09-24,
-   `UPDATE` et `DELETE` sont aussi refusés en base sur `documents_signes`
-   (migration `d8b41c6e0a27`, même trigger que les écritures), et chaque
-   signature écrit une ligne dans `journal_audit`.
+   expose l'historique complet, jamais purgé.
 
-**Reste à faire, plus large** (doc 10, doc 12 §1.1) : le journal
-transverse (consultations, exports, pas seulement décisions et signatures)
-et son écran. La tranche décisions/signatures est en place (2026-09-24).
+**Pas fait dans ce lot, volontairement plus large** (doc 10, doc 12 §1.1) :
+le vrai journal d'audit transverse (tout objet, pas que les signatures ;
+consultable par tenant) — son propre chantier, pas à construire en marge
+d'un autre.
 
 Vérifié : 231 tests backend verts (dont 45 dans `test_demo_api.py`, un
 test devenu obsolète supprimé — `test_decision_gestionnaire_reste_attribuee_a_utilisateur_demo`,
