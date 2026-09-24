@@ -11,8 +11,8 @@ Ce que ça garantit, et qui n'était pas vrai du chemin de démo :
   suivant ; au pire une proposition orpheline, sans effet.
 - **Le ledger reste append-only** (doc 06 §1). Une transaction modifiée ou
   supprimée côté banque *après* avoir été comptabilisée n'est ni réécrite ni
-  ignorée : elle part en quarantaine pour décision humaine (contre-passation
-  à construire).
+  ignorée : elle est contre-passée (écriture inverse, journal OD) et
+  signalée en quarantaine. L'originale ne change pas.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from axelcompta.categorize.pipeline import CategorizationPipeline
 from axelcompta.core.ids import EcritureId
 from axelcompta.ingestion.journal import JournalIngestion
 from axelcompta.ingestion.providers.base import LotTransactions
+from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.service import LedgerService
 from axelcompta.tenants.models import Dossier
@@ -85,6 +86,17 @@ def _signature(ecriture: Ecriture) -> tuple[int, object]:
     return 0, ecriture.date
 
 
+def _annuler(
+    ledger: LedgerService, comptabilisees: dict[EcritureId, Ecriture], existante: Ecriture
+) -> None:
+    """Pose l'écriture inverse une seule fois. L'originale reste en place."""
+    inverse = contrepasser(existante)
+    if inverse.id in comptabilisees:
+        return
+    ledger.enregistrer(inverse)
+    comptabilisees[inverse.id] = inverse
+
+
 def _id_ecriture(dossier: Dossier, source_nom: str, transaction_id: str) -> EcritureId:
     return EcritureId(f"{dossier.id}:{source_nom}-{transaction_id}")
 
@@ -135,6 +147,7 @@ def _traiter_transactions(
                 compteurs.connues += 1
             else:
                 compteurs.modifiees += 1
+                _annuler(ledger, comptabilisees, existante)
                 journal.mettre_en_quarantaine(
                     dossier.id,
                     source_nom,
@@ -161,18 +174,22 @@ def _signaler_supprimees(
     lot: LotTransactions,
     comptabilisees: dict[EcritureId, Ecriture],
     journal: JournalIngestion,
+    ledger: LedgerService,
 ) -> int:
     signalees = 0
     for transaction_id in lot.supprimees:
-        if _id_ecriture(dossier, source_nom, transaction_id) in comptabilisees:
-            signalees += 1
-            journal.mettre_en_quarantaine(
-                dossier.id,
-                source_nom,
-                "supprimee_apres_comptabilisation",
-                transaction_id,
-                {"id": transaction_id},
-            )
+        existante = comptabilisees.get(_id_ecriture(dossier, source_nom, transaction_id))
+        if existante is None:
+            continue
+        signalees += 1
+        _annuler(ledger, comptabilisees, existante)
+        journal.mettre_en_quarantaine(
+            dossier.id,
+            source_nom,
+            "supprimee_apres_comptabilisation",
+            transaction_id,
+            {"id": transaction_id},
+        )
     return signalees
 
 
@@ -200,7 +217,7 @@ async def synchroniser_dossier(
         pipeline,
         comptes_par_categorie,
     )
-    supprimees = _signaler_supprimees(dossier, source_nom, lot, comptabilisees, journal)
+    supprimees = _signaler_supprimees(dossier, source_nom, lot, comptabilisees, journal, ledger)
     # Curseur en dernier : une interruption plus haut se rattrape au prochain passage.
     if lot.curseur is not None:
         journal.avancer_curseur(dossier.id, source_nom, lot.curseur)

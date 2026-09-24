@@ -183,6 +183,8 @@ def test_montant_modifie_apres_comptabilisation_est_signale_pas_reecrit() -> Non
         if ligne.compte == "512"
     )
     assert montant_512 == 6000  # l'écriture d'origine n'a pas bougé
+    contres = [e for e in env.ledger.grand_livre(DOSSIER.id) if e.id.endswith(":contrepassation")]
+    assert len(contres) == 1
 
 
 def test_le_meme_signalement_nest_pas_repete_a_chaque_synchro() -> None:
@@ -195,6 +197,8 @@ def test_le_meme_signalement_nest_pas_repete_a_chaque_synchro() -> None:
     env.synchroniser()
 
     assert len(env.journal.lister_quarantaine(DOSSIER.id)) == 1
+    contres = [e for e in env.ledger.grand_livre(DOSSIER.id) if e.id.endswith(":contrepassation")]
+    assert len(contres) == 1
 
 
 def test_transaction_supprimee_apres_comptabilisation_est_signalee() -> None:
@@ -206,7 +210,7 @@ def test_transaction_supprimee_apres_comptabilisation_est_signalee() -> None:
     rapport = env.synchroniser()
 
     assert rapport.supprimees_signalees == 1
-    assert len(env.ledger.grand_livre(DOSSIER.id)) == 3
+    assert len(env.ledger.grand_livre(DOSSIER.id)) == 4
 
 
 def test_transaction_supprimee_avant_comptabilisation_nest_jamais_comptabilisee() -> None:
