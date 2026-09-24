@@ -319,8 +319,10 @@ cet ordre — chacun est un prérequis du suivant :
 séparée, doc 05 §5), `decisions_memory.py` (tests rapides) et
 `orm.py`/`decisions_postgres.py` (persistance réelle, deux tables
 append-only, migration `55cf8c93e5bf`) — testé contre un vrai Postgres
-(`tests/integration/test_decisions_repository.py`). Détail dans
-`backend/axelcompta/workflow/README.md`.
+(`tests/integration/test_decisions_repository.py`). Depuis le 2026-09-24,
+`decisions_humaines` est aussi verrouillée en base (migration
+`d8b41c6e0a27`) et chaque décision est recopiée dans `journal_audit`.
+Détail dans `backend/axelcompta/workflow/README.md`.
 
 **Pas encore fait, trouvé en cours de route** : `construire_ledger()`
 (`demo_chauffeurs_type.py`) calcule la `ProposedEntry` de chaque
@@ -979,3 +981,43 @@ registre des immobilisations) ; le FEC n'est pas passé dans « Test Compta
 Demat » (outil Windows) ; une base de démo amorcée avant ce jour doit être
 réamorcée (le ledger a une écriture de plus, `demo_seed` refuse de
 compléter un ledger partiel).
+
+## 16. Traité le 2026-09-24 : durcissement V1, prévu et hors démo
+
+Rien de ce qui suit n'est dans le périmètre de la démo, et ce n'est pas une
+dérive : c'était prévu. Ce sont des items V1 déjà listés dans doc 12
+(§1.1 journal d'audit, §1.2 dashboard consentements, §1.3 verrous et
+invariants), avancés pendant que la démo tient debout. Aucun écran de la
+démo ne change.
+
+| PR | Quoi | Où c'est suivi |
+|---|---|---|
+| #3 | scikit-learn épinglé en 1.9.0 (version qui a sérialisé le modèle) | `backend/pyproject.toml` |
+| #4 | Signature greffe persistée en Postgres, même modèle que les décisions | doc 18, doc 20 |
+| #5 | Écriture validée non modifiable (trigger, invariant I2) | doc 12 §1.3 |
+| #6 | Consentement bancaire classé à chaque synchro (J-14, expiré…) | doc 12 §1.2, doc 16 |
+| #7 | Journal d'audit append-only des décisions et signatures | doc 12 §1.1 |
+| #8 | Décisions et signatures verrouillées en base | doc 12 §1.3 |
+| #9 | Contre-passation d'une transaction modifiée ou supprimée après comptabilisation | doc 06, doc 16 |
+| #10 | Documentation de #7 à #9 | doc 18 |
+
+Conséquence pour la démo : une base amorcée avant ce jour doit passer
+`alembic upgrade head` (trois migrations de plus : `b7e2d4a81c06`,
+`c2f91ab84e30`, `d8b41c6e0a27`). Le seed lui-même ne change pas.
+
+Revue Bugbot de la PR de rattrapage (#11), trois bugs réels corrigés
+avant le merge. Une contre-passation passait par le 471 et revenait donc
+dans la file « à trancher », sans suivre la décision de son originale (la
+paire ne s'annulait plus dans la liasse). Une ligne bancaire revenue à
+l'identique après contre-passation passait pour « déjà connue » alors
+qu'elle n'était plus comptabilisée. Et la réponse de l'ajout de
+justificatif remettait une ligne annulée en « à trancher ». Helpers `origine`/`annulees` dans
+`ledger/contrepassation.py`.
+
+Incident de process, corrigé le même jour : les PR #6 à #10 étaient
+empilées (chacune basée sur la précédente) et ont été mergées dans leur
+branche parente après que #5 était déjà partie dans `main`. Elles
+apparaissaient « merged » sur GitHub sans être dans `main`. Rattrapé par une
+PR unique vers `main`. Pour une prochaine pile : merger du haut vers le bas,
+ou rebaser chaque PR sur `main` avant de merger sa base.
+

@@ -126,7 +126,7 @@ Ne pas basculer 200 dossiers le même jour. Ordre recommandé :
 
 | Type | Provider | Durée | Conséquence d'expiration |
 |------|----------|-------|--------------------------|
-| Consentement DSP2 (accès bancaire) | Digifactory (relaie Bridge) | 90 jours — date d'expiration non confirmée exposée par Digifactory (doc 16 §6) | Plus de flux bancaire entrant → transactions manquantes |
+| Consentement DSP2 (accès bancaire) | Digifactory (relaie Bridge) | 90 jours — date exposée : `item.authentication_expires_at` (doc 16 §3.2, confirmé 2026-09-11) | Plus de flux bancaire entrant → transactions manquantes |
 | Token d'accès plateformes | Rollee | Variable selon plateforme | Plus de données Rollee → settlements non réconciliés |
 
 ### 2.2 Dashboard des consentements
@@ -137,6 +137,12 @@ Le tableau de bord du gestionnaire affiche en permanence :
 - Statut : actif / à renouveler / expiré / jamais connecté
 
 Ce panneau est un **écran de premier rang**, pas caché dans les paramètres.
+
+**Fait le 2026-09-24, sans écran** : la synchro Digifactory classe et
+enregistre le statut du dossier (`consentements_bancaires`) —
+`actif` / `a_renouveler` (14 jours ou moins) / `expire` /
+`jamais_connecte`. L'écran, la liste des dossiers et les relances
+(§2.3) ne sont pas construits. Rollee n'est pas couvert.
 
 ### 2.3 Modes de relance (configurables par tenant)
 

@@ -14,6 +14,7 @@ from axelcompta.categorize.models import Etage
 from axelcompta.core.ids import DossierId, EcritureId, UserId
 from axelcompta.core.rls import appliquer_rls
 
+from .audit import noter
 from .decisions import AnnotationDev, DecisionHumaine, DecisionRepository
 from .orm import annotations_dev, decisions_humaines
 
@@ -25,9 +26,10 @@ class PostgresDecisionRepository(DecisionRepository):
     def enregistrer_decision(self, decision: DecisionHumaine) -> None:
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
+            identifiant = str(uuid.uuid4())
             connexion.execute(
                 decisions_humaines.insert().values(
-                    id=str(uuid.uuid4()),
+                    id=identifiant,
                     dossier_id=decision.dossier_id,
                     ecriture_id=decision.ecriture_id,
                     categorie=decision.categorie,
@@ -36,6 +38,14 @@ class PostgresDecisionRepository(DecisionRepository):
                     decide_par=decision.decide_par,
                     decide_le=decision.decide_le,
                 )
+            )
+            noter(
+                connexion,
+                decision.dossier_id,
+                "decision",
+                identifiant,
+                decision.decide_par,
+                decision.decide_le,
             )
 
     def decision_courante(

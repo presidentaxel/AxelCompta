@@ -68,6 +68,7 @@ from axelcompta.filings.inpi_depot import PdfDepotInpiRenderer
 from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
+from axelcompta.ledger.contrepassation import annulees, origine
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
@@ -213,7 +214,9 @@ def _ledger_avec_decisions(
     comptes = charger_compte_par_categorie()
     resultat = InMemoryLedgerService()
     for ecriture in ecritures:
-        decision = dernieres_decisions.get(ecriture.id)
+        # Une contre-passation suit la décision de son originale : sinon son
+        # 471 resterait ouvert et la paire ne s'annulerait plus.
+        decision = dernieres_decisions.get(origine(ecriture.id) or ecriture.id)
         if decision is not None:
             ecriture = resoudre_ecriture_a_trancher(
                 ecriture, decision.categorie, dossier.forme_juridique, comptes
@@ -267,8 +270,11 @@ def _resume(
 ) -> DossierResume:
     ecritures = ledger.grand_livre(dossier.id)
     liasse = _construire_liasse(dossier, ledger)
+    exclues = annulees(ecritures)
     nb_a_trancher = sum(
-        1 for e in ecritures if any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
+        1
+        for e in ecritures
+        if e.id not in exclues and any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
     )
     invitation = comptes.statut(dossier.id)
     document_greffe = signatures.dernier(dossier.id, TYPE_DOCUMENT_GREFFE_INPI)
@@ -343,9 +349,11 @@ def _transactions_dossier(
     dossier: Dossier, ledger: InMemoryLedgerService, justificatifs: JustificatifRepository
 ) -> list[TransactionVue]:
     """Extrait de la route (doc 08 §2 : longueur de fonction)."""
+    ecritures = ledger.grand_livre(dossier.id)
+    exclues = annulees(ecritures)
     return [
-        _transaction_vue(e, justificatifs.a_un_justificatif(dossier.id, e.id))
-        for e in ledger.grand_livre(dossier.id)
+        _transaction_vue(e, justificatifs.a_un_justificatif(dossier.id, e.id), e.id in exclues)
+        for e in ecritures
     ]
 
 
@@ -366,8 +374,8 @@ def _compte_affiche(ecriture: Ecriture) -> str:
     return autres[0] if len(autres) == 1 else "règlement plateforme"
 
 
-def _transaction_vue(ecriture: Ecriture, a_justificatif: bool) -> TransactionVue:
-    a_trancher = any(ligne.compte == COMPTE_ATTENTE for ligne in ecriture.lignes)
+def _transaction_vue(ecriture: Ecriture, a_justificatif: bool, annulee: bool) -> TransactionVue:
+    a_trancher = not annulee and any(ligne.compte == COMPTE_ATTENTE for ligne in ecriture.lignes)
     return TransactionVue(
         ecriture_id=ecriture.id,
         date=ecriture.date.isoformat(),
@@ -529,9 +537,12 @@ def _trancher(
     Extrait de la route (doc 08 §2 : longueur de fonction) plutôt que fait
     inline. `decide_par` est toujours l'identité réelle de l'indiv depuis le
     2026-09-11 (doc 19 §8bis)."""
-    ecriture = next((e for e in base.grand_livre(dossier.id) if e.id == ecriture_id), None)
+    ecritures = base.grand_livre(dossier.id)
+    ecriture = next((e for e in ecritures if e.id == ecriture_id), None)
     if ecriture is None:
         raise HTTPException(status_code=404, detail=f"Écriture inconnue : {ecriture_id}")
+    if ecriture.id in annulees(ecritures):
+        raise HTTPException(status_code=409, detail="Cette écriture a été contre-passée.")
     if decisions.decision_courante(dossier.id, EcritureId(ecriture_id)) is not None:
         raise HTTPException(
             status_code=409,
@@ -687,7 +698,10 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         ecriture = _trancher(
             dossier, ecriture_id, entree.categorie, base, decisions, propositions, identite.user_id
         )
-        return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id))
+        # `_trancher` refuse une écriture contre-passée : celle-ci ne l'est pas.
+        return _transaction_vue(
+            ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id), annulee=False
+        )
 
     @app.post(
         "/dossiers/{dossier_id}/transactions/{ecriture_id}/justificatif",
@@ -703,7 +717,11 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         """Justificatif d'une transaction de **son propre dossier** (doc 19
         §5.7) : `DossierDep` refuse tout autre accès, gestionnaire compris."""
         ecriture = _joindre_justificatif(dossier, ecriture_id, fichier, ledger, justificatifs)
-        return _transaction_vue(ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id))
+        return _transaction_vue(
+            ecriture,
+            justificatifs.a_un_justificatif(dossier.id, ecriture_id),
+            ecriture.id in annulees(ledger.grand_livre(dossier.id)),
+        )
 
 
 def _enregistrer_routes_invitation(app: FastAPI) -> None:
