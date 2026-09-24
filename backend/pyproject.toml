@@ -13,7 +13,10 @@ dependencies = [
     "reportlab>=4.0",
     "python-dotenv>=1.0",
     "joblib>=1.3",
-    "scikit-learn>=1.4",
+    # Épinglé à la version exacte qui a sérialisé tfidf_logreg_v1.joblib.
+    # Un patch sklearn plus récent charge le modèle avec un avertissement et
+    # peut changer les prédictions (doc categorize/ml_fallback.py).
+    "scikit-learn==1.9.0",
     "pypdf>=4.0",
     "pyjwt[crypto]>=2.9",
     "python-multipart>=0.0.9",
