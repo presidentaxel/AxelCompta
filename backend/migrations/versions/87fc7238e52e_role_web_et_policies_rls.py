@@ -31,6 +31,7 @@ requêtes qui réutiliseraient la même connexion du pool) — voir
 `axelcompta/core/rls.py` et le middleware `demo_api.py`.
 """
 
+import os
 from typing import Sequence, Union
 
 from alembic import op
@@ -41,11 +42,28 @@ down_revision: Union[str, Sequence[str], None] = 'ca7b37bba581'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Mot de passe de développement, cohérent avec `user`/`password` déjà en
-# clair dans docker-compose.yml/.env.example — cette base ne contient que
-# des données synthétiques (doc 17 §4). À changer avant tout déploiement
-# sur une vraie base (doc 10, hors scope démo).
-_MOT_DE_PASSE_WEB = "web_password_dev"
+# Mot de passe du rôle web. Sur une base locale (docker-compose, CI), le
+# mot de passe de développement en clair suffit : données synthétiques
+# (doc 17 §4). Sur toute autre base (Supabase depuis le 2026-09-24,
+# ADR-003), `AXELCOMPTA_WEB_PASSWORD` est obligatoire : un mot de passe
+# versionné dans le repo ne doit jamais protéger une base exposée.
+_MOT_DE_PASSE_WEB_DEV = "web_password_dev"
+_HOTES_LOCAUX = frozenset({"localhost", "127.0.0.1", "::1", "db"})
+
+
+def _mot_de_passe_web() -> str:
+    # L'hôte d'abord : `migrations/env.py` charge le `.env` racine, qui porte
+    # le mot de passe Supabase même quand on migre une base de test locale.
+    hote = op.get_bind().engine.url.host
+    if hote in _HOTES_LOCAUX:
+        return _MOT_DE_PASSE_WEB_DEV
+    fourni = os.environ.get("AXELCOMPTA_WEB_PASSWORD")
+    if fourni:
+        return fourni.replace("'", "''")
+    raise RuntimeError(
+        f"AXELCOMPTA_WEB_PASSWORD manquante pour une base non locale ({hote}) : "
+        "voir .env.example"
+    )
 
 # Tables où une ligne appartient directement à un dossier (colonne
 # `dossier_id`) : la fonction `axelcompta_dossier_visible` centralise la
@@ -77,7 +95,7 @@ def upgrade() -> None:
         DO $$
         BEGIN
           IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'axelcompta_web') THEN
-            CREATE ROLE axelcompta_web LOGIN PASSWORD '{_MOT_DE_PASSE_WEB}';
+            CREATE ROLE axelcompta_web LOGIN PASSWORD '{_mot_de_passe_web()}';
           END IF;
         END
         $$;

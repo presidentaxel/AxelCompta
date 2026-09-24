@@ -368,7 +368,9 @@ projet, donc moins de terrain déjà connu que le reste).
 >   désactivé** (cohérent avec ADR-003 : « jamais Supabase Auth/PostgREST »
 >   — confirmé, le point 4 ci-dessous), **Auto RLS activé** (toute nouvelle
 >   table verrouillée par défaut).
-> - **Base applicative toujours séparée du projet Supabase** (décision du
+> - **Levé le 2026-09-24 (ADR-003) : la base applicative est désormais
+>   sur ce même projet Supabase.** Texte d'origine conservé pour l'historique :
+>   **Base applicative toujours séparée du projet Supabase** (décision du
 >   2026-09-07, ci-dessus) : `DATABASE_URL` (docker-compose local) reste la
 >   base de `workflow.decisions_humaines` etc. — Supabase n'héberge que
 >   l'auth (schéma `auth`, propre au projet). Pas de risque de ralentir la

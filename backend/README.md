@@ -103,8 +103,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 Pour l'intégration (doc 08 §4 étape 6, nécessite Postgres — voir ci-dessus) :
 
 ```bash
-# Base DÉDIÉE aux tests : chaque test fait `drop_all` en fin d'exécution,
-# ce qui viderait la base de dev (dossiers, ledger, décisions) si on la pointait ici.
+# Base DÉDIÉE aux tests, toujours locale : chaque test fait `drop_all` en fin
+# d'exécution. La fixture `engine` refuse (pytest.exit) toute base dont
+# l'hôte n'est pas local, donc jamais la base Supabase de la démo.
+docker compose up -d --wait db
 docker compose exec db psql -U user -d postgres -c "CREATE DATABASE axelcompta_test"
 export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_test"
 .venv/bin/pytest -q -m integration -k "not supabase"
@@ -113,10 +115,14 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_test"
 ## Lancer l'API de démo sur Postgres (depuis le 2026-09-21)
 
 L'API lit dossiers, ledger et propositions dans Postgres (elle ne les
-recalcule plus à chaque requête). Une fois, puis à chaque nouveau schéma :
+recalcule plus à chaque requête). **Depuis le 2026-09-24, ce Postgres est
+celui du projet Supabase** (ADR-003), plus le docker-compose local, qui ne
+sert plus qu'aux tests d'intégration. `DATABASE_URL`, `DATABASE_URL_WEB` et
+`AXELCOMPTA_WEB_PASSWORD` sont dans le `.env` racine (voir `.env.example`).
+Une fois, puis à chaque nouveau schéma :
 
 ```bash
-export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_dev"
+set -a && . ../.env && set +a
 .venv/bin/alembic upgrade head
 .venv/bin/python -m axelcompta.demo_seed      # idempotent, 3 dossiers de démo
 .venv/bin/uvicorn axelcompta.demo_api:app --port 8000
@@ -136,15 +142,12 @@ reste celui des scripts d'administration ci-dessus (`demo_seed`,
 **Réamorçage obligatoire après le 2026-09-23** (doc 17 §15) : chaque
 dossier de démo a désormais une écriture de libération du capital et une
 identité légale. Une base amorcée avant cette date lève
-`AmorcageIncompletError`. Repartir d'une base vide (les décisions, annotations
-et notifications de démo en base sont perdues ; les comptes Supabase ne
-bougent pas, ils sont chez Supabase) :
+`AmorcageIncompletError`. La base Supabase, créée le 2026-09-24, a été
+amorcée après cette date : rien à faire. Pour repartir de zéro un jour, il
+faut vider les tables applicatives du projet Supabase (dashboard, SQL
+editor) avant `alembic upgrade head` et `demo_seed` ; les comptes Supabase
+Auth (schéma `auth`) ne sont pas concernés.
 
-```bash
-docker compose down -v && docker compose up -d --wait db
-.venv/bin/alembic upgrade head
-.venv/bin/python -m axelcompta.demo_seed
-```
 Synchroniser les transactions Digifactory d'un portefeuille (nécessite
 `DIGIFACTORY_BASE_URL`, `DIGIFACTORY_TOKEN` et des dossiers portant un
 `contact_nr`) :

@@ -1,6 +1,6 @@
 # ADR-003 — Hébergement et base de données
 
-**Date :** 2026-06-16 — Mise à jour : 2026-09-08
+**Date :** 2026-06-16 — Mise à jour : 2026-09-24
 **Statut :** partiellement accepté — base de données et auth tranchées (Supabase, y compris pour la V1, voir mise à jour 2026-09-08), compute à décider quand le code est stable
 **Décideurs :** Louis Vedovato
 
@@ -13,6 +13,18 @@ AxeLCompta traite des données bancaires et fiscales de personnes morales franç
 ## Décision 1 — Base de données : Supabase ✅ (retenu)
 
 **Supabase est le choix retenu pour la base de données** (dev, staging et prod jusqu'à preuve du contraire).
+
+> **Mise à jour 2026-09-24 — appliqué pour de vrai.** Jusqu'ici seule
+> l'auth tournait sur Supabase : la base applicative était restée sur un
+> Postgres docker local (décision du 2026-09-07, doc 17 §9 bloc B), en
+> contradiction avec cette décision. Louis tranche : la base de dev et de
+> démo passe sur le projet Supabase `AxelCompta-demo` (eu-west-1). Rien ne
+> change dans le code applicatif (connection string standard, Alembic, RLS
+> maison). Ajustements : connexion par le Session pooler (la connexion
+> directe est en IPv6 seulement), mot de passe du rôle `axelcompta_web`
+> fourni par `AXELCOMPTA_WEB_PASSWORD` au lieu d'être versionné, et tests
+> d'intégration verrouillés sur un Postgres local (ils suppriment toutes
+> les tables). Data API (PostgREST) toujours désactivée sur le projet.
 
 Supabase = PostgreSQL managé avec tooling (dashboard SQL, RLS visuel, backups, PITR). Tout ce qui est prévu dans l'architecture (SQLAlchemy, Alembic, RLS multi-tenant) fonctionne sans modification — c'est une connection string PostgreSQL standard.
 

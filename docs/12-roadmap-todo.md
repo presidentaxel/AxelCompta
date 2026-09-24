@@ -44,6 +44,13 @@ modifiée ou supprimée côté Digifactory (PR #9). scikit-learn épinglé en 1.
 branches empilées au lieu de `main` ; rattrapées le même jour par une PR
 unique.
 
+**Fait le 2026-09-24 (soir) : base applicative sur Supabase** (ADR-003).
+Jusqu'ici seule l'auth y était ; les données restaient sur un Postgres docker
+local. Migrations et seed de démo appliqués sur le projet `AxelCompta-demo`,
+API vérifiée de bout en bout. Le docker local ne sert plus qu'aux tests
+d'intégration, verrouillés sur une base locale. Droits par défaut de `anon`
+et `authenticated` retirés (migration `e4c7a9d25b13`).
+
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
 
