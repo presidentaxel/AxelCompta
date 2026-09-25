@@ -31,6 +31,7 @@ backend/ (nécessite `pip install -e ".[dev]"` pour uvicorn).
 from __future__ import annotations
 
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -143,6 +144,9 @@ class DossierAgregat(BaseModel):
     resultat_cts: int
     statut_invitation: str | None
     mode_acces_bancaire: str
+    forme_juridique: str
+    regime_imposition: str
+    regime_tva: str
 
 
 class TransactionVue(BaseModel):
@@ -329,7 +333,7 @@ def _verifier_acces_gestionnaire(identite: IdentiteAuthentifiee | None) -> Tenan
     return identite.tenant_id
 
 
-def _agregat(resume: DossierResume) -> DossierAgregat:
+def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
     return DossierAgregat(
         dossier_id=resume.dossier_id,
         nom=resume.nom,
@@ -342,6 +346,9 @@ def _agregat(resume: DossierResume) -> DossierAgregat:
         resultat_cts=resume.resultat_cts,
         statut_invitation=resume.statut_invitation,
         mode_acces_bancaire=resume.mode_acces_bancaire,
+        forme_juridique=dossier.forme_juridique,
+        regime_imposition=dossier.regime_imposition,
+        regime_tva=dossier.regime_tva,
     )
 
 
@@ -642,9 +649,44 @@ def _configurer_contexte_rls(app: FastAPI) -> None:
             return await call_next(request)
 
 
+_DUREE_CACHE_AGREGATS_S = 600
+
+
+def _lire_cache_agregats(app: FastAPI, tenant_id: str) -> list[DossierAgregat] | None:
+    cache: dict[str, tuple[float, list[DossierAgregat]]] | None = getattr(
+        app.state, "cache_agregats", None
+    )
+    if not cache or tenant_id not in cache:
+        return None
+    expire, valeur = cache[tenant_id]
+    if time.monotonic() > expire:
+        del cache[tenant_id]
+        return None
+    return valeur
+
+
+def _ecrire_cache_agregats(app: FastAPI, tenant_id: str, valeur: list[DossierAgregat]) -> None:
+    cache: dict[str, tuple[float, list[DossierAgregat]]] | None = getattr(
+        app.state, "cache_agregats", None
+    )
+    if cache is None:
+        cache = {}
+        app.state.cache_agregats = cache
+    cache[tenant_id] = (time.monotonic() + _DUREE_CACHE_AGREGATS_S, valeur)
+
+
+def _vider_cache_agregats(app: FastAPI, tenant_id: str) -> None:
+    cache: dict[str, tuple[float, list[DossierAgregat]]] | None = getattr(
+        app.state, "cache_agregats", None
+    )
+    if cache is not None:
+        cache.pop(str(tenant_id), None)
+
+
 def _enregistrer_routes_dossiers(app: FastAPI) -> None:
     @app.get("/dossiers", response_model=list[DossierAgregat])
     def lister_dossiers(
+        request: Request,
         dossiers: DossiersDep,
         base: LedgerBaseDep,
         decisions: DecisionsDep,
@@ -653,12 +695,20 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         identite: IdentiteDep,
     ) -> list[DossierAgregat]:
         """Vue gestionnaire (doc 19 §2.1) : agrégats des dossiers **de son
-        portefeuille** seulement (`tenant_id` du jeton), rien d'autre."""
+        portefeuille** seulement (`tenant_id` du jeton), rien d'autre.
+        Les montants changent peu : on les garde dix minutes par portefeuille."""
         tenant_id = _verifier_acces_gestionnaire(identite)
-        return [
-            _agregat(_resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures))
+        en_cache = _lire_cache_agregats(request.app, str(tenant_id))
+        if en_cache is not None:
+            return en_cache
+        agregats = [
+            _agregat(
+                _resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures), d
+            )
             for d in dossiers.lister_par_tenant(tenant_id)
         ]
+        _ecrire_cache_agregats(request.app, str(tenant_id), agregats)
+        return agregats
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
     def obtenir_dossier(
@@ -724,9 +774,25 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         )
 
 
+class MembrePortefeuille(BaseModel):
+    email: str
+    acces: str
+
+
 def _enregistrer_routes_invitation(app: FastAPI) -> None:
+    @app.get("/portefeuille/membres", response_model=list[MembrePortefeuille])
+    def lister_membres(comptes: ComptesDep, identite: IdentiteDep) -> list[MembrePortefeuille]:
+        """Comptes gestionnaire du même portefeuille. Même accès pour tous :
+        voir les agrégats et inviter. Pas le détail des écritures."""
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        return [
+            MembrePortefeuille(email=email, acces="portefeuille")
+            for email in comptes.membres(str(tenant_id))
+        ]
+
     @app.post("/invitations/en-masse", response_model=InvitationsMasseVue)
     def inviter_en_masse(
+        request: Request,
         entree: InvitationsMasseEntree,
         dossiers: DossiersDep,
         comptes: ComptesDep,
@@ -737,11 +803,16 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:
         lignes, résultat ligne par ligne."""
         tenant_id = _verifier_acces_gestionnaire(identite)
         du_portefeuille = {str(d.id) for d in dossiers.lister_par_tenant(tenant_id)}
-        return _inviter_en_masse(entree.invitations, du_portefeuille, comptes)
+        vue = _inviter_en_masse(entree.invitations, du_portefeuille, comptes)
+        _vider_cache_agregats(request.app, str(tenant_id))
+        return vue
 
     @app.post("/dossiers/{dossier_id}/inviter", response_model=InvitationVue)
     def inviter_chauffeur(
-        entree: InvitationEntree, dossier: DossierPortefeuilleDep, comptes: ComptesDep
+        request: Request,
+        entree: InvitationEntree,
+        dossier: DossierPortefeuilleDep,
+        comptes: ComptesDep,
     ) -> InvitationVue:
         """doc 17 §9 bloc B, doc 19 §3.1 : le gestionnaire invite, jamais
         de self-signup (disable_signup, vérifié 2026-09-07). Envoie un
@@ -751,6 +822,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:
             invitation = comptes.inviter(dossier.id, entree.email)
         except CompteDejaInviteError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
         return InvitationVue(
             dossier_id=invitation.dossier_id,
             email=invitation.email,

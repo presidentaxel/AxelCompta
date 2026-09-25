@@ -64,6 +64,11 @@ class CompteRepository(ABC):
         l'appelant vient déjà de le vérifier pour tout un lot (`statuts`) :
         évite de relister tous les comptes à chaque invitation."""
 
+    def membres(self, tenant_id: str) -> list[str]:
+        """E-mails des comptes rattachés au portefeuille. Vide si le
+        fournisseur ne sait pas les lister (tests en mémoire)."""
+        return []
+
     def statuts(self, dossier_ids: Iterable[DossierId]) -> dict[DossierId, Invitation]:
         """Statut de plusieurs dossiers (seuls ceux qui ont été invités
         figurent dans le résultat). Par défaut un appel par dossier ;
@@ -145,6 +150,17 @@ class SupabaseCompteRepository(CompteRepository):
                     dossier_id=DossierId(dossier_id), email=utilisateur["email"], statut=statut
                 )
         return resultat
+
+    def membres(self, tenant_id: str) -> list[str]:
+        emails: list[str] = []
+        for utilisateur in self._tous_les_utilisateurs():
+            meta = utilisateur.get("app_metadata") or {}
+            if str(meta.get("tenant_id") or "") != tenant_id:
+                continue
+            email = utilisateur.get("email")
+            if email:
+                emails.append(email)
+        return sorted(emails)
 
     def _tous_les_utilisateurs(self) -> list[dict[str, Any]]:
         """`GET /admin/users` est **paginé** (50 par page par défaut) et n'a
