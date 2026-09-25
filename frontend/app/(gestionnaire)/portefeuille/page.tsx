@@ -340,16 +340,16 @@ const LIBELLES_RESULTAT: Record<FiltreResultat, string> = {
   negatif: "Négatif",
 };
 
-function Bascule({
+function Bascule<T extends string>({
   libelle,
   valeur,
   options,
   onChoisir,
 }: {
   libelle: string;
-  valeur: string;
-  options: { id: string; libelle: string }[];
-  onChoisir: (id: string) => void;
+  valeur: T;
+  options: { id: T; libelle: string }[];
+  onChoisir: (id: T) => void;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const maintien = useRef(false);

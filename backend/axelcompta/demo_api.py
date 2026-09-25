@@ -737,9 +737,7 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         if en_cache is not None:
             return en_cache
         agregats = [
-            _agregat(
-                _resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures), d
-            )
+            _agregat(_resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures), d)
             for d in dossiers.lister_par_tenant(tenant_id)
         ]
         _ecrire_cache_agregats(request.app, str(tenant_id), agregats)
