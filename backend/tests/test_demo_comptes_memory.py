@@ -34,3 +34,11 @@ def test_statut_est_isole_par_dossier() -> None:
     autre = DossierId("DEMO_karim")
     repo.inviter(DOSSIER, "sophie@example.com")
     assert repo.statut(autre) is None
+
+
+def test_inviter_un_membre_deja_connu_est_refuse() -> None:
+    repo = InMemoryCompteRepository()
+    repo.inviter_membre("T1", "marie@example.com")
+
+    with pytest.raises(CompteDejaInviteError):
+        repo.inviter_membre("T1", "marie@example.com")

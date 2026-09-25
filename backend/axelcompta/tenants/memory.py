@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import date
+
 from axelcompta.core.ids import DossierId, TenantId
 
 from .models import Dossier, Tenant
@@ -28,10 +31,29 @@ class InMemoryDossierRepository(DossierRepository):
     def lister_par_tenant(self, tenant_id: TenantId) -> tuple[Dossier, ...]:
         return tuple(
             sorted(
-                (d for d in self._dossiers.values() if d.tenant_id == tenant_id),
+                (
+                    d
+                    for d in self._dossiers.values()
+                    if d.tenant_id == tenant_id and d.retire_le is None
+                ),
                 key=lambda d: d.id,
             )
         )
+
+    def obtenir_tenant(self, tenant_id: TenantId) -> Tenant | None:
+        return self._tenants.get(tenant_id)
+
+    def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
+        tenant = self._tenants.get(tenant_id)
+        if tenant is None:
+            raise ValueError(f"tenant inconnu : {tenant_id}")
+        self._tenants[tenant_id] = Tenant(id=tenant.id, nom=nom)
+
+    def retirer(self, dossier_id: DossierId) -> None:
+        dossier = self._dossiers.get(dossier_id)
+        if dossier is None:
+            raise ValueError(f"dossier inconnu : {dossier_id}")
+        self._dossiers[dossier_id] = replace(dossier, retire_le=date.today())
 
     def par_contact_nr(self, contact_nr: str) -> Dossier | None:
         return next((d for d in self._dossiers.values() if d.contact_nr == contact_nr), None)

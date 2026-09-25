@@ -31,6 +31,18 @@ class DossierRepository(ABC):
         """Uniquement les dossiers de ce portefeuille, triés par id."""
 
     @abstractmethod
+    def obtenir_tenant(self, tenant_id: TenantId) -> Tenant | None:
+        """`None` si le portefeuille n'existe pas."""
+
+    @abstractmethod
+    def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
+        """Le nom affiché du portefeuille, choisi par l'organisation."""
+
+    @abstractmethod
+    def retirer(self, dossier_id: DossierId) -> None:
+        """Sort le dossier de la liste du portefeuille. Les écritures restent."""
+
+    @abstractmethod
     def par_contact_nr(self, contact_nr: str) -> Dossier | None:
         """Table de correspondance Digifactory `contact_nr -> dossier`
         (doc 16 §9 point 5)."""

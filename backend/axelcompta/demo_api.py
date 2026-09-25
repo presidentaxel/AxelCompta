@@ -31,6 +31,8 @@ backend/ (nécessite `pip install -e ".[dev]"` pour uvicorn).
 from __future__ import annotations
 
 import re
+import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -38,13 +40,15 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy.engine import Engine
+from sqlalchemy import insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import Engine, Row
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
-from axelcompta.core.rls import contexte_identite
+from axelcompta.core.rls import appliquer_rls, contexte_identite
 from axelcompta.demo_auth import (
     IdentiteAuthentifiee,
     identite_chauffeur_optionnelle,
@@ -75,6 +79,7 @@ from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
 from axelcompta.packs.vtc_demo import charger_compte_par_categorie
 from axelcompta.tenants.models import Dossier
+from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
@@ -143,6 +148,14 @@ class DossierAgregat(BaseModel):
     resultat_cts: int
     statut_invitation: str | None
     mode_acces_bancaire: str
+    forme_juridique: str
+    regime_imposition: str
+    regime_tva: str
+    # Étape grossière de l'année (doc 19 §5), sans le détail des écritures.
+    annee_courante: int
+    etape_courante: str
+    annee_precedente: int
+    etape_precedente: str
 
 
 class TransactionVue(BaseModel):
@@ -316,20 +329,49 @@ def _verifier_acces_dossier(
     return identite
 
 
-def _verifier_acces_gestionnaire(identite: IdentiteAuthentifiee | None) -> TenantId:
+def _verifier_acces_gestionnaire(
+    identite: IdentiteAuthentifiee | None,
+) -> tuple[TenantId, IdentiteAuthentifiee]:
     """doc 03 §7 : le lien `tenant_id` ouvre le portefeuille (agrégats,
     invitations), jamais le détail d'un dossier — voir
     `_verifier_acces_dossier`, qui ne regarde que `dossier_id`. Un compte
     indiv seul n'a pas de `tenant_id` : 403. Retourne le tenant de l'appelant
-    (les dossiers visibles sont ensuite filtrés par ce tenant)."""
+    et l'identité (narrowée, non optionnelle) : les dossiers visibles sont
+    ensuite filtrés par ce tenant."""
     if identite is None:
         raise HTTPException(status_code=401, detail="Authentification requise.")
     if identite.tenant_id is None:
         raise HTTPException(status_code=403, detail="Compte sans portefeuille.")
-    return identite.tenant_id
+    return identite.tenant_id, identite
 
 
-def _agregat(resume: DossierResume) -> DossierAgregat:
+def _etape_en_traitement(resume: DossierResume) -> str:
+    """Exercice terminé, en traitement l'année suivante (clôture, signatures,
+    greffe, impôts). Compte et suivi viennent de l'onboarding. Signé vient
+    du dépôt greffe déjà produit, sans exposer le détail des écritures."""
+    if resume.statut_invitation != "actif":
+        return "Compte"
+    if resume.greffe_inpi_signe:
+        return "Signé"
+    return "Suivi"
+
+
+def _frises(resume: DossierResume, dossier: Dossier) -> tuple[int, str, int, str]:
+    """doc 19 §2.1 : deux frises, l'exercice en cours et celui d'avant, que
+    l'on traite pendant le début de l'année suivante. L'exercice du dossier
+    est la seule donnée : terminé, il est celui d'avant et porte la vraie
+    étape ; pas encore terminé, il est celui en cours et rien n'est connu
+    de l'exercice d'avant. Retourne (année en cours, étape, année d'avant,
+    étape)."""
+    fin = dossier.fin_exercice()
+    compte = "Suivi" if resume.statut_invitation == "actif" else "Compte"
+    if fin < datetime.now(UTC).date():
+        return fin.year + 1, compte, fin.year, _etape_en_traitement(resume)
+    return fin.year, compte, fin.year - 1, "Sans exercice"
+
+
+def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
+    annee_courante, etape_courante, annee_precedente, etape_precedente = _frises(resume, dossier)
     return DossierAgregat(
         dossier_id=resume.dossier_id,
         nom=resume.nom,
@@ -342,6 +384,13 @@ def _agregat(resume: DossierResume) -> DossierAgregat:
         resultat_cts=resume.resultat_cts,
         statut_invitation=resume.statut_invitation,
         mode_acces_bancaire=resume.mode_acces_bancaire,
+        forme_juridique=dossier.forme_juridique,
+        regime_imposition=dossier.regime_imposition,
+        regime_tva=dossier.regime_tva,
+        annee_courante=annee_courante,
+        etape_courante=etape_courante,
+        annee_precedente=annee_precedente,
+        etape_precedente=etape_precedente,
     )
 
 
@@ -477,7 +526,7 @@ def get_dossier_du_portefeuille(
     """Accès gestionnaire à un dossier **de son portefeuille**. Un dossier
     d'un autre tenant répond 404, pas 403 : un gestionnaire ne doit pas
     pouvoir sonder l'existence des dossiers d'un autre portefeuille."""
-    tenant_id = _verifier_acces_gestionnaire(identite)
+    tenant_id, identite = _verifier_acces_gestionnaire(identite)
     dossier = dossiers.obtenir(DossierId(dossier_id))
     if dossier is None or dossier.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail=f"Dossier inconnu : {dossier_id}")
@@ -610,7 +659,7 @@ def _configurer_cors(app: FastAPI) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[ORIGINE_FRONTEND_DEV],
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["*"],
         # Lu par le front pour enregistrer un fichier sous le nom choisi par
         # le serveur (FEC : `<SIREN>FEC<AAAAMMJJ>.txt`, nom légal A.47 A-1).
@@ -642,9 +691,44 @@ def _configurer_contexte_rls(app: FastAPI) -> None:
             return await call_next(request)
 
 
+_DUREE_CACHE_AGREGATS_S = 600
+
+
+def _lire_cache_agregats(app: FastAPI, tenant_id: str) -> list[DossierAgregat] | None:
+    cache: dict[str, tuple[float, list[DossierAgregat]]] | None = getattr(
+        app.state, "cache_agregats", None
+    )
+    if not cache or tenant_id not in cache:
+        return None
+    expire, valeur = cache[tenant_id]
+    if time.monotonic() > expire:
+        del cache[tenant_id]
+        return None
+    return valeur
+
+
+def _ecrire_cache_agregats(app: FastAPI, tenant_id: str, valeur: list[DossierAgregat]) -> None:
+    cache: dict[str, tuple[float, list[DossierAgregat]]] | None = getattr(
+        app.state, "cache_agregats", None
+    )
+    if cache is None:
+        cache = {}
+        app.state.cache_agregats = cache
+    cache[tenant_id] = (time.monotonic() + _DUREE_CACHE_AGREGATS_S, valeur)
+
+
+def _vider_cache_agregats(app: FastAPI, tenant_id: str) -> None:
+    cache: dict[str, tuple[float, list[DossierAgregat]]] | None = getattr(
+        app.state, "cache_agregats", None
+    )
+    if cache is not None:
+        cache.pop(str(tenant_id), None)
+
+
 def _enregistrer_routes_dossiers(app: FastAPI) -> None:
     @app.get("/dossiers", response_model=list[DossierAgregat])
     def lister_dossiers(
+        request: Request,
         dossiers: DossiersDep,
         base: LedgerBaseDep,
         decisions: DecisionsDep,
@@ -653,12 +737,18 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         identite: IdentiteDep,
     ) -> list[DossierAgregat]:
         """Vue gestionnaire (doc 19 §2.1) : agrégats des dossiers **de son
-        portefeuille** seulement (`tenant_id` du jeton), rien d'autre."""
-        tenant_id = _verifier_acces_gestionnaire(identite)
-        return [
-            _agregat(_resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures))
+        portefeuille** seulement (`tenant_id` du jeton), rien d'autre.
+        Les montants changent peu : on les garde dix minutes par portefeuille."""
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        en_cache = _lire_cache_agregats(request.app, str(tenant_id))
+        if en_cache is not None:
+            return en_cache
+        agregats = [
+            _agregat(_resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures), d)
             for d in dossiers.lister_par_tenant(tenant_id)
         ]
+        _ecrire_cache_agregats(request.app, str(tenant_id), agregats)
+        return agregats
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
     def obtenir_dossier(
@@ -682,6 +772,7 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         response_model=TransactionVue,
     )
     def trancher_transaction(
+        request: Request,
         ecriture_id: str,
         entree: DecisionEntree,
         dossier: DossierDep,
@@ -698,6 +789,8 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         ecriture = _trancher(
             dossier, ecriture_id, entree.categorie, base, decisions, propositions, identite.user_id
         )
+        # Le résultat de l'agrégat change : la liste gestionnaire se recalcule.
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
         # `_trancher` refuse une écriture contre-passée : celle-ci ne l'est pas.
         return _transaction_vue(
             ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id), annulee=False
@@ -724,33 +817,353 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         )
 
 
+_ROLES = frozenset({"admin", "membre", "lecture"})
+_CANAUX = frozenset({"sms", "mail", "appel"})
+
+
+class MembrePortefeuille(BaseModel):
+    email: str
+    role: str
+
+
+class InvitationMembreEntree(BaseModel):
+    email: str
+    role: str = "membre"
+
+
+class NomPortefeuille(BaseModel):
+    nom: str
+
+
+class RegleEntree(BaseModel):
+    libelle: str
+    message: str
+    canaux: list[str]
+    portee: str = "tous"
+    dossier_ids: list[str] = []
+    declencheur: str = "manuel"
+    jours_avant: int | None = None
+
+
+class RegleVue(BaseModel):
+    id: str
+    libelle: str
+    message: str
+    canaux: list[str]
+    portee: str
+    dossier_ids: list[str]
+    declencheur: str
+    jours_avant: int | None
+
+
+class RappelEntree(BaseModel):
+    regle_id: str
+    dossier_id: str
+
+
+class RappelVue(BaseModel):
+    id: str
+    dossier_id: str | None
+    regle_id: str | None
+    message: str
+    canal: str
+    cree_le: str
+
+
+def _role_membre(tenant_id: TenantId, email: str) -> str:
+    """Sans ligne, le compte déjà là est admin : les premiers gestionnaires
+    existaient avant la table des droits."""
+    with _engine().connect() as connexion:
+        appliquer_rls(connexion)
+        ligne = connexion.execute(
+            select(droits_membre.c.role).where(
+                droits_membre.c.tenant_id == str(tenant_id),
+                droits_membre.c.email == email.lower(),
+            )
+        ).first()
+    return ligne.role if ligne else "admin"
+
+
+def _exiger_admin(identite: IdentiteAuthentifiee, tenant_id: TenantId) -> None:
+    if _role_membre(tenant_id, identite.email) != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
+
+
+def get_role_membre(identite: IdentiteDep) -> str:
+    """Rôle de l'appelant dans son portefeuille. En dépendance pour que la
+    suite rapide le surcharge sans ouvrir Postgres."""
+    tenant_id, identite = _verifier_acces_gestionnaire(identite)
+    return _role_membre(tenant_id, identite.email)
+
+
+RoleMembreDep = Annotated[str, Depends(get_role_membre)]
+
+
+def _exiger_ecriture(role: str, detail: str) -> None:
+    """doc 19 §2.1 : Lecture consulte, n'invite pas et ne relance pas."""
+    if role == "lecture":
+        raise HTTPException(status_code=403, detail=detail)
+
+
+def _ecrire_role(tenant_id: TenantId, email: str, role: str) -> None:
+    """Upsert : réinviter ou changer le rôle d'un membre déjà présent ne
+    bute pas sur la clé primaire."""
+    with _engine().begin() as connexion:
+        appliquer_rls(connexion)
+        connexion.execute(
+            pg_insert(droits_membre)
+            .values(tenant_id=str(tenant_id), email=email, role=role)
+            .on_conflict_do_update(
+                index_elements=[droits_membre.c.tenant_id, droits_membre.c.email],
+                set_={"role": role},
+            )
+        )
+
+
+def _rappel_vue(ligne: Row[Any]) -> RappelVue:
+    return RappelVue(
+        id=ligne.id,
+        dossier_id=ligne.dossier_id,
+        regle_id=ligne.regle_id,
+        message=ligne.message,
+        canal=ligne.canal,
+        cree_le=ligne.cree_le.isoformat(),
+    )
+
+
+def _regle_vue(ligne: Row[Any]) -> RegleVue:
+    return RegleVue(
+        id=ligne.id,
+        libelle=ligne.libelle,
+        message=ligne.message,
+        canaux=list(ligne.canaux),
+        portee=ligne.portee,
+        dossier_ids=list(ligne.dossier_ids or []),
+        declencheur=ligne.declencheur,
+        jours_avant=ligne.jours_avant,
+    )
+
+
+def _enregistrer_routes_portefeuille(app: FastAPI) -> None:
+    @app.get("/portefeuille", response_model=NomPortefeuille)
+    def lire_portefeuille(dossiers: DossiersDep, identite: IdentiteDep) -> NomPortefeuille:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        tenant = dossiers.obtenir_tenant(tenant_id)
+        return NomPortefeuille(nom=tenant.nom if tenant else "")
+
+    @app.patch("/portefeuille", response_model=NomPortefeuille)
+    def renommer_portefeuille(
+        entree: NomPortefeuille, dossiers: DossiersDep, identite: IdentiteDep
+    ) -> NomPortefeuille:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        nom = entree.nom.strip()
+        if not nom:
+            raise HTTPException(status_code=400, detail="Le nom est vide.")
+        dossiers.renommer_tenant(tenant_id, nom)
+        return NomPortefeuille(nom=nom)
+
+    @app.post("/dossiers/{dossier_id}/retirer")
+    def retirer_dossier(
+        request: Request,
+        dossier: DossierPortefeuilleDep,
+        dossiers: DossiersDep,
+        identite: IdentiteDep,
+    ) -> dict[str, str]:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        dossiers.retirer(dossier.id)
+        _vider_cache_agregats(request.app, str(tenant_id))
+        return {"dossier_id": dossier.id}
+
+
+def _enregistrer_routes_rappels(app: FastAPI) -> None:
+    @app.get("/rappels", response_model=list[RappelVue])
+    def lister_rappels(identite: IdentiteDep) -> list[RappelVue]:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            lignes = connexion.execute(
+                select(rappels)
+                .where(rappels.c.tenant_id == str(tenant_id))
+                .order_by(rappels.c.cree_le.desc())
+            ).all()
+        return [_rappel_vue(ligne) for ligne in lignes]
+
+    @app.post("/rappels", response_model=RappelVue)
+    def declencher_rappel(
+        entree: RappelEntree, identite: IdentiteDep, role: RoleMembreDep
+    ) -> RappelVue:
+        """Enregistre un envoi à partir d'une règle. Le canal n'est pas
+        branché : SMS, e-mail et appel restent à connecter."""
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_ecriture(role, "La lecture seule ne déclenche pas de rappel.")
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            regle = connexion.execute(
+                select(regles_rappel).where(
+                    regles_rappel.c.id == entree.regle_id,
+                    regles_rappel.c.tenant_id == str(tenant_id),
+                )
+            ).first()
+        if regle is None:
+            raise HTTPException(status_code=404, detail="Règle introuvable.")
+        vue = RappelVue(
+            id=str(uuid.uuid4()),
+            dossier_id=entree.dossier_id,
+            regle_id=regle.id,
+            message=regle.message,
+            canal=",".join(regle.canaux),
+            cree_le=datetime.now(UTC).isoformat(),
+        )
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(rappels).values(
+                    id=vue.id,
+                    tenant_id=str(tenant_id),
+                    dossier_id=entree.dossier_id,
+                    regle_id=regle.id,
+                    message=regle.message,
+                    canal=vue.canal,
+                    cree_le=datetime.now(UTC),
+                )
+            )
+        return vue
+
+
+def _enregistrer_routes_regles(app: FastAPI) -> None:
+    @app.get("/regles-rappel", response_model=list[RegleVue])
+    def lister_regles(identite: IdentiteDep) -> list[RegleVue]:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            lignes = connexion.execute(
+                select(regles_rappel).where(regles_rappel.c.tenant_id == str(tenant_id))
+            ).all()
+        return [_regle_vue(ligne) for ligne in lignes]
+
+    @app.post("/regles-rappel", response_model=RegleVue)
+    def creer_regle(entree: RegleEntree, identite: IdentiteDep) -> RegleVue:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        canaux = [canal for canal in entree.canaux if canal in _CANAUX]
+        libelle = entree.libelle.strip()
+        message = entree.message.strip()
+        if not libelle or not message or not canaux:
+            raise HTTPException(status_code=400, detail="Libellé, message et au moins un canal.")
+        if entree.declencheur not in {"manuel", "avant_cloture"} or entree.portee not in {
+            "tous",
+            "selection",
+        }:
+            raise HTTPException(status_code=400, detail="Déclencheur ou portée inconnue.")
+        if entree.declencheur == "avant_cloture" and not entree.jours_avant:
+            raise HTTPException(status_code=400, detail="Indique le nombre de jours.")
+        vue = RegleVue(
+            id=str(uuid.uuid4()),
+            libelle=libelle,
+            message=message,
+            canaux=canaux,
+            portee=entree.portee,
+            dossier_ids=entree.dossier_ids if entree.portee == "selection" else [],
+            declencheur=entree.declencheur,
+            jours_avant=entree.jours_avant if entree.declencheur == "avant_cloture" else None,
+        )
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(regles_rappel).values(
+                    id=vue.id,
+                    tenant_id=str(tenant_id),
+                    libelle=libelle,
+                    message=message,
+                    canaux=canaux,
+                    portee=vue.portee,
+                    dossier_ids=vue.dossier_ids,
+                    declencheur=vue.declencheur,
+                    jours_avant=vue.jours_avant,
+                )
+            )
+        return vue
+
+
+def _enregistrer_routes_membres(app: FastAPI) -> None:
+    @app.get("/portefeuille/membres", response_model=list[MembrePortefeuille])
+    def lister_membres(comptes: ComptesDep, identite: IdentiteDep) -> list[MembrePortefeuille]:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        return [
+            MembrePortefeuille(email=email, role=_role_membre(tenant_id, email))
+            for email in comptes.membres(str(tenant_id))
+        ]
+
+    @app.post("/portefeuille/membres", response_model=MembrePortefeuille)
+    def inviter_membre(
+        entree: InvitationMembreEntree, comptes: ComptesDep, identite: IdentiteDep
+    ) -> MembrePortefeuille:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        if entree.role not in _ROLES:
+            raise HTTPException(status_code=400, detail="Rôle inconnu.")
+        email = entree.email.strip().lower()
+        # Le droit d'abord : un compte sans ligne est admin (`_role_membre`),
+        # il ne doit jamais exister avant son rôle. L'upsert laisse un nouvel
+        # essai passer si l'invitation a échoué après.
+        _ecrire_role(tenant_id, email, entree.role)
+        try:
+            comptes.inviter_membre(str(tenant_id), email, entree.role)
+        except CompteDejaInviteError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return MembrePortefeuille(email=email, role=entree.role)
+
+    @app.patch("/portefeuille/membres", response_model=MembrePortefeuille)
+    def changer_role(entree: InvitationMembreEntree, identite: IdentiteDep) -> MembrePortefeuille:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        if entree.role not in _ROLES:
+            raise HTTPException(status_code=400, detail="Rôle inconnu.")
+        email = entree.email.strip().lower()
+        _ecrire_role(tenant_id, email, entree.role)
+        return MembrePortefeuille(email=email, role=entree.role)
+
+
 def _enregistrer_routes_invitation(app: FastAPI) -> None:
     @app.post("/invitations/en-masse", response_model=InvitationsMasseVue)
     def inviter_en_masse(
+        request: Request,
         entree: InvitationsMasseEntree,
         dossiers: DossiersDep,
         comptes: ComptesDep,
         identite: IdentiteDep,
+        role: RoleMembreDep,
     ) -> InvitationsMasseVue:
         """doc 19 §3.1 : le gestionnaire invite ses chauffeurs depuis une base
         clients, pas seulement un par un. Jusqu'à `MAX_INVITATIONS_PAR_LOT`
         lignes, résultat ligne par ligne."""
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_ecriture(role, "La lecture seule n'invite pas.")
         du_portefeuille = {str(d.id) for d in dossiers.lister_par_tenant(tenant_id)}
-        return _inviter_en_masse(entree.invitations, du_portefeuille, comptes)
+        vue = _inviter_en_masse(entree.invitations, du_portefeuille, comptes)
+        _vider_cache_agregats(request.app, str(tenant_id))
+        return vue
 
     @app.post("/dossiers/{dossier_id}/inviter", response_model=InvitationVue)
     def inviter_chauffeur(
-        entree: InvitationEntree, dossier: DossierPortefeuilleDep, comptes: ComptesDep
+        request: Request,
+        entree: InvitationEntree,
+        dossier: DossierPortefeuilleDep,
+        comptes: ComptesDep,
+        role: RoleMembreDep,
     ) -> InvitationVue:
         """doc 17 §9 bloc B, doc 19 §3.1 : le gestionnaire invite, jamais
         de self-signup (disable_signup, vérifié 2026-09-07). Envoie un
         vrai e-mail via Supabase Auth — pas un simulateur. Uniquement pour un
         dossier de son propre portefeuille (`DossierPortefeuilleDep`)."""
+        _exiger_ecriture(role, "La lecture seule n'invite pas.")
         try:
             invitation = comptes.inviter(dossier.id, entree.email)
         except CompteDejaInviteError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
         return InvitationVue(
             dossier_id=invitation.dossier_id,
             email=invitation.email,
@@ -895,6 +1308,7 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
 
     @app.post("/dossiers/{dossier_id}/greffe-inpi/signature", response_model=SignatureGreffeVue)
     def signer_greffe_inpi(
+        request: Request,
         dossier: DossierDep,
         ledger: LedgerDossierDep,
         signatures: SignaturesInpiDep,
@@ -904,6 +1318,8 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         pdf_non_signe = _document_greffe_inpi(dossier, ledger)
         document = SignatureDemoProvider().signer(pdf_non_signe, identite.user_id)
         signatures.enregistrer(dossier.id, TYPE_DOCUMENT_GREFFE_INPI, document)
+        # La frise du gestionnaire avance jusqu'à Greffe.
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
         return SignatureGreffeVue(
             dossier_id=dossier.id,
             signe=True,
@@ -918,6 +1334,10 @@ def create_app() -> FastAPI:
     _configurer_contexte_rls(app)
     _enregistrer_routes_dossiers(app)
     _enregistrer_routes_transactions(app)
+    _enregistrer_routes_portefeuille(app)
+    _enregistrer_routes_rappels(app)
+    _enregistrer_routes_regles(app)
+    _enregistrer_routes_membres(app)
     _enregistrer_routes_invitation(app)
     _enregistrer_routes_cloture(app)
     _enregistrer_routes_greffe_inpi(app)

@@ -64,6 +64,15 @@ class CompteRepository(ABC):
         l'appelant vient déjà de le vérifier pour tout un lot (`statuts`) :
         évite de relister tous les comptes à chaque invitation."""
 
+    def membres(self, tenant_id: str) -> list[str]:
+        """E-mails des comptes rattachés au portefeuille. Vide si le
+        fournisseur ne sait pas les lister (tests en mémoire)."""
+        return []
+
+    def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
+        """Ouvre un compte gestionnaire sur la même organisation."""
+        raise NotImplementedError
+
     def statuts(self, dossier_ids: Iterable[DossierId]) -> dict[DossierId, Invitation]:
         """Statut de plusieurs dossiers (seuls ceux qui ont été invités
         figurent dans le résultat). Par défaut un appel par dossier ;
@@ -145,6 +154,32 @@ class SupabaseCompteRepository(CompteRepository):
                     dossier_id=DossierId(dossier_id), email=utilisateur["email"], statut=statut
                 )
         return resultat
+
+    def membres(self, tenant_id: str) -> list[str]:
+        emails: list[str] = []
+        for utilisateur in self._tous_les_utilisateurs():
+            meta = utilisateur.get("app_metadata") or {}
+            if str(meta.get("tenant_id") or "") != tenant_id:
+                continue
+            email = utilisateur.get("email")
+            if email:
+                emails.append(email)
+        return sorted(emails)
+
+    def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
+        # `/invite` répond 422 sur un e-mail déjà connu : on le dit avant.
+        if any(
+            (u.get("email") or "").lower() == email.lower() for u in self._tous_les_utilisateurs()
+        ):
+            raise CompteDejaInviteError(f"un compte existe déjà : {email}")
+        reponse = self._client.post("/invite", json={"email": email})
+        reponse.raise_for_status()
+        utilisateur_id = reponse.json()["id"]
+        lien = self._client.put(
+            f"/admin/users/{utilisateur_id}",
+            json={"app_metadata": {"tenant_id": tenant_id, "role": role}},
+        )
+        lien.raise_for_status()
 
     def _tous_les_utilisateurs(self) -> list[dict[str, Any]]:
         """`GET /admin/users` est **paginé** (50 par page par défaut) et n'a

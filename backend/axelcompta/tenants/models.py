@@ -49,6 +49,9 @@ class Dossier:
     # Dénomination, SIREN, siège, associés (liasse fiscale, FEC). `None` pour
     # un dossier sans identité connue : on n'en invente pas (doc 07 §2.2).
     identite: IdentiteEntreprise | None = None
+    # Retiré du portefeuille : les écritures restent, le dossier n'apparaît plus
+    # dans la liste du gestionnaire.
+    retire_le: date | None = None
 
     def fin_exercice(self) -> date:
         if self.exercice_fin is not None:

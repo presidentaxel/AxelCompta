@@ -51,7 +51,7 @@ Concrètement :
 | Accueil | Santé du portefeuille, dossiers en retard | Directement le tableau de bord DU dossier |
 | Navigation | Tenant → liste des dossiers → fiche | La fiche dossier EST la navigation racine |
 | File de revue | Transversale, tous dossiers, priorisée | Celle du dossier unique |
-| Vocabulaire | « Vos dossiers », « ce chauffeur » | « Votre comptabilité » |
+| Vocabulaire | « Entreprises » (écran gestionnaire, 2026-09-25). « Chauffeur » reste le nom technique des routes indiv. | « Votre comptabilité » |
 
 Règle d'implémentation : aucun composant d'écran de niveau dossier ne doit
 connaître l'existence du portefeuille (il reçoit un `dossier_id`, point). La couche

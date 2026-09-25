@@ -136,9 +136,10 @@ export async function changerEmailGestionnaire(email: string): Promise<void> {
   }
 }
 
-/** Requête authentifiée vers `demo_api`. Sur 401/403, la session est
- * effacée (jeton expiré ou compte sans droit) : l'appelant redirige alors
- * vers la connexion via `ErreurAuthGestionnaire`. */
+/** Requête authentifiée vers `demo_api`. Sur 401, la session est effacée
+ * (jeton expiré) : l'appelant redirige alors vers la connexion via
+ * `ErreurAuthGestionnaire`. Un 403 est un refus de rôle (membre, lecture) :
+ * la session reste, l'appelant reçoit la réponse et affiche le refus. */
 async function requeteGestionnaire(path: string, init: RequestInit = {}): Promise<Response> {
   const session = obtenirSessionGestionnaire();
   if (!session) {
@@ -149,11 +150,25 @@ async function requeteGestionnaire(path: string, init: RequestInit = {}): Promis
     headers: { ...init.headers, Authorization: `Bearer ${session.accessToken}` },
     cache: "no-store",
   });
-  if (reponse.status === 401 || reponse.status === 403) {
+  if (reponse.status === 401) {
     deconnecterGestionnaire();
-    throw new ErreurAuthGestionnaire("Session expirée ou accès refusé.");
+    throw new ErreurAuthGestionnaire("Session expirée.");
   }
   return reponse;
+}
+
+const CLE_PORTEFEUILLE = "axelcompta_portefeuille";
+
+/** Dernière liste affichée, pour ne pas attendre le recalcul à chaque navigation. */
+export function lirePortefeuilleSession(): DossierAgregat[] | null {
+  try {
+    const brut = window.sessionStorage.getItem(CLE_PORTEFEUILLE);
+    if (!brut) return null;
+    const valeur = JSON.parse(brut) as DossierAgregat[];
+    return Array.isArray(valeur) ? valeur : null;
+  } catch {
+    return null;
+  }
 }
 
 /** doc 19 §2.1 : la liste agrégée, tout ce que voit le gestionnaire. */
@@ -162,7 +177,124 @@ export async function listerDossiers(): Promise<DossierAgregat[]> {
   if (!reponse.ok) {
     throw new ApiError(`API démo (/dossiers) : HTTP ${reponse.status}`, reponse.status);
   }
-  return (await reponse.json()) as DossierAgregat[];
+  const dossiers = (await reponse.json()) as DossierAgregat[];
+  try {
+    window.sessionStorage.setItem(CLE_PORTEFEUILLE, JSON.stringify(dossiers));
+  } catch {
+    // Affichage quand même, simplement pas mémorisé pour la prochaine page.
+  }
+  return dossiers;
+}
+
+export type RoleMembre = "admin" | "membre" | "lecture";
+
+export type MembrePortefeuille = { email: string; role: RoleMembre };
+
+export async function listerMembres(): Promise<MembrePortefeuille[]> {
+  const reponse = await requeteGestionnaire("/portefeuille/membres");
+  if (!reponse.ok) {
+    throw new ApiError(`API (/portefeuille/membres) : HTTP ${reponse.status}`, reponse.status);
+  }
+  return (await reponse.json()) as MembrePortefeuille[];
+}
+
+export async function inviterMembre(email: string, role: RoleMembre): Promise<void> {
+  const reponse = await requeteGestionnaire("/portefeuille/membres", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role }),
+  });
+  if (!reponse.ok) {
+    const corps = await reponse.json().catch(() => ({}));
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+}
+
+export async function lireNomPortefeuille(): Promise<string> {
+  const reponse = await requeteGestionnaire("/portefeuille");
+  if (!reponse.ok) return "";
+  const corps = (await reponse.json()) as { nom: string };
+  return corps.nom;
+}
+
+export async function renommerPortefeuille(nom: string): Promise<string> {
+  const reponse = await requeteGestionnaire("/portefeuille", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nom }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible d'enregistrer le nom.", reponse.status);
+  }
+  const corps = (await reponse.json()) as { nom: string };
+  return corps.nom;
+}
+
+export async function retirerDossier(dossierId: string): Promise<void> {
+  const reponse = await requeteGestionnaire(`/dossiers/${dossierId}/retirer`, { method: "POST" });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de retirer ce dossier.", reponse.status);
+  }
+}
+
+export type RegleRappel = {
+  id: string;
+  libelle: string;
+  message: string;
+  canaux: string[];
+  portee: string;
+  dossier_ids: string[];
+  declencheur: string;
+  jours_avant: number | null;
+};
+
+export async function listerRegles(): Promise<RegleRappel[]> {
+  const reponse = await requeteGestionnaire("/regles-rappel");
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de charger les rappels.", reponse.status);
+  }
+  return (await reponse.json()) as RegleRappel[];
+}
+
+export async function creerRegle(regle: {
+  libelle: string;
+  message: string;
+  canaux: string[];
+  portee?: string;
+  dossier_ids?: string[];
+  declencheur?: string;
+  jours_avant?: number | null;
+}): Promise<void> {
+  const reponse = await requeteGestionnaire("/regles-rappel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(regle),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible d'enregistrer la règle.", reponse.status);
+  }
+}
+
+export async function declencherRappel(regleId: string, dossierId: string): Promise<void> {
+  const reponse = await requeteGestionnaire("/rappels", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ regle_id: regleId, dossier_id: dossierId }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible d'envoyer le rappel.", reponse.status);
+  }
+}
+
+export async function changerRole(email: string, role: RoleMembre): Promise<void> {
+  const reponse = await requeteGestionnaire("/portefeuille/membres", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de changer le rôle.", reponse.status);
+  }
 }
 
 export async function inviterChauffeur(
