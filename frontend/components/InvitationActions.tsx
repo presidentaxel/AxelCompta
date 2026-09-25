@@ -27,7 +27,7 @@ export function InvitationActions({
   const [erreur, setErreur] = useState<string | null>(null);
 
   if (dossier.statut_invitation === "actif") {
-    return <Badge variant="validated">Chauffeur actif</Badge>;
+    return <Badge variant="validated">Compte ouvert</Badge>;
   }
   if (dossier.statut_invitation === "invité") {
     return <Badge variant="pending">Invitation envoyée</Badge>;
@@ -59,7 +59,7 @@ export function InvitationActions({
         type="email"
         value={email}
         onChange={(evenement) => setEmail(evenement.target.value)}
-        placeholder="e-mail du chauffeur…"
+        placeholder="E-mail du chauffeur"
         disabled={enCours}
         className="h-7 w-40 text-xs"
       />

@@ -21,7 +21,7 @@ export function FormulaireCompte({
     <div className="space-y-8">
       <div>
         <h1 className="mb-1 text-xl font-bold text-ink">Compte</h1>
-        <p className="text-sm text-subtle">Adresse actuelle : {email || "—"}</p>
+        {email && <p className="text-sm text-subtle">Adresse actuelle : {email}</p>}
       </div>
       <Formulaire
         titre="Nouveau mot de passe"

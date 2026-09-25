@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { inviterEnMasse, type InvitationsMasse } from "@/lib/auth-gestionnaire";
 
@@ -57,30 +58,31 @@ export function InvitationsEnMasse({ onTermine }: { onTermine: () => void }) {
   }
 
   return (
-    <section className="mt-8 rounded-lg border border-border bg-canvas p-5 shadow-xs">
-      <h2 className="mb-1 text-base font-semibold text-ink">Inviter en masse</h2>
+    <section>
       <p className="mb-3 text-sm text-subtle">
-        Une ligne par chauffeur : <code>dossier_id, e-mail</code>. {MAX_LIGNES} lignes au plus par
-        envoi.
+        Une ligne par chauffeur : identifiant, e-mail. {MAX_LIGNES} lignes au plus par envoi.
       </p>
-      <input type="file" accept=".csv,.txt" onChange={charger} className="mb-2 text-sm" />
+      <label className="mb-3 inline-flex h-9 cursor-pointer items-center rounded-md border border-border-strong bg-canvas px-4 text-sm font-semibold text-ink hover:bg-canvas-app">
+        Choisir un fichier
+        <input type="file" accept=".csv,.txt" onChange={charger} className="sr-only" />
+      </label>
       <textarea
         value={texte}
         onChange={(evenement) => setTexte(evenement.target.value)}
         rows={5}
-        placeholder="DEMO_karim, karim@exemple.fr"
+        placeholder="identifiant, email@exemple.fr"
         disabled={enCours}
         className="w-full rounded-md border border-border px-3 py-2 font-mono text-xs"
       />
       <div className="mt-2 flex items-center gap-3">
-        <button
+        <Button
           type="button"
+          variant="secondary"
           onClick={envoyer}
           disabled={enCours || lignes.length === 0 || troploin}
-          className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >
-          {enCours ? "Envoi…" : `Inviter ${lignes.length} chauffeur(s)`}
-        </button>
+          {enCours ? "Envoi…" : `Inviter ${lignes.length}`}
+        </Button>
         {troploin && <span className="text-sm text-danger">Trop de lignes ({lignes.length}).</span>}
         {erreur && <span className="text-sm text-danger">{erreur}</span>}
       </div>

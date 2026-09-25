@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "AxeLCompta — démo produit",
-  description: "Démo produit AxeLCompta : 3 dossiers chauffeur, calculs réels (doc 17, doc 19).",
+  title: "AxeL",
+  description: "AxeL, production comptable.",
 };
 
 // Habillage volontairement neutre ici (doc 19 §7 : « même socle, deux
