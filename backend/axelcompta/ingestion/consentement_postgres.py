@@ -12,7 +12,7 @@ from sqlalchemy.engine import Engine
 from axelcompta.core.ids import DossierId
 from axelcompta.core.rls import appliquer_rls
 
-from .consentement import StatutConsentement
+from .consentement import ReleveSante, StatutConsentement
 from .orm import consentements_bancaires
 
 
@@ -26,23 +26,24 @@ class PostgresConsentementRepository:
         expire_le: date | None,
         statut: StatutConsentement,
         releve_le: datetime,
+        sante: ReleveSante,
     ) -> None:
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
+            valeurs = {
+                "expire_le": expire_le,
+                "statut": statut.value,
+                "releve_le": releve_le,
+                "sante": sante.statut.value,
+                "en_pause": sante.en_pause,
+                "acces_donnees": sante.acces_donnees,
+                "dernier_rafraichissement": sante.dernier_rafraichissement,
+            }
             connexion.execute(
                 insert(consentements_bancaires)
-                .values(
-                    dossier_id=dossier_id,
-                    expire_le=expire_le,
-                    statut=statut.value,
-                    releve_le=releve_le,
-                )
+                .values(dossier_id=dossier_id, **valeurs)
                 .on_conflict_do_update(
                     index_elements=[consentements_bancaires.c.dossier_id],
-                    set_={
-                        "expire_le": expire_le,
-                        "statut": statut.value,
-                        "releve_le": releve_le,
-                    },
+                    set_=valeurs,
                 )
             )

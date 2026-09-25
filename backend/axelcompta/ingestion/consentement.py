@@ -6,6 +6,7 @@ Pur : aucune I/O. La date vient de `item.authentication_expires_at`
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import Enum
 from typing import Any
@@ -19,6 +20,20 @@ class StatutConsentement(Enum):
     EXPIRE = "expire"
     A_RENOUVELER = "a_renouveler"
     ACTIF = "actif"
+
+
+class SanteConnexion(Enum):
+    """État de la connexion bancaire, distinct de l'expiration du consentement.
+
+    `auth_requise` (SCA à refaire) prime sur un compte en pause ou sans accès :
+    c'est une connexion cassée, pas un chauffeur simplement inactif (doc 16 §5).
+    """
+
+    JAMAIS_CONNECTE = "jamais_connecte"
+    AUTH_REQUISE = "auth_requise"
+    SANS_ACCES = "sans_acces"
+    EN_PAUSE = "en_pause"
+    OK = "ok"
 
 
 def classer(expire_le: date | None, aujourd_hui: date) -> StatutConsentement:
@@ -61,3 +76,61 @@ def expiration_la_plus_proche(payload: dict[str, Any] | list[Any]) -> date | Non
 def _item(compte: dict[str, Any]) -> dict[str, Any]:
     item = compte.get("item")
     return item if isinstance(item, dict) else {}
+
+
+def _vrai(valeur: object) -> bool:
+    return valeur is True or valeur == 1 or valeur == "true"
+
+
+def _faux(valeur: object) -> bool:
+    return valeur is False or valeur == 0 or valeur == "false"
+
+
+@dataclass(frozen=True, slots=True)
+class ReleveSante:
+    statut: SanteConnexion
+    en_pause: bool
+    acces_donnees: bool
+    dernier_rafraichissement: datetime | None
+
+
+def relever_sante(payload: dict[str, Any] | list[Any]) -> ReleveSante:
+    """Le plus mauvais compte du contact. Pas d'IBAN, pas de nom."""
+    comptes = [compte for compte in _comptes(payload) if isinstance(compte, dict)]
+    if not comptes:
+        return ReleveSante(SanteConnexion.JAMAIS_CONNECTE, False, False, None)
+    en_pause = any(
+        _vrai(compte.get("paused")) or _vrai(_item(compte).get("paused")) for compte in comptes
+    )
+    acces = not any(_faux(compte.get("data_access")) for compte in comptes)
+    auth_requise = any(
+        _item(compte).get("status_code_info") == "sca_required_webview" for compte in comptes
+    )
+    if auth_requise:
+        statut = SanteConnexion.AUTH_REQUISE
+    elif not acces:
+        statut = SanteConnexion.SANS_ACCES
+    elif en_pause:
+        statut = SanteConnexion.EN_PAUSE
+    else:
+        statut = SanteConnexion.OK
+    rafraichissements = []
+    for compte in comptes:
+        trouve = _horodatage_rafraichissement(_item(compte).get("last_successful_refresh"))
+        if trouve is not None:
+            rafraichissements.append(trouve)
+    return ReleveSante(
+        statut,
+        en_pause,
+        acces,
+        min(rafraichissements) if rafraichissements else None,
+    )
+
+
+def _horodatage_rafraichissement(valeur: object) -> datetime | None:
+    if not isinstance(valeur, str) or valeur.startswith(_SENTINELLE):
+        return None
+    try:
+        return datetime.strptime(valeur, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None

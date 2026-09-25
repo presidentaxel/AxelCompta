@@ -40,6 +40,10 @@ ne dépend jamais d'`ingestion` en retour, règle absolue doc 03 §3).
   et enregistre l'état courant (`consentements_bancaires`). Pas d'e-mail,
   pas d'écran. Relevé par `synchro_digifactory.py` ; un échec de lecture
   des comptes ne fait pas échouer la synchro des transactions.
+  **2026-09-25** : la même ligne porte la santé de connexion
+  (`relever_sante` : auth à refaire, sans accès, en pause, ok). Le premier
+  chargement des transactions est découpé par mois (`fenetres_mensuelles`) ;
+  une réponse vide est un lot vide, pas un échec.
 
 ## Contenu prévu (au-delà de la démo)
 

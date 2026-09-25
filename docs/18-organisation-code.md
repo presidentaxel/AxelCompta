@@ -2,7 +2,7 @@
 
 > Statut : moteur démo + deux interfaces (gestionnaire, chauffeur) en
 > construction, voir état détaillé ci-dessous. Dernière mise à jour :
-> 2026-09-24.
+> 2026-09-25.
 
 Ce doc fait le lien entre l'arborescence réelle du repo (`backend/`,
 `frontend/`) et le découpage en modules défini en [doc 03 §3](03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
@@ -347,6 +347,13 @@ tant que la file de jobs n'existe pas.
   id `{écriture}:contrepassation`, une seule fois). L'originale ne change
   pas et le nouveau montant n'est pas comptabilisé tout seul. La
   quarantaine reste posée. Pas de migration : aucun changement de schéma.
+
+**Synchro Digifactory durcie (2026-09-25)** : sans curseur, le premier
+chargement est découpé mois par mois (`from`/`to`, de l'exercice à
+aujourd'hui) ; le suivant reste sur `since`. Une réponse vide est un succès
+à zéro ligne. Un dossier en 401 n'arrête pas les autres. La lecture des
+comptes enregistre aussi la santé de connexion sur `consentements_bancaires`
+(migration `a3e8c1d94f20`). Pas d'écran.
 
 **Clés étrangères, notifications, invitations en masse (2026-09-22)** :
 - Migration `7cd5053e8209` : FK des décisions, annotations, propositions et

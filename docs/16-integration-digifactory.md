@@ -276,8 +276,10 @@ déclencher la contre-passation de l'écriture associée (doc 06 I2,
 
 **Pagination.** Aucune pagination documentée sur ces routes. Le `since` borne le
 volume en régime courant, mais le **premier appel sans filtre peut être
-volumineux**. Prévoir un découpage `from`/`to` par mois en repli, et mesurer le
-poids réel par contact avant de lancer un chargement sur 200 dossiers.
+volumineux**. **Découpage fait le 2026-09-25** : sans curseur, `lire_lot`
+appelle `from`/`to` mois par mois, de `exercice_debut` à aujourd'hui
+(`fenetres_mensuelles`). Le passage suivant repart sur `since`. Les appels
+restent en série.
 **Mesuré en réel le 2026-09-11, sans filtre `since`** : un seul contact a
 renvoyé ~807 Ko / 2029 transactions sur 4 comptes. Pas encore mesuré sur
 l'historique complet des ~200 dossiers du pilote (dépend du nombre de
@@ -290,10 +292,12 @@ un volume de requêtes élevé et des réponses massives. Implémenter un backof
 sérialiser les appels par défaut plutôt que de paralléliser.
 
 **Santé de connexion.** La combinaison `paused` + `data_access` +
-`last_refresh_status` distingue un chauffeur inactif d'une connexion cassée.
-C'est ce qui alimente le dashboard consentements (doc 14 §2.2). Un compte dont
-la connexion est rompue doit produire une alerte, jamais un silence
-interprétable comme une absence d'activité.
+`status_code_info` distingue un chauffeur inactif d'une connexion cassée.
+**Relevé fait le 2026-09-25**, dans la même lecture que le consentement
+(`relever_sante`, colonnes sur `consentements_bancaires`) : `auth_requise`
+(SCA) prime, puis `sans_acces`, puis `en_pause`, sinon `ok`. Le
+rafraîchissement retenu est le plus ancien hors sentinelle `0000-00-00`.
+Pas d'écran ni d'e-mail : le dashboard (doc 14 §2.2) lira cette ligne.
 
 ---
 
@@ -439,17 +443,17 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
    refuse (`ContactNonMappeError`) un dossier sans contact plutôt que d'en
    deviner un. **Reste les données** : la liste des ~200 chauffeurs du
    pilote (doc 12, recalage : week-end du 26-27/09).
-6. Monitoring de fraîcheur et de santé de connexion par compte — **pas
-   fait**. Les champs nécessaires sont confirmés disponibles depuis le
-   2026-09-11 (`data_access`, `paused`, `status_code_info`,
-   `authentication_expires_at`, §3.2) : c'est maintenant du câblage, plus
-   un problème de schéma inconnu.
+6. Monitoring de fraîcheur et de santé de connexion par compte — **relevé
+   fait le 2026-09-25** (une ligne par dossier, le plus mauvais compte :
+   `sante`, `en_pause`, `acces_donnees`, `dernier_rafraichissement`,
+   migration `a3e8c1d94f20`). L'écran et l'alerte restent à faire (doc 14).
 7. Fixtures et tests couvrant : transaction mise à jour rétroactivement,
    transaction supprimée, contact multi-comptes dans la même banque, connexion
    en échec, réponse vide — **fait pour deleted/mise à jour/multi-comptes**
    (tests existants + `test_accepte_le_format_reel_dict_indexe_par_transaction_id`,
-   2026-09-11) ; **pas fait** pour connexion en échec et réponse vide côté
-   `/transactions` (`/accounts` vide `[]` est couvert, §3.2). Depuis le
+   2026-09-11). **Fait le 2026-09-25** pour une réponse vide (`[]` ou `{}`,
+   lot vide, le dossier est un succès) et pour un 401 sur un dossier (les
+   autres continuent). `/accounts` vide `[]` était déjà couvert (§3.2). Depuis le
    2026-09-22, une ligne malformée est mise en quarantaine sans bloquer le
    lot, et une transaction modifiée ou supprimée après comptabilisation est
    signalée en quarantaine (`workflow/synchro.py`). **Depuis le 2026-09-24**,

@@ -25,7 +25,7 @@ from axelcompta.categorize.pipeline import CategorizationPipeline
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, TenantId
-from axelcompta.ingestion.consentement import classer, expiration_la_plus_proche
+from axelcompta.ingestion.consentement import classer, expiration_la_plus_proche, relever_sante
 from axelcompta.ingestion.consentement_postgres import PostgresConsentementRepository
 from axelcompta.ingestion.journal import JournalIngestion
 from axelcompta.ingestion.journal_postgres import PostgresJournalIngestion
@@ -49,6 +49,7 @@ class ResultatDossier:
     ignore: str | None = None  # raison, si le dossier n'a pas été traité
     erreur: str | None = None
     consentement: str | None = None
+    sante: str | None = None
 
 
 async def synchroniser_dossiers(
@@ -88,6 +89,7 @@ def _afficher(resultat: ResultatDossier) -> None:
             f"{r.deja_connues} déjà connues, {r.modifiees_signalees} modifiées et "
             f"{r.supprimees_signalees} supprimées signalées, {r.rejets} rejetées"
             + (f", consentement {resultat.consentement}" if resultat.consentement else "")
+            + (f", connexion {resultat.sante}" if resultat.sante else "")
         )
 
 
@@ -103,7 +105,7 @@ async def _relever_consentements(
     releves: list[ResultatDossier] = []
     for dossier, resultat in zip(dossiers, resultats, strict=True):
         if dossier.contact_nr is None:
-            expire_le = None
+            payload: dict[str, object] | list[object] = []
         else:
             try:
                 payload = await client.accounts(dossier.contact_nr)
@@ -111,10 +113,11 @@ async def _relever_consentements(
                 releves.append(resultat)
                 print(f"{dossier.id} : consentement non relu ({type(exc).__name__})")
                 continue
-            expire_le = expiration_la_plus_proche(payload)
+        expire_le = expiration_la_plus_proche(payload)
         statut = classer(expire_le, aujourd_hui)
-        depot.enregistrer(dossier.id, expire_le, statut, datetime.now(UTC))
-        releves.append(replace(resultat, consentement=statut.value))
+        sante = relever_sante(payload)
+        depot.enregistrer(dossier.id, expire_le, statut, datetime.now(UTC), sante)
+        releves.append(replace(resultat, consentement=statut.value, sante=sante.statut.value))
     return releves
 
 

@@ -141,8 +141,11 @@ Ce panneau est un **écran de premier rang**, pas caché dans les paramètres.
 **Fait le 2026-09-24, sans écran** : la synchro Digifactory classe et
 enregistre le statut du dossier (`consentements_bancaires`) —
 `actif` / `a_renouveler` (14 jours ou moins) / `expire` /
-`jamais_connecte`. L'écran, la liste des dossiers et les relances
-(§2.3) ne sont pas construits. Rollee n'est pas couvert.
+`jamais_connecte`. **Fait le 2026-09-25** : la même ligne porte la santé
+de connexion (`ok` / `en_pause` / `sans_acces` / `auth_requise` /
+`jamais_connecte`) et le rafraîchissement le plus ancien. L'écran, la
+liste des dossiers et les relances (§2.3) ne sont pas construits.
+Rollee n'est pas couvert.
 
 ### 2.3 Modes de relance (configurables par tenant)
 

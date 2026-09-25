@@ -87,3 +87,39 @@ def test_un_dossier_en_echec_ou_sans_contact_ne_bloque_pas_les_autres() -> None:
     assert resultat_c.ignore is not None
     assert resultat_d.rapport is not None and resultat_d.rapport.nouvelles == 1
     assert len(ledger.grand_livre(DossierId("d"))) == 1
+
+
+def test_un_lot_vide_est_un_succes_et_un_401_ne_bloque_pas_le_suivant() -> None:
+    class _Source:
+        async def lire_lot(self, dossier: Dossier, depuis_maj: datetime | None) -> LotTransactions:
+            if dossier.id == "a":
+                return LotTransactions(transactions=())
+            if dossier.id == "b":
+                raise RuntimeError("401 sur /transactions/2 — token invalide/révoqué")
+            return await DigifactoryProvider(payload=PAYLOAD).lire_lot(dossier, depuis_maj)
+
+    dossiers = (
+        BASE,
+        dataclasses.replace(BASE, id=DossierId("b"), contact_nr="2"),
+        dataclasses.replace(BASE, id=DossierId("c"), contact_nr="3"),
+    )
+    resultats = asyncio.run(
+        synchroniser_dossiers(
+            dossiers,
+            _Source(),
+            InMemoryJournalIngestion(),
+            InMemoryLedgerService(),
+            InMemoryPropositionRepository(),
+            RulesAndMlPipeline(regles=charger_regles(), modele=None),
+            charger_compte_par_categorie(),
+        )
+    )
+    par_id = {r.dossier_id: r for r in resultats}
+    vide, echec, suivant = (
+        par_id[DossierId("a")],
+        par_id[DossierId("b")],
+        par_id[DossierId("c")],
+    )
+    assert vide.rapport is not None and vide.rapport.nouvelles == 0
+    assert echec.erreur is not None
+    assert suivant.rapport is not None and suivant.rapport.nouvelles == 1

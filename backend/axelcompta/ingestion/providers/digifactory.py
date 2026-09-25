@@ -24,9 +24,10 @@ données (2026-09-11) : le payload réel indexe chaque compte par un **dict
 
 from __future__ import annotations
 
+import calendar
 import os
 from collections.abc import Mapping
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, cast
 
@@ -145,8 +146,58 @@ def _normaliser(tx: dict[str, Any], dossier_id: DossierId) -> NormalizedTransact
     )
 
 
+def fenetres_mensuelles(debut: date, jusqua: date) -> tuple[tuple[datetime, datetime], ...]:
+    """Découpe [debut, jusqua] en mois calendaires (doc 16 §5).
+
+    Le premier chargement, sans curseur, ne doit pas appeler `/transactions`
+    sans borne : un contact a déjà renvoyé ~2 000 lignes d'un bloc. `from`/`to`
+    filtrent la date d'opération ; le sync suivant repart sur `since`.
+    """
+    if debut > jusqua:
+        return ()
+    fenetres: list[tuple[datetime, datetime]] = []
+    curseur = debut
+    while curseur <= jusqua:
+        dernier_jour = calendar.monthrange(curseur.year, curseur.month)[1]
+        fin_mois = date(curseur.year, curseur.month, dernier_jour)
+        fin = min(fin_mois, jusqua)
+        fenetres.append(
+            (
+                datetime(curseur.year, curseur.month, curseur.day),
+                datetime(fin.year, fin.month, fin.day, 23, 59, 59),
+            )
+        )
+        curseur = fin_mois + timedelta(days=1)
+    return tuple(fenetres)
+
+
+def fusionner_lots(lots: tuple[LotTransactions, ...]) -> LotTransactions:
+    """Réunit les mois d'un premier chargement. Un même id gardé une fois,
+    à l'`updated_at` le plus récent."""
+    if not lots:
+        return LotTransactions(transactions=())
+    par_id: dict[str, NormalizedTransaction] = {}
+    for lot in lots:
+        for transaction in lot.transactions:
+            existante = par_id.get(str(transaction.id))
+            plus_recente = existante is None or _horodatage(
+                transaction.raw_payload["updated_at"]
+            ) >= _horodatage(existante.raw_payload["updated_at"])
+            if plus_recente:
+                par_id[str(transaction.id)] = transaction
+    curseurs = [lot.curseur for lot in lots if lot.curseur is not None]
+    identifiants = dict.fromkeys(identifiant for lot in lots for identifiant in lot.supprimees)
+    return LotTransactions(
+        transactions=tuple(sorted(par_id.values(), key=lambda transaction: transaction.date)),
+        rejets=tuple(rejet for lot in lots for rejet in lot.rejets),
+        supprimees=tuple(identifiants),
+        brutes=tuple(brute for lot in lots for brute in lot.brutes),
+        curseur=max(curseurs) if curseurs else None,
+    )
+
+
 def parser_lot(
-    payload: PayloadTransactions,
+    payload: PayloadTransactions | list[Any],
     dossier_id: DossierId,
     depuis: date = date.min,
     jusqua: date = date.max,
@@ -164,6 +215,9 @@ def parser_lot(
     supprimees: set[str] = set()
     plus_recentes: dict[str, dict[str, Any]] = {}
     curseur: datetime | None = None
+
+    if not isinstance(payload, Mapping):
+        return LotTransactions(transactions=())
 
     for compte in payload.values():
         for tx in _transactions_de_compte(compte):
@@ -297,15 +351,25 @@ class DigifactoryHttpClient:
         return cast("dict[str, Any] | list[Any]", await self._get(f"/accounts/{contact_nr}"))
 
     async def transactions(
-        self, contact_nr: str | int, since: datetime | None = None
-    ) -> PayloadTransactions:
-        """doc 16 §3.1. `since` est le mode nominal (filtre `updated_at`) —
-        sans lui, **le premier appel peut être volumineux** (doc 16 §5,
-        confirmé en réel : ~800 Ko/2000 transactions pour un seul contact
-        sans filtre)."""
-        params = {"since": since.strftime(FORMAT_DATE_DIGIFACTORY)} if since else None
+        self,
+        contact_nr: str | int,
+        since: datetime | None = None,
+        debut: datetime | None = None,
+        fin: datetime | None = None,
+    ) -> PayloadTransactions | list[Any]:
+        """doc 16 §3.1. `since` filtre `updated_at` (sync courant). `debut`/`fin`
+        deviennent `from`/`to` (date d'opération) pour le premier chargement,
+        découpé par mois."""
+        params: dict[str, str] = {}
+        if since is not None:
+            params["since"] = since.strftime(FORMAT_DATE_DIGIFACTORY)
+        if debut is not None:
+            params["from"] = debut.strftime(FORMAT_DATE_DIGIFACTORY)
+        if fin is not None:
+            params["to"] = fin.strftime(FORMAT_DATE_DIGIFACTORY)
         return cast(
-            PayloadTransactions, await self._get(f"/transactions/{contact_nr}", params=params)
+            "PayloadTransactions | list[Any]",
+            await self._get(f"/transactions/{contact_nr}", params or None),
         )
 
     async def categories(self) -> dict[str, Any]:
@@ -362,14 +426,18 @@ class DigifactoryProvider(DataProvider):
                 f"dossier {dossier.id} sans contact Digifactory (dossiers.contact_nr)"
             )
         if self._client_reel is None:
-            payload = self._payload
-        else:
+            lot = parser_lot(self._payload, dossier.id)
+            if depuis_maj is None:
+                return lot
+            return _filtrer_depuis(lot, depuis_maj)
+        if depuis_maj is not None:
             payload = await self._client_reel.transactions(dossier.contact_nr, since=depuis_maj)
-        lot = parser_lot(payload, dossier.id)
-        if self._client_reel is not None or depuis_maj is None:
-            return lot
-        # Fixture : reproduire côté client le filtre `since` que l'API applique.
-        return _filtrer_depuis(lot, depuis_maj)
+            return parser_lot(payload, dossier.id)
+        lots: list[LotTransactions] = []
+        for debut, fin in fenetres_mensuelles(dossier.exercice_debut, date.today()):
+            payload = await self._client_reel.transactions(dossier.contact_nr, debut=debut, fin=fin)
+            lots.append(parser_lot(payload, dossier.id))
+        return fusionner_lots(tuple(lots))
 
     async def fetch_platform_settlements(
         self, tenant_id: TenantId, dossier_id: DossierId, since: date, until: date
