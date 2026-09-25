@@ -38,6 +38,10 @@ export type DossierAgregat = {
   forme_juridique: string;
   regime_imposition: string;
   regime_tva: string;
+  annee_courante: number;
+  etape_courante: string;
+  annee_precedente: number;
+  etape_precedente: string;
 };
 
 // doc 17 §9 Semaine 4 + AXE-417/418 : exports de clôture (PDF + CSV),

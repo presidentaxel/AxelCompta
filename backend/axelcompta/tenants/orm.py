@@ -6,7 +6,7 @@ repository (`DossierRepository.lister_par_tenant`) ; la RLS Postgres de la V1
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, String, Table
+from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, Integer, String, Table
 
 from axelcompta.core.db import metadata
 
@@ -49,6 +49,12 @@ regles_rappel = Table(
     Column("message", String, nullable=False),
     # Canaux prévus : sms, mail, appel. L'envoi réel vient plus tard.
     Column("canaux", JSON, nullable=False),
+    # tous : chaque entreprise. selection : seulement dossier_ids.
+    Column("portee", String, nullable=False, server_default="tous"),
+    Column("dossier_ids", JSON, nullable=True),
+    # manuel : bouton sur la fiche. avant_cloture : part seul N jours avant la fin.
+    Column("declencheur", String, nullable=False, server_default="manuel"),
+    Column("jours_avant", Integer, nullable=True),
 )
 
 rappels = Table(

@@ -1,6 +1,5 @@
 "use client";
 
-import { Bell, Mail, Plug, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -41,6 +40,7 @@ export default function PortefeuillePage() {
   const [selection, setSelection] = useState<string | null>(null);
   const [regles, setRegles] = useState<RegleRappel[]>([]);
   const [infoRappel, setInfoRappel] = useState<string | null>(null);
+  const [confirmerRetrait, setConfirmerRetrait] = useState(false);
 
   const charger = useCallback(() => {
     listerDossiers()
@@ -100,8 +100,13 @@ export default function PortefeuillePage() {
 
   return (
     <div className="-m-8 flex min-h-screen">
-    <div className="mx-auto min-w-0 max-w-3xl flex-1 p-8">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Entreprises</h1>
+    <div className="min-w-0 flex-1 p-8">
+      <div className="flex items-start justify-between gap-6">
+        <h1 className="text-[28px] font-bold tracking-tight text-ink">Entreprises</h1>
+        <Link href="/invitations" className="mt-2 text-sm font-medium text-primary hover:underline">
+          Invitations
+        </Link>
+      </div>
       {dossiers && (
         <dl className="mt-8 flex flex-wrap gap-x-12 gap-y-4">
           <Total libelle="Entreprises" valeur={String(totaux.nombre)} />
@@ -157,27 +162,42 @@ export default function PortefeuillePage() {
             <button
               type="button"
               className="flex w-full items-start justify-between gap-8 rounded-lg px-3 py-5 text-left hover:bg-surface-soft"
-              onClick={() =>
-                setSelection((actuel) => (actuel === dossier.dossier_id ? null : dossier.dossier_id))
-              }
+              onClick={() => {
+                setConfirmerRetrait(false);
+                setSelection((actuel) => (actuel === dossier.dossier_id ? null : dossier.dossier_id));
+              }}
             >
-              <span className="min-w-0">
-                <span className="block truncate text-base font-semibold text-ink">{dossier.nom}</span>
-                <span className="mt-1 block text-sm text-subtle">
-                  {libelleCompte(dossier.statut_invitation)}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline gap-2">
+                  <span className="truncate text-base font-semibold text-ink">{dossier.nom}</span>
+                  <span className="shrink-0 text-sm text-subtle">
+                    {dossier.statut_invitation === "actif"
+                      ? "Compte ouvert"
+                      : dossier.statut_invitation === "invité"
+                        ? "Invitation envoyée"
+                        : "Compte fermé"}
+                  </span>
+                </span>
+                <span className="mt-3 block space-y-2">
+                  <Frise
+                    annee={dossier.annee_courante}
+                    etape={dossier.etape_courante}
+                    compteOuvert={dossier.statut_invitation === "actif"}
+                  />
+                  <Frise
+                    annee={dossier.annee_precedente}
+                    etape={dossier.etape_precedente}
+                    compteOuvert={dossier.statut_invitation === "actif"}
+                    figee={dossier.etape_precedente === "Clos"}
+                  />
                 </span>
               </span>
-              <span className="shrink-0 text-right">
-                <span
-                  className={`block text-lg font-semibold tabular-nums ${
-                    dossier.resultat_cts < 0 ? "text-amount-negative" : "text-amount-positive"
-                  }`}
-                >
-                  {formatMontant(dossier.resultat_cts)}
-                </span>
-                <span className="mt-1 block text-sm tabular-nums text-subtle">
-                  CA {formatMontant(dossier.ca_ht_cts)}
-                </span>
+              <span
+                className={`shrink-0 text-lg font-semibold tabular-nums ${
+                  dossier.resultat_cts < 0 ? "text-amount-negative" : "text-amount-positive"
+                }`}
+              >
+                {formatMontant(dossier.resultat_cts)}
               </span>
             </button>
           </li>
@@ -192,8 +212,14 @@ export default function PortefeuillePage() {
         <aside className="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-border bg-canvas p-6">
           <div className="flex items-start justify-between gap-4">
             <h2 className="text-lg font-semibold text-ink">{choisi.nom}</h2>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setSelection(null)}>
-              Fermer
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-danger"
+              onClick={() => setConfirmerRetrait(true)}
+            >
+              Retirer
             </Button>
           </div>
           <p className="mt-1 text-sm text-subtle">{libelleCompte(choisi.statut_invitation)}</p>
@@ -228,7 +254,12 @@ export default function PortefeuillePage() {
               </p>
             )}
             <div className="mt-2 flex flex-wrap gap-2">
-              {regles.map((regle) => (
+              {regles
+                .filter(
+                  (regle) =>
+                    regle.portee !== "selection" || regle.dossier_ids.includes(choisi.dossier_id),
+                )
+                .map((regle) => (
                 <Button
                   key={regle.id}
                   type="button"
@@ -250,38 +281,36 @@ export default function PortefeuillePage() {
             </div>
             {infoRappel && <p className="mt-2 text-sm text-subtle">{infoRappel}</p>}
           </div>
+          {confirmerRetrait && (
+            <div className="mt-6 rounded-lg border border-border bg-canvas-app p-4">
+              <p className="text-sm text-ink">Retirer {choisi.nom} de la liste ?</p>
+              <div className="mt-3 flex justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmerRetrait(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  onClick={async () => {
+                    await retirerDossier(choisi.dossier_id);
+                    setConfirmerRetrait(false);
+                    setSelection(null);
+                    charger();
+                  }}
+                >
+                  Retirer
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="mt-auto flex justify-end pt-8">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-danger"
-              onClick={async () => {
-                await retirerDossier(choisi.dossier_id);
-                setSelection(null);
-                charger();
-              }}
-            >
-              Retirer
+            <Button type="button" variant="ghost" size="sm" onClick={() => setSelection(null)}>
+              Fermer
             </Button>
           </div>
         </aside>
-      ) : (
-        <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-l border-border bg-canvas py-3">
-          <Raccourci href="/rappels" libelle="Rappels">
-            <Bell className="h-4 w-4" />
-          </Raccourci>
-          <Raccourci href="/invitations" libelle="Invitations">
-            <Mail className="h-4 w-4" />
-          </Raccourci>
-          <Raccourci href="/equipe" libelle="Équipe">
-            <Users className="h-4 w-4" />
-          </Raccourci>
-          <Raccourci href="/integrations" libelle="Intégrations">
-            <Plug className="h-4 w-4" />
-          </Raccourci>
-        </nav>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -380,24 +409,58 @@ function Bascule({
   );
 }
 
-function Raccourci({
-  href,
-  libelle,
-  children,
+/** Le compte se prépare une fois. Ensuite, par exercice : clôture, signature
+ * de validation, dépôt au greffe, dépôt aux impôts, signature légale
+ * (doc 02 §4 et §6, doc 19 §5.3, doc 20 §4bis). */
+const ETAPES = ["Compte", "Clôture", "Signature", "Greffe", "Impôts", "Signature légale"];
+
+function rangEtape(etape: string, compteOuvert: boolean, figee?: boolean): number {
+  if (figee) return ETAPES.length - 1;
+  if (etape === "Signé") return ETAPES.indexOf("Greffe");
+  if (compteOuvert || etape === "Suivi") return ETAPES.indexOf("Compte");
+  return -1;
+}
+
+function Frise({
+  annee,
+  etape,
+  compteOuvert,
+  figee,
 }: {
-  href: string;
-  libelle: string;
-  children: React.ReactNode;
+  annee: number;
+  etape: string;
+  compteOuvert: boolean;
+  figee?: boolean;
 }) {
+  const index = rangEtape(etape, compteOuvert, figee);
   return (
-    <Link
-      href={href}
-      title={libelle}
-      aria-label={libelle}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-subtle hover:bg-surface-soft hover:text-ink"
-    >
-      {children}
-    </Link>
+    <span className="flex items-start gap-3">
+      <span className="w-8 shrink-0 pt-px text-xs leading-none text-subtle">{annee}</span>
+      <span className="grid min-w-0 flex-1 grid-cols-6">
+        {ETAPES.map((nom, rang) => {
+          const fait = rang <= index;
+          const traitFait = rang < index;
+          return (
+            <span key={nom} className="relative flex flex-col items-center">
+              {rang > 0 && (
+                <span
+                  className={`absolute right-1/2 top-[3px] left-0 h-px ${traitFait || fait ? "bg-primary" : "bg-border"}`}
+                />
+              )}
+              {rang < ETAPES.length - 1 && (
+                <span
+                  className={`absolute top-[3px] right-0 left-1/2 h-px ${traitFait ? "bg-primary" : "bg-border"}`}
+                />
+              )}
+              <span className={`relative z-10 h-2 w-2 rounded-full ${fait ? "bg-primary" : "bg-border"}`} />
+              <span className={`mt-1 text-center text-[10px] leading-tight ${fait ? "text-ink" : "text-subtle"}`}>
+                {nom}
+              </span>
+            </span>
+          );
+        })}
+      </span>
+    </span>
   );
 }
 

@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, LayoutGrid, Mail, Plug, Users } from "lucide-react";
+import { Bell, LayoutGrid, Plug, Users } from "lucide-react";
 
 import { Marque } from "@/components/Marque";
-import { deconnecterGestionnaire, obtenirSessionGestionnaire } from "@/lib/auth-gestionnaire";
+import {
+  deconnecterGestionnaire,
+  lireNomPortefeuille,
+  obtenirSessionGestionnaire,
+  renommerPortefeuille,
+} from "@/lib/auth-gestionnaire";
 
 const LIENS = [
   { href: "/portefeuille", libelle: "Entreprises", Icone: LayoutGrid },
-  { href: "/invitations", libelle: "Invitations", Icone: Mail },
   { href: "/rappels", libelle: "Rappels", Icone: Bell },
   { href: "/equipe", libelle: "Équipe", Icone: Users },
   { href: "/integrations", libelle: "Intégrations", Icone: Plug },
@@ -20,11 +24,27 @@ export function Sidebar() {
   const chemin = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [nom, setNom] = useState("Organisation");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEmail(obtenirSessionGestionnaire()?.email ?? "");
+    lireNomPortefeuille()
+      .then((valeur) => {
+        if (valeur) setNom(valeur);
+      })
+      .catch(() => undefined);
   }, []);
+
+  async function enregistrerNom() {
+    const propre = nom.trim();
+    if (!propre) return;
+    try {
+      setNom(await renommerPortefeuille(propre));
+    } catch {
+      // Le nom saisi reste à l'écran ; un nouvel essai réécrit.
+    }
+  }
 
   function seDeconnecter() {
     deconnecterGestionnaire();
@@ -32,9 +52,24 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-canvas-app px-3 py-4">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-canvas-app px-3 py-4">
       <div className="px-2 pb-4">
         <Marque />
+      </div>
+      <div className="mb-4 flex items-center gap-2 rounded-lg bg-canvas px-2.5 py-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary">
+          {email.slice(0, 2).toUpperCase() || "AX"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <input
+            value={nom}
+            onChange={(evenement) => setNom(evenement.target.value)}
+            onBlur={enregistrerNom}
+            aria-label="Nom de l'organisation"
+            className="w-full truncate bg-transparent text-sm font-semibold text-ink outline-none"
+          />
+          <span className="block text-xs text-subtle">Organisation</span>
+        </span>
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {LIENS.map(({ href, libelle, Icone }) => {

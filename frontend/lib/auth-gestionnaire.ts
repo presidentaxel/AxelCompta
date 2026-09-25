@@ -241,6 +241,10 @@ export type RegleRappel = {
   libelle: string;
   message: string;
   canaux: string[];
+  portee: string;
+  dossier_ids: string[];
+  declencheur: string;
+  jours_avant: number | null;
 };
 
 export async function listerRegles(): Promise<RegleRappel[]> {
@@ -251,15 +255,19 @@ export async function listerRegles(): Promise<RegleRappel[]> {
   return (await reponse.json()) as RegleRappel[];
 }
 
-export async function creerRegle(
-  libelle: string,
-  message: string,
-  canaux: string[],
-): Promise<void> {
+export async function creerRegle(regle: {
+  libelle: string;
+  message: string;
+  canaux: string[];
+  portee?: string;
+  dossier_ids?: string[];
+  declencheur?: string;
+  jours_avant?: number | null;
+}): Promise<void> {
   const reponse = await requeteGestionnaire("/regles-rappel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ libelle, message, canaux }),
+    body: JSON.stringify(regle),
   });
   if (!reponse.ok) {
     throw new ApiError("Impossible d'enregistrer la règle.", reponse.status);

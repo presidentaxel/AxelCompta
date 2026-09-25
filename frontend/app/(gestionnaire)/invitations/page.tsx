@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { InvitationsEnMasse } from "@/components/InvitationsEnMasse";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +19,8 @@ export default function InvitationsPage() {
   const router = useRouter();
   const [dossiers, setDossiers] = useState<DossierAgregat[] | null>(null);
   const [emails, setEmails] = useState<Record<string, string>>({});
+  const [cible, setCible] = useState("");
+  const [emailNouveau, setEmailNouveau] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
 
@@ -43,22 +44,56 @@ export default function InvitationsPage() {
     [];
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-5xl">
       <h1 className="text-[28px] font-bold tracking-tight text-ink">Invitations</h1>
       <p className="mt-2 text-sm text-subtle">
-        Saisis l&apos;e-mail en face de chaque entreprise, ou colle une liste nom, e-mail.
+        Choisis une entreprise et son e-mail. L&apos;invitation part tout de suite.
       </p>
+      <form
+        className="mt-8 flex flex-wrap items-center gap-2"
+        onSubmit={async (evenement) => {
+          evenement.preventDefault();
+          if (!cible) return;
+          setEnCours(cible);
+          setErreur(null);
+          try {
+            await inviterChauffeur(cible, emailNouveau);
+            setEmailNouveau("");
+            charger();
+          } catch (exception) {
+            setErreur(exception instanceof Error ? exception.message : "Échec de l'invitation.");
+          } finally {
+            setEnCours(null);
+          }
+        }}
+      >
+        <select
+          value={cible}
+          onChange={(evenement) => setCible(evenement.target.value)}
+          aria-label="Entreprise à inviter"
+          className="h-9 min-w-48 rounded-md border border-border bg-canvas px-3 text-sm text-ink"
+        >
+          <option value="">Entreprise</option>
+          {(dossiers ?? []).map((dossier) => (
+            <option key={dossier.dossier_id} value={dossier.dossier_id}>
+              {dossier.nom}
+            </option>
+          ))}
+        </select>
+        <Input
+          type="email"
+          required
+          value={emailNouveau}
+          onChange={(evenement) => setEmailNouveau(evenement.target.value)}
+          placeholder="E-mail"
+          className="max-w-64"
+        />
+        <Button type="submit" disabled={!cible || enCours !== null}>
+          Inviter
+        </Button>
+      </form>
       {erreur && <p className="mt-6 text-sm text-danger">{erreur}</p>}
       {!dossiers && !erreur && <p className="mt-8 text-sm text-subtle">Chargement…</p>}
-
-      {dossiers && (
-        <section className="mt-8">
-          <h2 className="text-sm font-semibold text-ink">Plusieurs à la fois</h2>
-          <div className="mt-3">
-            <InvitationsEnMasse dossiers={dossiers} onTermine={charger} />
-          </div>
-        </section>
-      )}
 
       {sansCompte.length > 0 && (
         <ul className="mt-10">

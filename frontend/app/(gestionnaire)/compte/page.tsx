@@ -39,9 +39,9 @@ export default function CompteGestionnairePage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm">
+    <div className="mx-auto grid max-w-5xl items-start gap-12 lg:grid-cols-3">
       <form
-        className="mb-10 space-y-2"
+        className="space-y-4 lg:col-span-2"
         onSubmit={async (evenement) => {
           evenement.preventDefault();
           setInfoNom(null);
@@ -62,11 +62,13 @@ export default function CompteGestionnairePage() {
         </Button>
         {infoNom && <p className="text-sm text-subtle">{infoNom}</p>}
       </form>
+      <div>
       <FormulaireCompte
         email={email}
         onMotDePasse={changerMotDePasseGestionnaire}
         onEmail={changerEmailGestionnaire}
       />
+      </div>
     </div>
   );
 }

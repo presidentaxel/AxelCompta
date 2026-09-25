@@ -15,14 +15,12 @@ import {
   type RoleMembre,
 } from "@/lib/auth-gestionnaire";
 
-const ROLES: { id: RoleMembre; libelle: string }[] = [
-  { id: "admin", libelle: "Admin" },
-  { id: "membre", libelle: "Membre" },
-  { id: "lecture", libelle: "Lecture" },
+const ROLES: { id: RoleMembre; libelle: string; detail: string }[] = [
+  { id: "admin", libelle: "Admin", detail: "Nom, équipe, retraits, règles" },
+  { id: "membre", libelle: "Membre", detail: "Invitations et rappels" },
+  { id: "lecture", libelle: "Lecture", detail: "Consultation" },
 ];
 
-/** Admin : nom, équipe, retraits, règles. Membre : invitations et rappels.
- * Lecture : consultation. Un compte déjà là sans ligne est admin. */
 export default function EquipePage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -43,27 +41,22 @@ export default function EquipePage() {
     listerMembres()
       .then(setMembres)
       .catch((exception) => {
-        if (exception instanceof ErreurAuthGestionnaire) {
-          router.replace("/connexion");
-        } else {
-          setErreur("Impossible de charger l'équipe.");
-        }
+        if (exception instanceof ErreurAuthGestionnaire) router.replace("/connexion");
+        else setErreur("Impossible de charger l'équipe.");
       });
   }, [router]);
 
-  const liste =
-    membres && membres.length > 0 ? membres : email ? [{ email, role: "admin" as const }] : [];
+  const liste = membres && membres.length > 0 ? membres : email ? [{ email, role: "admin" as const }] : [];
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-5xl">
       <h1 className="text-[28px] font-bold tracking-tight text-ink">Équipe</h1>
-      <p className="mt-2 text-sm text-subtle">
-        Admin gère le nom, l&apos;équipe, les retraits et les règles. Membre invite et envoie des
-        rappels. Lecture consulte seulement.
-      </p>
+      <p className="mt-2 text-sm text-subtle">Qui voit cette organisation, et jusqu&apos;où.</p>
       {erreur && <p className="mt-6 text-sm text-danger">{erreur}</p>}
+
+      <div className="mt-8 grid items-start gap-12 lg:grid-cols-3">
       <form
-        className="mt-8 flex flex-wrap items-center gap-2"
+        className="space-y-4 lg:col-span-2"
         onSubmit={async (evenement) => {
           evenement.preventDefault();
           setEnCours(true);
@@ -79,61 +72,71 @@ export default function EquipePage() {
           }
         }}
       >
+        <p className="text-sm font-medium text-ink">Inviter quelqu&apos;un</p>
         <Input
           type="email"
           required
           value={emailInvite}
           onChange={(evenement) => setEmailInvite(evenement.target.value)}
-          placeholder="E-mail du collègue"
+          placeholder="E-mail"
           disabled={enCours}
-          className="max-w-xs"
         />
-        <select
-          value={roleInvite}
-          onChange={(evenement) => setRoleInvite(evenement.target.value as RoleMembre)}
-          className="h-9 rounded-md border border-border bg-canvas px-2 text-sm text-ink"
-          aria-label="Rôle"
-        >
-          {ROLES.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.libelle}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" disabled={enCours}>
-          Inviter
+        <Segment valeur={roleInvite} onChoisir={setRoleInvite} />
+        <Button type="submit" disabled={enCours} className="w-full">
+          Envoyer l&apos;invitation
         </Button>
       </form>
-      <ul className="mt-8">
+      <ul>
         {liste.map((membre) => (
-          <li key={membre.email} className="flex items-center justify-between gap-4 border-b border-hairline py-4">
-            <span className="text-sm font-medium text-ink">
+          <li key={membre.email} className="border-b border-hairline py-4">
+            <p className="text-sm font-medium text-ink">
               {membre.email}
-              {membre.email === email ? " (vous)" : ""}
-            </span>
-            <select
-              value={membre.role}
-              aria-label={`Rôle de ${membre.email}`}
-              onChange={async (evenement) => {
-                const role = evenement.target.value as RoleMembre;
-                try {
-                  await changerRole(membre.email, role);
-                  setMembres(await listerMembres());
-                } catch (exception) {
-                  setErreur(exception instanceof Error ? exception.message : "Échec du changement.");
-                }
-              }}
-              className="h-9 rounded-md border border-border bg-canvas px-2 text-sm text-ink"
-            >
-              {ROLES.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.libelle}
-                </option>
-              ))}
-            </select>
+              {membre.email === email ? " · vous" : ""}
+            </p>
+            <div className="mt-3">
+              <Segment
+                valeur={membre.role}
+                onChoisir={async (role) => {
+                  if (role === membre.role) return;
+                  try {
+                    await changerRole(membre.email, role);
+                    setMembres(await listerMembres());
+                  } catch (exception) {
+                    setErreur(exception instanceof Error ? exception.message : "Échec du changement.");
+                  }
+                }}
+              />
+            </div>
           </li>
         ))}
       </ul>
+      </div>
+    </div>
+  );
+}
+
+function Segment({
+  valeur,
+  onChoisir,
+}: {
+  valeur: RoleMembre;
+  onChoisir: (role: RoleMembre) => void;
+}) {
+  return (
+    <div className="flex w-full overflow-hidden rounded-md border border-border">
+      {ROLES.map((role) => (
+        <button
+          key={role.id}
+          type="button"
+          title={role.detail}
+          onClick={() => onChoisir(role.id)}
+          className={`h-9 flex-1 border-l border-border text-sm first:border-l-0 ${
+            valeur === role.id ? "bg-surface-soft font-medium text-ink" : "text-subtle hover:bg-canvas-app"
+          }`}
+        >
+          {role.libelle}
+        </button>
+      ))}
     </div>
   );
 }

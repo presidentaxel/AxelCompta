@@ -150,6 +150,11 @@ class DossierAgregat(BaseModel):
     forme_juridique: str
     regime_imposition: str
     regime_tva: str
+    # Étape grossière de l'année (doc 19 §5), sans le détail des écritures.
+    annee_courante: int
+    etape_courante: str
+    annee_precedente: int
+    etape_precedente: str
 
 
 class TransactionVue(BaseModel):
@@ -336,6 +341,29 @@ def _verifier_acces_gestionnaire(identite: IdentiteAuthentifiee | None) -> Tenan
     return identite.tenant_id
 
 
+def _annee_courante(dossier: Dossier) -> int:
+    fin = dossier.exercice_fin or dossier.exercice_debut
+    return fin.year if fin else datetime.now(UTC).year
+
+
+def _etape_courante(resume: DossierResume) -> str:
+    """Compte et suivi viennent de l'onboarding. Signé vient du dépôt greffe
+    déjà produit, sans exposer le booléen ni le détail des écritures."""
+    if resume.statut_invitation != "actif":
+        return "Compte"
+    if resume.greffe_inpi_signe:
+        return "Signé"
+    return "Suivi"
+
+
+def _etape_precedente(dossier: Dossier) -> str:
+    """L'année d'avant est figée : elle ne bouge plus."""
+    debut = dossier.exercice_debut
+    if debut is None or debut.year >= _annee_courante(dossier):
+        return "Sans exercice"
+    return "Clos"
+
+
 def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
     return DossierAgregat(
         dossier_id=resume.dossier_id,
@@ -352,6 +380,10 @@ def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
         forme_juridique=dossier.forme_juridique,
         regime_imposition=dossier.regime_imposition,
         regime_tva=dossier.regime_tva,
+        annee_courante=_annee_courante(dossier),
+        etape_courante=_etape_courante(resume),
+        annee_precedente=_annee_courante(dossier) - 1,
+        etape_precedente=_etape_precedente(dossier),
     )
 
 
@@ -799,6 +831,10 @@ class RegleEntree(BaseModel):
     libelle: str
     message: str
     canaux: list[str]
+    portee: str = "tous"
+    dossier_ids: list[str] = []
+    declencheur: str = "manuel"
+    jours_avant: int | None = None
 
 
 class RegleVue(BaseModel):
@@ -806,6 +842,10 @@ class RegleVue(BaseModel):
     libelle: str
     message: str
     canaux: list[str]
+    portee: str
+    dossier_ids: list[str]
+    declencheur: str
+    jours_avant: int | None
 
 
 class RappelEntree(BaseModel):
@@ -909,6 +949,10 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
                 libelle=ligne.libelle,
                 message=ligne.message,
                 canaux=list(ligne.canaux),
+                portee=ligne.portee,
+                dossier_ids=list(ligne.dossier_ids or []),
+                declencheur=ligne.declencheur,
+                jours_avant=ligne.jours_avant,
             )
             for ligne in lignes
         ]
@@ -922,7 +966,23 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
         message = entree.message.strip()
         if not libelle or not message or not canaux:
             raise HTTPException(status_code=400, detail="Libellé, message et au moins un canal.")
-        vue = RegleVue(id=str(uuid.uuid4()), libelle=libelle, message=message, canaux=canaux)
+        if entree.declencheur not in {"manuel", "avant_cloture"} or entree.portee not in {
+            "tous",
+            "selection",
+        }:
+            raise HTTPException(status_code=400, detail="Déclencheur ou portée inconnue.")
+        if entree.declencheur == "avant_cloture" and not entree.jours_avant:
+            raise HTTPException(status_code=400, detail="Indique le nombre de jours.")
+        vue = RegleVue(
+            id=str(uuid.uuid4()),
+            libelle=libelle,
+            message=message,
+            canaux=canaux,
+            portee=entree.portee,
+            dossier_ids=entree.dossier_ids if entree.portee == "selection" else [],
+            declencheur=entree.declencheur,
+            jours_avant=entree.jours_avant if entree.declencheur == "avant_cloture" else None,
+        )
         with _engine().begin() as connexion:
             appliquer_rls(connexion)
             connexion.execute(
@@ -932,6 +992,10 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
                     libelle=libelle,
                     message=message,
                     canaux=canaux,
+                    portee=vue.portee,
+                    dossier_ids=vue.dossier_ids,
+                    declencheur=vue.declencheur,
+                    jours_avant=vue.jours_avant,
                 )
             )
         return vue
