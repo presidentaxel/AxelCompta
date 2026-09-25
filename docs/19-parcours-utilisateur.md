@@ -219,7 +219,8 @@ n'existe plus côté gestionnaire (§2.1, §2.4).
    Configuration), ajouter `http://localhost:3000/auth/lien` et l'URL
    d'invitation chauffeur aux Redirect URLs ; si le lien retombe quand
    même sur la racine du site, le fragment `#access_token` est repris
-   vers `/auth/lien`.
+   vers `/auth/lien`, sauf `type=invite`, qui va sur
+   `/chauffeur/accepter-invitation` pour choisir le mot de passe.
 3. **Complément de profil** si nécessaire (une partie est déjà pré-remplie
    depuis la fiche dossier créée côté gestionnaire).
 4. **Connexion bancaire** — trois cas concrets selon `mode_acces_bancaire`

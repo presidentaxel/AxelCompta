@@ -15,6 +15,10 @@ export type FragmentAuth = {
   type: string;
 };
 
+export function estLienInvitation(fragment: string): boolean {
+  return new URLSearchParams(fragment.replace(/^#/, "")).get("type") === "invite";
+}
+
 export function lireFragmentAuth(fragment: string): FragmentAuth {
   const parametres = new URLSearchParams(fragment.replace(/^#/, ""));
   const accessToken = parametres.get("access_token");

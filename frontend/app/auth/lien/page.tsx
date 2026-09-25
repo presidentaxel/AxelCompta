@@ -39,6 +39,10 @@ export default function LienAuthPage() {
         );
       }
       const recu = lireFragmentAuth(window.location.hash);
+      if (recu.type === "invite") {
+        window.location.replace(`/chauffeur/accepter-invitation${window.location.hash}`);
+        return;
+      }
       if (recu.type === "recovery") {
         setFragment(recu);
         setEtape("mot_de_passe");
@@ -77,7 +81,7 @@ export default function LienAuthPage() {
       }
     } catch (exception) {
       setErreur(
-        exception instanceof ErreurAuthChauffeur
+        exception instanceof Error
           ? exception.message
           : "Échec de l'enregistrement du mot de passe.",
       );
