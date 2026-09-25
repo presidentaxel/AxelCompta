@@ -15,7 +15,7 @@ un partout où c'était avant un appel anonyme (ancien comportement
 from __future__ import annotations
 
 import functools
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import jwt
@@ -27,6 +27,8 @@ import axelcompta.demo_auth as demo_auth
 import axelcompta.demo_seed as demo_seed
 from axelcompta.core.ids import DossierId, EcritureId, TenantId
 from axelcompta.demo_api import (
+    DossierResume,
+    _frises,
     create_app,
     get_comptes,
     get_decisions,
@@ -44,7 +46,7 @@ from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.tenants.memory import InMemoryDossierRepository
-from axelcompta.tenants.models import Tenant
+from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
 from axelcompta.workflow.propositions import InMemoryPropositionRepository
 from axelcompta.workflow.signature_memory import InMemorySignatureRepository
@@ -161,6 +163,65 @@ def test_lister_dossiers_retourne_les_3_chauffeurs_type() -> None:
     corps = reponse.json()
     assert len(corps) == 3
     assert {d["dossier_id"] for d in corps} == {p.dossier_id for p in PROFILS_DEMO}
+
+
+def _resume_actif(greffe_signe: bool) -> DossierResume:
+    return DossierResume(
+        dossier_id="D",
+        nom="D",
+        tva_recettes_regime="franchise",
+        plateformes=[],
+        exercice_debut=None,
+        exercice_fin=None,
+        ca_ht_cts=0,
+        charges_cts=0,
+        resultat_cts=0,
+        tresorerie_cts=0,
+        tva_a_payer_cts=0,
+        nb_transactions=0,
+        nb_a_trancher=0,
+        statut_invitation="actif",
+        mode_acces_bancaire="gestionnaire",
+        greffe_inpi_signe=greffe_signe,
+    )
+
+
+def _dossier_finissant_le(fin: date) -> Dossier:
+    return Dossier(
+        id=DossierId("D"),
+        tenant_id=TenantId("T"),
+        forme_juridique="SASU",
+        regime_imposition="IS",
+        regime_tva="franchise",
+        nom="D",
+        tva_recettes_regime="franchise",
+        exercice_debut=fin - timedelta(days=364),
+        exercice_fin=fin,
+    )
+
+
+def test_frise_davant_porte_letape_reelle_de_lexercice_en_traitement() -> None:
+    """Exercice clos au 31/12 : l'année suivante, on le traite. Sa frise
+    avance avec le dépôt greffe signé, celle de l'année en cours ne montre
+    que le compte."""
+    fin = date(datetime.now(UTC).year - 1, 12, 31)
+    dossier = _dossier_finissant_le(fin)
+
+    assert _frises(_resume_actif(False), dossier) == (fin.year + 1, "Suivi", fin.year, "Suivi")
+    assert _frises(_resume_actif(True), dossier) == (fin.year + 1, "Suivi", fin.year, "Signé")
+
+
+def test_frise_sans_exercice_davant_si_lexercice_nest_pas_termine() -> None:
+    fin = datetime.now(UTC).date() + timedelta(days=30)
+
+    frises = _frises(_resume_actif(True), _dossier_finissant_le(fin))
+
+    assert frises == (fin.year, "Suivi", fin.year - 1, "Sans exercice")
+
+
+def test_aucune_frise_nest_cochee_doffice() -> None:
+    corps = _client().get("/dossiers", headers=_en_tete_gestionnaire()).json()
+    assert all(d["etape_precedente"] != "Clos" for d in corps)
 
 
 def test_lister_dossiers_sans_jeton_est_refuse() -> None:

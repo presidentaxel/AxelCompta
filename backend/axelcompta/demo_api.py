@@ -345,14 +345,10 @@ def _verifier_acces_gestionnaire(
     return identite.tenant_id, identite
 
 
-def _annee_courante(dossier: Dossier) -> int:
-    fin = dossier.exercice_fin or dossier.exercice_debut
-    return fin.year if fin else datetime.now(UTC).year
-
-
-def _etape_courante(resume: DossierResume) -> str:
-    """Compte et suivi viennent de l'onboarding. Signé vient du dépôt greffe
-    déjà produit, sans exposer le booléen ni le détail des écritures."""
+def _etape_en_traitement(resume: DossierResume) -> str:
+    """Exercice terminé, en traitement l'année suivante (clôture, signatures,
+    greffe, impôts). Compte et suivi viennent de l'onboarding. Signé vient
+    du dépôt greffe déjà produit, sans exposer le détail des écritures."""
     if resume.statut_invitation != "actif":
         return "Compte"
     if resume.greffe_inpi_signe:
@@ -360,15 +356,22 @@ def _etape_courante(resume: DossierResume) -> str:
     return "Suivi"
 
 
-def _etape_precedente(dossier: Dossier) -> str:
-    """L'année d'avant est figée : elle ne bouge plus."""
-    debut = dossier.exercice_debut
-    if debut is None or debut.year >= _annee_courante(dossier):
-        return "Sans exercice"
-    return "Clos"
+def _frises(resume: DossierResume, dossier: Dossier) -> tuple[int, str, int, str]:
+    """doc 19 §2.1 : deux frises, l'exercice en cours et celui d'avant, que
+    l'on traite pendant le début de l'année suivante. L'exercice du dossier
+    est la seule donnée : terminé, il est celui d'avant et porte la vraie
+    étape ; pas encore terminé, il est celui en cours et rien n'est connu
+    de l'exercice d'avant. Retourne (année en cours, étape, année d'avant,
+    étape)."""
+    fin = dossier.fin_exercice()
+    compte = "Suivi" if resume.statut_invitation == "actif" else "Compte"
+    if fin < datetime.now(UTC).date():
+        return fin.year + 1, compte, fin.year, _etape_en_traitement(resume)
+    return fin.year, compte, fin.year - 1, "Sans exercice"
 
 
 def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
+    annee_courante, etape_courante, annee_precedente, etape_precedente = _frises(resume, dossier)
     return DossierAgregat(
         dossier_id=resume.dossier_id,
         nom=resume.nom,
@@ -384,10 +387,10 @@ def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
         forme_juridique=dossier.forme_juridique,
         regime_imposition=dossier.regime_imposition,
         regime_tva=dossier.regime_tva,
-        annee_courante=_annee_courante(dossier),
-        etape_courante=_etape_courante(resume),
-        annee_precedente=_annee_courante(dossier) - 1,
-        etape_precedente=_etape_precedente(dossier),
+        annee_courante=annee_courante,
+        etape_courante=etape_courante,
+        annee_precedente=annee_precedente,
+        etape_precedente=etape_precedente,
     )
 
 

@@ -70,11 +70,15 @@ gestionnaire :
     le compte ouvert, l'étape est faite pour toutes les années.
   - Le reste est réglementaire, par exercice (doc 02 §4 et §6, §5.3,
     doc 20 §4bis) : Clôture, Signature de validation, dépôt au Greffe,
-    dépôt aux Impôts, Signature légale. L'année d'avant, une fois close,
-    ne bouge plus.
+    dépôt aux Impôts, Signature légale. L'année d'avant est celle qu'on
+    traite pendant le début de l'année en cours : sa frise porte sa vraie
+    étape, jamais tout cochée d'office. Le dossier n'a qu'un exercice : s'il
+    est terminé, c'est l'année d'avant ; sinon c'est l'année en cours, et
+    l'année d'avant est « Sans exercice » faute de données.
   - Pas de nombre d'écritures, pas de justificatif, pas de pièce. Tant
     que le dépôt greffe n'est pas signé, la frise s'arrête à Compte.
-    Une signature greffe déjà enregistrée avance jusqu'à Greffe.
+    Une signature greffe déjà enregistrée avance la frise de l'année
+    d'avant jusqu'à Greffe.
   - Le nom de l'organisation (`tenants.nom`) se change dans la barre
     latérale, qui reste fixe au défilement. Invitations est le lien en
     haut à droite de la liste, et n'est plus dans la barre.

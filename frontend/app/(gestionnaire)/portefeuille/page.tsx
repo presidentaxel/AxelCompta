@@ -188,7 +188,6 @@ export default function PortefeuillePage() {
                     annee={dossier.annee_precedente}
                     etape={dossier.etape_precedente}
                     compteOuvert={dossier.statut_invitation === "actif"}
-                    figee={dossier.etape_precedente === "Clos"}
                   />
                 </span>
               </span>
@@ -414,8 +413,7 @@ function Bascule<T extends string>({
  * (doc 02 §4 et §6, doc 19 §5.3, doc 20 §4bis). */
 const ETAPES = ["Compte", "Clôture", "Signature", "Greffe", "Impôts", "Signature légale"];
 
-function rangEtape(etape: string, compteOuvert: boolean, figee?: boolean): number {
-  if (figee) return ETAPES.length - 1;
+function rangEtape(etape: string, compteOuvert: boolean): number {
   if (etape === "Signé") return ETAPES.indexOf("Greffe");
   if (compteOuvert || etape === "Suivi") return ETAPES.indexOf("Compte");
   return -1;
@@ -425,14 +423,12 @@ function Frise({
   annee,
   etape,
   compteOuvert,
-  figee,
 }: {
   annee: number;
   etape: string;
   compteOuvert: boolean;
-  figee?: boolean;
 }) {
-  const index = rangEtape(etape, compteOuvert, figee);
+  const index = rangEtape(etape, compteOuvert);
   return (
     <span className="flex items-start gap-3">
       <span className="w-8 shrink-0 pt-px text-xs leading-none text-subtle">{annee}</span>
