@@ -209,6 +209,18 @@ n'existe plus côté gestionnaire (§2.1, §2.4).
    self-signup libre, mais un vrai compte personnel. **Option de changer
    son mot de passe** (précisé 2026-09-11) — pour la confidentialité, le
    mot de passe initial (lien d'invitation) ne doit pas rester le seul.
+   **Fait le 2026-09-25** (démo, REST Supabase, sans SDK) : les écrans
+   `/connexion` et `/chauffeur/login` proposent le mot de passe, le lien
+   magique (`create_user: false`) et le mot de passe oublié. Les trois
+   liens (magique, réinitialisation, confirmation d'une nouvelle adresse)
+   arrivent sur `/auth/lien`. Le changement d'adresse et de mot de passe
+   d'une session déjà ouverte est sur `/compte` (gestionnaire) et
+   `/chauffeur/compte`. Dans le dashboard Supabase (Authentication → URL
+   Configuration), ajouter `http://localhost:3000/auth/lien` et l'URL
+   d'invitation chauffeur aux Redirect URLs ; si le lien retombe quand
+   même sur la racine du site, le fragment `#access_token` est repris
+   vers `/auth/lien`, sauf `type=invite`, qui va sur
+   `/chauffeur/accepter-invitation` pour choisir le mot de passe.
 3. **Complément de profil** si nécessaire (une partie est déjà pré-remplie
    depuis la fiche dossier créée côté gestionnaire).
 4. **Connexion bancaire** — trois cas concrets selon `mode_acces_bancaire`

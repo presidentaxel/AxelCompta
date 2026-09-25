@@ -14,7 +14,9 @@
 
 import { ApiError } from "./api";
 import {
+  changerEmailAvecJeton,
   decoderChargeUtileJwt,
+  definirMotDePasseAvecJeton,
   enTetesSupabase,
   ErreurAuthChauffeur,
   extraireErreurSupabase,
@@ -56,6 +58,25 @@ export function obtenirSessionGestionnaire(): SessionGestionnaire | null {
   }
 }
 
+export function ouvrirSessionGestionnaire(
+  accessToken: string,
+  refreshToken: string,
+  email: string,
+): SessionGestionnaire {
+  const session: SessionGestionnaire = {
+    accessToken,
+    refreshToken,
+    tenantId: tenantIdDepuisJeton(accessToken),
+    email,
+  };
+  try {
+    window.localStorage.setItem(CLE_SESSION, JSON.stringify(session));
+  } catch {
+    // Session utilisable pour cette page, simplement pas persistée.
+  }
+  return session;
+}
+
 export function deconnecterGestionnaire(): void {
   try {
     window.localStorage.removeItem(CLE_SESSION);
@@ -84,18 +105,35 @@ export async function connexionGestionnaire(
     }
   }
   const corps = (await reponse.json()) as { access_token: string; refresh_token: string };
-  const session: SessionGestionnaire = {
-    accessToken: corps.access_token,
-    refreshToken: corps.refresh_token,
-    tenantId: tenantIdDepuisJeton(corps.access_token),
-    email,
-  };
-  try {
-    window.localStorage.setItem(CLE_SESSION, JSON.stringify(session));
-  } catch {
-    // Session utilisable pour cette page, simplement pas persistée.
+  return ouvrirSessionGestionnaire(corps.access_token, corps.refresh_token, email);
+}
+
+export async function changerMotDePasseGestionnaire(motDePasse: string): Promise<void> {
+  const session = obtenirSessionGestionnaire();
+  if (!session) {
+    throw new ErreurAuthGestionnaire("Aucune session active.");
   }
-  return session;
+  try {
+    await definirMotDePasseAvecJeton(session.accessToken, motDePasse);
+  } catch (exception) {
+    throw new ErreurAuthGestionnaire(
+      exception instanceof ErreurAuthChauffeur ? exception.message : "Échec du changement.",
+    );
+  }
+}
+
+export async function changerEmailGestionnaire(email: string): Promise<void> {
+  const session = obtenirSessionGestionnaire();
+  if (!session) {
+    throw new ErreurAuthGestionnaire("Aucune session active.");
+  }
+  try {
+    await changerEmailAvecJeton(session.accessToken, email);
+  } catch (exception) {
+    throw new ErreurAuthGestionnaire(
+      exception instanceof ErreurAuthChauffeur ? exception.message : "Échec du changement.",
+    );
+  }
 }
 
 /** Requête authentifiée vers `demo_api`. Sur 401/403, la session est

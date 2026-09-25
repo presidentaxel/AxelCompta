@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -33,13 +34,18 @@ export default function ChauffeurLayout({ children }: { children: React.ReactNod
       <header className="flex items-center justify-between border-b border-border bg-canvas px-4 py-3">
         <span className="text-base font-semibold text-ink">AxeLCompta</span>
         {connecte && (
-          <button
-            type="button"
-            onClick={seDeconnecter}
-            className="text-xs font-medium text-subtle hover:text-ink"
-          >
-            Déconnexion
-          </button>
+          <div className="flex items-center gap-3">
+            <Link href="/chauffeur/compte" className="text-xs font-medium text-subtle hover:text-ink">
+              Compte
+            </Link>
+            <button
+              type="button"
+              onClick={seDeconnecter}
+              className="text-xs font-medium text-subtle hover:text-ink"
+            >
+              Déconnexion
+            </button>
+          </div>
         )}
       </header>
       <main className="mx-auto max-w-md px-4 py-6">{children}</main>

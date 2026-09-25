@@ -45,8 +45,15 @@ export function enTetesSupabase(accessToken?: string): Record<string, string> {
  * est côté serveur (`demo_auth.verifier_jwt`) à chaque appel API. */
 export function decoderChargeUtileJwt(jeton: string): Record<string, unknown> {
   const partie = jeton.split(".")[1];
-  const normalise = partie.replace(/-/g, "+").replace(/_/g, "/");
-  return JSON.parse(atob(normalise)) as Record<string, unknown>;
+  if (!partie) {
+    throw new ErreurAuthChauffeur("Lien invalide ou expiré.");
+  }
+  try {
+    const normalise = partie.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(normalise)) as Record<string, unknown>;
+  } catch {
+    throw new ErreurAuthChauffeur("Lien invalide ou expiré.");
+  }
 }
 
 function dossierIdDepuisJeton(accessToken: string): string {
@@ -70,7 +77,7 @@ export function obtenirSession(): SessionChauffeur | null {
   }
 }
 
-function enregistrerSession(session: SessionChauffeur): void {
+export function enregistrerSessionChauffeur(session: SessionChauffeur): void {
   try {
     window.localStorage.setItem(CLE_SESSION, JSON.stringify(session));
   } catch {
@@ -89,10 +96,80 @@ export function deconnecter(): void {
 }
 
 export async function extraireErreurSupabase(reponse: Response): Promise<never> {
-  const corps = (await reponse.json().catch(() => ({}))) as { error_description?: string };
+  const corps = (await reponse.json().catch(() => ({}))) as {
+    error_description?: string;
+    msg?: string;
+    message?: string;
+  };
   throw new ErreurAuthChauffeur(
-    corps.error_description ?? `Échec de l'authentification (HTTP ${reponse.status}).`,
+    corps.error_description ??
+      corps.msg ??
+      corps.message ??
+      `Échec de l'authentification (HTTP ${reponse.status}).`,
   );
+}
+
+/** Page qui reçoit les jetons Supabase (fragment `#access_token`), pour le
+ * lien magique, la réinitialisation et la confirmation de changement
+ * d'adresse. L'invitation chauffeur garde sa page dédiée. */
+export function urlRetourAuth(): string {
+  return `${window.location.origin}/auth/lien`;
+}
+
+export async function envoyerLienMagique(email: string): Promise<void> {
+  const reponse = await fetch(
+    `${SUPABASE_URL}/auth/v1/otp?redirect_to=${encodeURIComponent(urlRetourAuth())}`,
+    {
+      method: "POST",
+      headers: enTetesSupabase(),
+      body: JSON.stringify({ email, create_user: false }),
+    },
+  );
+  if (!reponse.ok) {
+    await extraireErreurSupabase(reponse);
+  }
+}
+
+export async function demanderReinitialisation(email: string): Promise<void> {
+  const reponse = await fetch(
+    `${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(urlRetourAuth())}`,
+    {
+      method: "POST",
+      headers: enTetesSupabase(),
+      body: JSON.stringify({ email }),
+    },
+  );
+  if (!reponse.ok) {
+    await extraireErreurSupabase(reponse);
+  }
+}
+
+export async function definirMotDePasseAvecJeton(
+  accessToken: string,
+  motDePasse: string,
+): Promise<void> {
+  const reponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    method: "PUT",
+    headers: enTetesSupabase(accessToken),
+    body: JSON.stringify({ password: motDePasse }),
+  });
+  if (!reponse.ok) {
+    await extraireErreurSupabase(reponse);
+  }
+}
+
+export async function changerEmailAvecJeton(accessToken: string, email: string): Promise<void> {
+  const reponse = await fetch(
+    `${SUPABASE_URL}/auth/v1/user?redirect_to=${encodeURIComponent(urlRetourAuth())}`,
+    {
+      method: "PUT",
+      headers: enTetesSupabase(accessToken),
+      body: JSON.stringify({ email }),
+    },
+  );
+  if (!reponse.ok) {
+    await extraireErreurSupabase(reponse);
+  }
 }
 
 export async function connexionParMotDePasse(
@@ -114,7 +191,7 @@ export async function connexionParMotDePasse(
     dossierId: dossierIdDepuisJeton(corps.access_token),
     email,
   };
-  enregistrerSession(session);
+  enregistrerSessionChauffeur(session);
   return session;
 }
 
@@ -140,7 +217,7 @@ export async function accepterInvitation(fragmentUrl: string): Promise<SessionCh
     dossierId: dossierIdDepuisJeton(accessToken),
     email: utilisateur.email,
   };
-  enregistrerSession(session);
+  enregistrerSessionChauffeur(session);
   return session;
 }
 
@@ -149,14 +226,7 @@ export async function definirMotDePasse(motDePasse: string): Promise<void> {
   if (!session) {
     throw new ErreurAuthChauffeur("Aucune session active.");
   }
-  const reponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    method: "PUT",
-    headers: enTetesSupabase(session.accessToken),
-    body: JSON.stringify({ password: motDePasse }),
-  });
-  if (!reponse.ok) {
-    await extraireErreurSupabase(reponse);
-  }
+  await definirMotDePasseAvecJeton(session.accessToken, motDePasse);
 }
 
 function baseUrlApi(): string {
