@@ -63,6 +63,10 @@ gestionnaire :
 - **Peut-être** un indicateur « documents de clôture déposés : oui/non »
   par dossier — **désactivé par défaut, en attente de confirmation
   juridique** (§2.4, doc 02 §10).
+  **Écran au 2026-09-25** : liste filtrable (nom, avancement du compte,
+  signe du résultat), totaux du portefeuille, aucun tag de régime. Pas
+  d'indicateur de clôture ni de complétude des écritures. L'invitation
+  vit sur `/invitations`, pas sur le tableau de bord.
 
 ### 2.2 Le chauffeur (mobile) — nouveau
 
@@ -290,13 +294,13 @@ plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
 2. Import en masse des dossiers (CSV, doc 14 §1.4) — configuration
    comptable de chaque indiv.
 3. **Invitation des indivs** — lien individuel ou **import en masse depuis
-   une base clients** (§3.1, précisé 2026-09-11) — et suivi de leur statut
-   d'onboarding (§3.2), écran de premier rang, comme le dashboard
-   consentements.
-4. **Dashboard portefeuille — état des lieux agrégé seulement** (§2.1) :
-   CA/charges/résultat par dossier, statut d'onboarding, éventuellement
-   « documents déposés » si la confirmation juridique arrive (§2.4). Jamais
-   le détail d'une transaction, d'un justificatif ou d'une signature.
+   une base clients** (§3.1, précisé 2026-09-11). Page dédiée
+   `/invitations`, ouverte par un bouton, pas un bloc sur le tableau de
+   bord. Le suivi d'onboarding (§3.2) reste visible dans la liste.
+4. **Dashboard portefeuille, état des lieux agrégé seulement** (§2.1) :
+   CA/charges/résultat par dossier, statut d'onboarding, recherche et
+   filtres. Pas d'indicateur de clôture tant que §2.4 n'est pas confirmé.
+   Jamais le détail d'une transaction, d'un justificatif ou d'une signature.
 
 ## 7. Portée technique
 

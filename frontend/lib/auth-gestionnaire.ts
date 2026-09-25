@@ -156,13 +156,43 @@ async function requeteGestionnaire(path: string, init: RequestInit = {}): Promis
   return reponse;
 }
 
+const CLE_PORTEFEUILLE = "axelcompta_portefeuille";
+
+/** Dernière liste affichée, pour ne pas attendre le recalcul à chaque navigation. */
+export function lirePortefeuilleSession(): DossierAgregat[] | null {
+  try {
+    const brut = window.sessionStorage.getItem(CLE_PORTEFEUILLE);
+    if (!brut) return null;
+    const valeur = JSON.parse(brut) as DossierAgregat[];
+    return Array.isArray(valeur) ? valeur : null;
+  } catch {
+    return null;
+  }
+}
+
 /** doc 19 §2.1 : la liste agrégée, tout ce que voit le gestionnaire. */
 export async function listerDossiers(): Promise<DossierAgregat[]> {
   const reponse = await requeteGestionnaire("/dossiers");
   if (!reponse.ok) {
     throw new ApiError(`API démo (/dossiers) : HTTP ${reponse.status}`, reponse.status);
   }
-  return (await reponse.json()) as DossierAgregat[];
+  const dossiers = (await reponse.json()) as DossierAgregat[];
+  try {
+    window.sessionStorage.setItem(CLE_PORTEFEUILLE, JSON.stringify(dossiers));
+  } catch {
+    // Affichage quand même, simplement pas mémorisé pour la prochaine page.
+  }
+  return dossiers;
+}
+
+export type MembrePortefeuille = { email: string; acces: string };
+
+export async function listerMembres(): Promise<MembrePortefeuille[]> {
+  const reponse = await requeteGestionnaire("/portefeuille/membres");
+  if (!reponse.ok) {
+    throw new ApiError(`API (/portefeuille/membres) : HTTP ${reponse.status}`, reponse.status);
+  }
+  return (await reponse.json()) as MembrePortefeuille[];
 }
 
 export async function inviterChauffeur(

@@ -35,6 +35,9 @@ export type DossierAgregat = {
   resultat_cts: number;
   statut_invitation: "invité" | "actif" | null;
   mode_acces_bancaire: "gestionnaire" | "chauffeur_direct";
+  forme_juridique: string;
+  regime_imposition: string;
+  regime_tva: string;
 };
 
 // doc 17 §9 Semaine 4 + AXE-417/418 : exports de clôture (PDF + CSV),
