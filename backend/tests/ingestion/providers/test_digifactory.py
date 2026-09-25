@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime
+from typing import cast
 
 import httpx
 import pytest
@@ -11,8 +12,11 @@ from axelcompta.ingestion.providers.digifactory import (
     DigifactoryAuthError,
     DigifactoryHttpClient,
     DigifactoryProvider,
+    fenetres_mensuelles,
+    parser_lot,
     parser_transactions,
 )
+from axelcompta.tenants.models import Dossier
 
 DOSSIER = DossierId("d1")
 DEPUIS, JUSQUA = date(2026, 1, 1), date(2026, 12, 31)
@@ -195,3 +199,57 @@ def test_health_avec_client_reel_401() -> None:
     sante = asyncio.run(provider.health())
     assert sante.ok is False
     assert "401" in sante.message
+
+
+def test_reponse_vide_est_un_lot_vide() -> None:
+    assert parser_lot([], DOSSIER).transactions == ()
+    assert parser_lot({}, DOSSIER).transactions == ()
+
+
+def test_fenetres_couvrent_le_mois_de_depart_jusqu_au_mois_suivant() -> None:
+    fenetres = fenetres_mensuelles(date(2025, 12, 15), date(2026, 1, 2))
+    assert fenetres == (
+        (datetime(2025, 12, 15), datetime(2025, 12, 31, 23, 59, 59)),
+        (datetime(2026, 1, 1), datetime(2026, 1, 2, 23, 59, 59)),
+    )
+
+
+class _ClientMensuel:
+    def __init__(self) -> None:
+        self.appels: list[tuple[datetime | None, datetime | None, datetime | None]] = []
+
+    async def transactions(
+        self,
+        contact_nr: str | int,
+        since: datetime | None = None,
+        debut: datetime | None = None,
+        fin: datetime | None = None,
+    ) -> list[object]:
+        self.appels.append((since, debut, fin))
+        return []
+
+
+def _dossier() -> Dossier:
+    return Dossier(
+        id=DOSSIER,
+        tenant_id=TenantId("t"),
+        forme_juridique="SASU",
+        regime_imposition="IS",
+        regime_tva="reel_normal",
+        nom="D",
+        tva_recettes_regime="franchise",
+        exercice_debut=date(2026, 1, 15),
+        contact_nr="9",
+    )
+
+
+def test_premier_chargement_decoupe_par_mois_puis_le_suivant_utilise_since() -> None:
+    client = _ClientMensuel()
+    provider = DigifactoryProvider(client_reel=cast(DigifactoryHttpClient, client))
+    lot = asyncio.run(provider.lire_lot(_dossier(), None))
+    assert lot.transactions == ()
+    assert len(client.appels) == len(fenetres_mensuelles(date(2026, 1, 15), date.today()))
+    assert all(since is None and debut is not None for since, debut, _fin in client.appels)
+    client.appels.clear()
+    asyncio.run(provider.lire_lot(_dossier(), datetime(2026, 9, 1, 8, 0, 0)))
+    assert client.appels == [(datetime(2026, 9, 1, 8, 0, 0), None, None)]

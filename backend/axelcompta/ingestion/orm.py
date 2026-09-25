@@ -4,7 +4,7 @@ qu'avancer."""
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, String, Table
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, ForeignKey, String, Table
 
 from axelcompta.core.db import metadata
 
@@ -59,4 +59,8 @@ consentements_bancaires = Table(
     Column("expire_le", Date, nullable=True),
     Column("statut", String, nullable=False),
     Column("releve_le", DateTime(timezone=True), nullable=False),
+    Column("sante", String, nullable=False),
+    Column("en_pause", Boolean, nullable=False),
+    Column("acces_donnees", Boolean, nullable=False),
+    Column("dernier_rafraichissement", DateTime, nullable=True),
 )
