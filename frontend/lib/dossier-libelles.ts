@@ -34,6 +34,6 @@ export function libelleImposition(code: string): string {
 
 export function libelleBanque(mode: "gestionnaire" | "chauffeur_direct"): string {
   return mode === "chauffeur_direct"
-    ? "Banque reliée par le chauffeur"
+    ? "Banque reliée par l'entreprise"
     : "Banque reliée par le portefeuille";
 }

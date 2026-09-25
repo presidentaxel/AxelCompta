@@ -59,7 +59,7 @@ export function InvitationActions({
         type="email"
         value={email}
         onChange={(evenement) => setEmail(evenement.target.value)}
-        placeholder="E-mail du chauffeur"
+        placeholder="E-mail"
         disabled={enCours}
         className="h-7 w-40 text-xs"
       />

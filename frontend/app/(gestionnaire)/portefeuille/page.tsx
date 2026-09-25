@@ -1,11 +1,21 @@
 "use client";
 
+import { Bell, Mail, Plug, Users } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ErreurAuthGestionnaire, lirePortefeuilleSession, listerDossiers } from "@/lib/auth-gestionnaire";
+import {
+  declencherRappel,
+  ErreurAuthGestionnaire,
+  lirePortefeuilleSession,
+  listerDossiers,
+  listerRegles,
+  retirerDossier,
+  type RegleRappel,
+} from "@/lib/auth-gestionnaire";
 import {
   libelleBanque,
   libelleCompte,
@@ -13,7 +23,7 @@ import {
   libelleRegimeTva,
   libelleTvaRecettes,
 } from "@/lib/dossier-libelles";
-import { formatMontant } from "@/lib/format";
+import { formatDate, formatMontant } from "@/lib/format";
 import type { DossierAgregat } from "@/lib/types";
 
 type FiltreCompte = "tous" | "sans_compte" | "invite" | "ouvert";
@@ -28,8 +38,9 @@ export default function PortefeuillePage() {
   const [resultat, setResultat] = useState<FiltreResultat>("tous");
   const [forme, setForme] = useState("toutes");
   const [tva, setTva] = useState("toutes");
-  const [filtresOuverts, setFiltresOuverts] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
+  const [regles, setRegles] = useState<RegleRappel[]>([]);
+  const [infoRappel, setInfoRappel] = useState<string | null>(null);
 
   const charger = useCallback(() => {
     listerDossiers()
@@ -38,7 +49,7 @@ export default function PortefeuillePage() {
         if (exception instanceof ErreurAuthGestionnaire) {
           router.replace("/connexion");
         } else {
-          setErreur("Impossible de charger le portefeuille.");
+          setErreur("Impossible de charger les entreprises.");
         }
       });
   }, [router]);
@@ -49,6 +60,7 @@ export default function PortefeuillePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (memo) setDossiers(memo);
     charger();
+    listerRegles().then(setRegles).catch(() => setRegles([]));
   }, [charger]);
 
   const formes = useMemo(
@@ -84,17 +96,15 @@ export default function PortefeuillePage() {
     };
   }, [dossiers]);
 
-  const filtresActifs = [compte !== "tous", resultat !== "tous", forme !== "toutes", tva !== "toutes"].filter(
-    Boolean,
-  ).length;
   const choisi = dossiers?.find((dossier) => dossier.dossier_id === selection) ?? null;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Portefeuille</h1>
+    <div className="-m-8 flex min-h-screen">
+    <div className="mx-auto min-w-0 max-w-3xl flex-1 p-8">
+      <h1 className="text-[28px] font-bold tracking-tight text-ink">Entreprises</h1>
       {dossiers && (
         <dl className="mt-8 flex flex-wrap gap-x-12 gap-y-4">
-          <Total libelle="Chauffeurs" valeur={String(totaux.nombre)} />
+          <Total libelle="Entreprises" valeur={String(totaux.nombre)} />
           <Total libelle="Sans compte" valeur={String(totaux.sansCompte)} />
           <Total libelle="Résultat" valeur={formatMontant(totaux.resultat)} montant={totaux.resultat} />
         </dl>
@@ -104,71 +114,39 @@ export default function PortefeuillePage() {
         <Input
           value={recherche}
           onChange={(evenement) => setRecherche(evenement.target.value)}
-          placeholder="Rechercher un chauffeur"
-          aria-label="Rechercher un chauffeur"
+          placeholder="Rechercher une entreprise"
+          aria-label="Rechercher une entreprise"
         />
-        <Button type="button" variant="secondary" onClick={() => setFiltresOuverts((ouvert) => !ouvert)}>
-          Filtres{filtresActifs > 0 ? ` (${filtresActifs})` : ""}
-        </Button>
       </div>
-      {filtresOuverts && (
-        <div className="mt-3 rounded-lg border border-border bg-canvas p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Choix
-              libelle="Compte"
-              valeur={compte}
-              onChange={setCompte}
-              options={[
-                ["tous", "Tous"],
-                ["sans_compte", "Sans compte"],
-                ["invite", "Invitation envoyée"],
-                ["ouvert", "Compte ouvert"],
-              ]}
-            />
-            <Choix
-              libelle="Résultat"
-              valeur={resultat}
-              onChange={setResultat}
-              options={[
-                ["tous", "Tous"],
-                ["positif", "Positif"],
-                ["negatif", "Négatif"],
-              ]}
-            />
-            <Choix
-              libelle="Forme"
-              valeur={forme}
-              onChange={setForme}
-              options={[["toutes", "Toutes"], ...formes.map((valeur) => [valeur, valeur] as [string, string])]}
-            />
-            <Choix
-              libelle="TVA sur les recettes"
-              valeur={tva}
-              onChange={setTva}
-              options={[
-                ["toutes", "Toutes"],
-                ...tvas.map((valeur) => [valeur, libelleTvaRecettes(valeur)] as [string, string]),
-              ]}
-            />
-          </div>
-          {filtresActifs > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => {
-                setCompte("tous");
-                setResultat("tous");
-                setForme("toutes");
-                setTva("toutes");
-              }}
-            >
-              Effacer
-            </Button>
-          )}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Bascule
+          libelle="Compte"
+          valeur={compte}
+          options={ORDRE_COMPTE.map((id) => ({ id, libelle: LIBELLES_COMPTE[id] }))}
+          onChoisir={setCompte}
+        />
+        <Bascule
+          libelle="Résultat"
+          valeur={resultat}
+          options={ORDRE_RESULTAT.map((id) => ({ id, libelle: LIBELLES_RESULTAT[id] }))}
+          onChoisir={setResultat}
+        />
+        <Bascule
+          libelle="Forme"
+          valeur={forme}
+          options={["toutes", ...formes].map((id) => ({ id, libelle: id === "toutes" ? "Toutes" : id }))}
+          onChoisir={setForme}
+        />
+        <Bascule
+          libelle="TVA"
+          valeur={tva}
+          options={["toutes", ...tvas].map((id) => ({
+            id,
+            libelle: id === "toutes" ? "Toutes" : libelleTvaRecettes(id),
+          }))}
+          onChoisir={setTva}
+        />
+      </div>
 
       {erreur && <p className="mt-6 text-sm text-danger">{erreur}</p>}
       {!dossiers && !erreur && <p className="mt-8 text-sm text-subtle">Chargement…</p>}
@@ -178,7 +156,7 @@ export default function PortefeuillePage() {
           <li key={dossier.dossier_id} className="border-b border-hairline">
             <button
               type="button"
-              className="flex w-full items-start justify-between gap-8 py-5 text-left hover:bg-surface-soft"
+              className="flex w-full items-start justify-between gap-8 rounded-lg px-3 py-5 text-left hover:bg-surface-soft"
               onClick={() =>
                 setSelection((actuel) => (actuel === dossier.dossier_id ? null : dossier.dossier_id))
               }
@@ -206,11 +184,12 @@ export default function PortefeuillePage() {
         ))}
       </ul>
       {dossiers && visibles.length === 0 && (
-        <p className="py-10 text-sm text-subtle">Aucun chauffeur pour cette recherche.</p>
+        <p className="py-10 text-sm text-subtle">Aucune entreprise pour cette recherche.</p>
       )}
 
-      {choisi && (
-        <aside className="fixed inset-y-0 right-0 z-20 w-full max-w-sm overflow-y-auto border-l border-border bg-canvas p-6 shadow-lg">
+      </div>
+      {choisi ? (
+        <aside className="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-border bg-canvas p-6">
           <div className="flex items-start justify-between gap-4">
             <h2 className="text-lg font-semibold text-ink">{choisi.nom}</h2>
             <Button type="button" variant="ghost" size="sm" onClick={() => setSelection(null)}>
@@ -235,13 +214,73 @@ export default function PortefeuillePage() {
                 libelle="Exercice"
                 valeur={
                   choisi.exercice_fin
-                    ? `${choisi.exercice_debut} au ${choisi.exercice_fin}`
-                    : choisi.exercice_debut
+                    ? `${formatDate(choisi.exercice_debut)} au ${formatDate(choisi.exercice_fin)}`
+                    : formatDate(choisi.exercice_debut)
                 }
               />
             )}
           </dl>
+          <div className="mt-8">
+            <p className="text-sm font-medium text-ink">Rappels</p>
+            {regles.length === 0 && (
+              <p className="mt-2 text-sm text-subtle">
+                Aucune règle. Elles se préparent dans Rappels.
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {regles.map((regle) => (
+                <Button
+                  key={regle.id}
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={async () => {
+                    setInfoRappel(null);
+                    try {
+                      await declencherRappel(regle.id, choisi.dossier_id);
+                      setInfoRappel(`${regle.libelle} enregistré. Envoi prévu quand le canal sera branché.`);
+                    } catch (exception) {
+                      setInfoRappel(exception instanceof Error ? exception.message : "Échec du rappel.");
+                    }
+                  }}
+                >
+                  {regle.libelle}
+                </Button>
+              ))}
+            </div>
+            {infoRappel && <p className="mt-2 text-sm text-subtle">{infoRappel}</p>}
+          </div>
+          <div className="mt-auto flex justify-end pt-8">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-danger"
+              onClick={async () => {
+                await retirerDossier(choisi.dossier_id);
+                setSelection(null);
+                charger();
+              }}
+            >
+              Retirer
+            </Button>
+          </div>
         </aside>
+      ) : (
+        <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-l border-border bg-canvas py-3">
+          <Raccourci href="/rappels" libelle="Rappels">
+            <Bell className="h-4 w-4" />
+          </Raccourci>
+          <Raccourci href="/invitations" libelle="Invitations">
+            <Mail className="h-4 w-4" />
+          </Raccourci>
+          <Raccourci href="/equipe" libelle="Équipe">
+            <Users className="h-4 w-4" />
+          </Raccourci>
+          <Raccourci href="/integrations" libelle="Intégrations">
+            <Plug className="h-4 w-4" />
+          </Raccourci>
+        </nav>
       )}
     </div>
   );
@@ -258,32 +297,107 @@ function Total({ libelle, valeur, montant }: { libelle: string; valeur: string; 
   );
 }
 
-function Choix<T extends string>({
+const ORDRE_COMPTE: FiltreCompte[] = ["tous", "sans_compte", "invite", "ouvert"];
+const ORDRE_RESULTAT: FiltreResultat[] = ["tous", "positif", "negatif"];
+const LIBELLES_COMPTE: Record<FiltreCompte, string> = {
+  tous: "Tous",
+  sans_compte: "Sans compte",
+  invite: "Invitation envoyée",
+  ouvert: "Compte ouvert",
+};
+const LIBELLES_RESULTAT: Record<FiltreResultat, string> = {
+  tous: "Tous",
+  positif: "Positif",
+  negatif: "Négatif",
+};
+
+function Bascule({
   libelle,
   valeur,
-  onChange,
   options,
+  onChoisir,
 }: {
   libelle: string;
-  valeur: T;
-  onChange: (valeur: T) => void;
-  options: [T, string][];
+  valeur: string;
+  options: { id: string; libelle: string }[];
+  onChoisir: (id: string) => void;
+}) {
+  const [ouvert, setOuvert] = useState(false);
+  const maintien = useRef(false);
+  const minuteur = useRef<number | null>(null);
+  const affiche = options.find((option) => option.id === valeur)?.libelle ?? valeur;
+
+  function relacher() {
+    if (minuteur.current !== null) window.clearTimeout(minuteur.current);
+  }
+
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        onPointerDown={() => {
+          maintien.current = false;
+          minuteur.current = window.setTimeout(() => {
+            maintien.current = true;
+            setOuvert(true);
+          }, 350);
+        }}
+        onPointerUp={relacher}
+        onPointerLeave={relacher}
+        onClick={() => {
+          if (maintien.current) {
+            maintien.current = false;
+            return;
+          }
+          const index = options.findIndex((option) => option.id === valeur);
+          const suivant = options[(index + 1) % options.length];
+          if (suivant) onChoisir(suivant.id);
+        }}
+        className="rounded-full border border-border bg-canvas px-3 py-1.5 text-sm text-ink hover:bg-surface-soft"
+      >
+        <span className="text-subtle">{libelle}</span>
+        <span className="mx-1.5 text-faint">·</span>
+        {affiche}
+      </button>
+      {ouvert && (
+        <span className="absolute left-0 z-10 mt-1 flex min-w-40 flex-col rounded-lg border border-border bg-canvas py-1 shadow-sm">
+          {options.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className="px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-soft"
+              onClick={() => {
+                onChoisir(option.id);
+                setOuvert(false);
+              }}
+            >
+              {option.libelle}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function Raccourci({
+  href,
+  libelle,
+  children,
+}: {
+  href: string;
+  libelle: string;
+  children: React.ReactNode;
 }) {
   return (
-    <label className="block text-sm">
-      <span className="font-medium text-ink">{libelle}</span>
-      <select
-        value={valeur}
-        onChange={(evenement) => onChange(evenement.target.value as T)}
-        className="mt-1 h-9 w-full rounded-md border border-border bg-canvas px-3 text-sm text-ink outline-none focus-visible:border-border-focus"
-      >
-        {options.map(([id, texte]) => (
-          <option key={id} value={id}>
-            {texte}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Link
+      href={href}
+      title={libelle}
+      aria-label={libelle}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-subtle hover:bg-surface-soft hover:text-ink"
+    >
+      {children}
+    </Link>
   );
 }
 

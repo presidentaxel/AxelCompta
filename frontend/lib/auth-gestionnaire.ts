@@ -185,7 +185,9 @@ export async function listerDossiers(): Promise<DossierAgregat[]> {
   return dossiers;
 }
 
-export type MembrePortefeuille = { email: string; acces: string };
+export type RoleMembre = "admin" | "membre" | "lecture";
+
+export type MembrePortefeuille = { email: string; role: RoleMembre };
 
 export async function listerMembres(): Promise<MembrePortefeuille[]> {
   const reponse = await requeteGestionnaire("/portefeuille/membres");
@@ -193,6 +195,97 @@ export async function listerMembres(): Promise<MembrePortefeuille[]> {
     throw new ApiError(`API (/portefeuille/membres) : HTTP ${reponse.status}`, reponse.status);
   }
   return (await reponse.json()) as MembrePortefeuille[];
+}
+
+export async function inviterMembre(email: string, role: RoleMembre): Promise<void> {
+  const reponse = await requeteGestionnaire("/portefeuille/membres", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role }),
+  });
+  if (!reponse.ok) {
+    const corps = await reponse.json().catch(() => ({}));
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+}
+
+export async function lireNomPortefeuille(): Promise<string> {
+  const reponse = await requeteGestionnaire("/portefeuille");
+  if (!reponse.ok) return "";
+  const corps = (await reponse.json()) as { nom: string };
+  return corps.nom;
+}
+
+export async function renommerPortefeuille(nom: string): Promise<string> {
+  const reponse = await requeteGestionnaire("/portefeuille", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nom }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible d'enregistrer le nom.", reponse.status);
+  }
+  const corps = (await reponse.json()) as { nom: string };
+  return corps.nom;
+}
+
+export async function retirerDossier(dossierId: string): Promise<void> {
+  const reponse = await requeteGestionnaire(`/dossiers/${dossierId}/retirer`, { method: "POST" });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de retirer ce dossier.", reponse.status);
+  }
+}
+
+export type RegleRappel = {
+  id: string;
+  libelle: string;
+  message: string;
+  canaux: string[];
+};
+
+export async function listerRegles(): Promise<RegleRappel[]> {
+  const reponse = await requeteGestionnaire("/regles-rappel");
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de charger les rappels.", reponse.status);
+  }
+  return (await reponse.json()) as RegleRappel[];
+}
+
+export async function creerRegle(
+  libelle: string,
+  message: string,
+  canaux: string[],
+): Promise<void> {
+  const reponse = await requeteGestionnaire("/regles-rappel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ libelle, message, canaux }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible d'enregistrer la règle.", reponse.status);
+  }
+}
+
+export async function declencherRappel(regleId: string, dossierId: string): Promise<void> {
+  const reponse = await requeteGestionnaire("/rappels", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ regle_id: regleId, dossier_id: dossierId }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible d'envoyer le rappel.", reponse.status);
+  }
+}
+
+export async function changerRole(email: string, role: RoleMembre): Promise<void> {
+  const reponse = await requeteGestionnaire("/portefeuille/membres", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de changer le rôle.", reponse.status);
+  }
 }
 
 export async function inviterChauffeur(

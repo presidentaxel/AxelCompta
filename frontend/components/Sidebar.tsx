@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutGrid, Mail, Users } from "lucide-react";
+import { Bell, LayoutGrid, Mail, Plug, Users } from "lucide-react";
 
 import { Marque } from "@/components/Marque";
 import { deconnecterGestionnaire, obtenirSessionGestionnaire } from "@/lib/auth-gestionnaire";
 
 const LIENS = [
-  { href: "/portefeuille", libelle: "Portefeuille", Icone: LayoutGrid },
+  { href: "/portefeuille", libelle: "Entreprises", Icone: LayoutGrid },
   { href: "/invitations", libelle: "Invitations", Icone: Mail },
+  { href: "/rappels", libelle: "Rappels", Icone: Bell },
   { href: "/equipe", libelle: "Équipe", Icone: Users },
+  { href: "/integrations", libelle: "Intégrations", Icone: Plug },
 ];
 
 export function Sidebar() {
@@ -29,21 +31,10 @@ export function Sidebar() {
     router.push("/connexion");
   }
 
-  const initiales = email.slice(0, 2).toUpperCase() || "AX";
-
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-canvas-app px-3 py-4">
       <div className="px-2 pb-4">
         <Marque />
-      </div>
-      <div className="mb-4 flex items-center gap-2 rounded-lg bg-canvas px-2.5 py-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary">
-          {initiales}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-ink">Portefeuille</span>
-          <span className="block text-xs text-subtle">Gestionnaire</span>
-        </span>
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {LIENS.map(({ href, libelle, Icone }) => {
