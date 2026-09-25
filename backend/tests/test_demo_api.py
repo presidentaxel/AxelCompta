@@ -200,21 +200,36 @@ def _dossier_finissant_le(fin: date) -> Dossier:
     )
 
 
-def test_frise_davant_porte_letape_reelle_de_lexercice_en_traitement() -> None:
+def test_frise_davant_suit_les_preuves_dans_l_ordre() -> None:
     """Exercice clos au 31/12 : l'année suivante, on le traite. Sa frise
-    avance avec le dépôt greffe signé, celle de l'année en cours ne montre
-    que le compte."""
+    avance avec les preuves, dans l'ordre, et un trou ne saute pas d'étape.
+    L'année en cours ne montre que le compte."""
     fin = date(datetime.now(UTC).year - 1, 12, 31)
     dossier = _dossier_finissant_le(fin)
+    resume = _resume_actif(False)
 
-    assert _frises(_resume_actif(False), dossier) == (fin.year + 1, "Suivi", fin.year, "Suivi")
-    assert _frises(_resume_actif(True), dossier) == (fin.year + 1, "Suivi", fin.year, "Signé")
+    assert _frises(resume, dossier, set()) == (fin.year + 1, "Suivi", fin.year, "Suivi")
+    assert _frises(resume, dossier, {"cloture"}) == (fin.year + 1, "Suivi", fin.year, "Clôture")
+    assert _frises(resume, dossier, {"cloture", "validation_comptes"}) == (
+        fin.year + 1,
+        "Suivi",
+        fin.year,
+        "Signature",
+    )
+    assert _frises(resume, dossier, {"cloture", "validation_comptes", "greffe_inpi"}) == (
+        fin.year + 1,
+        "Suivi",
+        fin.year,
+        "Greffe",
+    )
+    # Le greffe seul ne coche pas les étapes d'avant.
+    assert _frises(resume, dossier, {"greffe_inpi"}) == (fin.year + 1, "Suivi", fin.year, "Suivi")
 
 
 def test_frise_sans_exercice_davant_si_lexercice_nest_pas_termine() -> None:
     fin = datetime.now(UTC).date() + timedelta(days=30)
 
-    frises = _frises(_resume_actif(True), _dossier_finissant_le(fin))
+    frises = _frises(_resume_actif(True), _dossier_finissant_le(fin), set())
 
     assert frises == (fin.year, "Suivi", fin.year - 1, "Sans exercice")
 

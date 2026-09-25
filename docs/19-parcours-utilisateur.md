@@ -75,10 +75,12 @@ gestionnaire :
     étape, jamais tout cochée d'office. Le dossier n'a qu'un exercice : s'il
     est terminé, c'est l'année d'avant ; sinon c'est l'année en cours, et
     l'année d'avant est « Sans exercice » faute de données.
-  - Pas de nombre d'écritures, pas de justificatif, pas de pièce. Tant
-    que le dépôt greffe n'est pas signé, la frise s'arrête à Compte.
-    Une signature greffe déjà enregistrée avance la frise de l'année
-    d'avant jusqu'à Greffe.
+  - Pas de nombre d'écritures, pas de justificatif, pas de pièce. Après
+    le compte, chaque étape de l'année d'avant est une preuve
+    (`documents_signes`), dans l'ordre : clôture, signature de
+    validation, greffe, dépôt aux impôts, signature légale. La frise
+    s'arrête au premier jalon absent. Ajouter ou retirer une preuve
+    déplace l'étape. L'année en cours ne montre que le compte.
   - Le nom de l'organisation (`tenants.nom`) se change dans la barre
     latérale, qui reste fixe au défilement. Invitations est le lien en
     haut à droite de la liste, et n'est plus dans la barre.

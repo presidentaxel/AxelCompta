@@ -10,10 +10,17 @@ import pytest
 import axelcompta.demo_seed as demo_seed
 from axelcompta.core.ids import DossierId, TenantId
 from axelcompta.demo_chauffeurs_type import construire_ledger
-from axelcompta.demo_seed import TENANT_DEMO, AmorcageIncompletError, amorcer_demo
+from axelcompta.demo_jalons import etape_depuis_preuves
+from axelcompta.demo_seed import (
+    TENANT_DEMO,
+    AmorcageIncompletError,
+    amorcer_demo,
+    poser_jalons_demo,
+)
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.workflow.propositions import InMemoryPropositionRepository
+from axelcompta.workflow.signature_memory import InMemorySignatureRepository
 
 
 @pytest.fixture(autouse=True)
@@ -87,6 +94,34 @@ def test_toute_ecriture_a_trancher_a_sa_proposition_dorigine() -> None:
 
     assert a_trancher
     assert all(propositions.obtenir(sophie, e.id) is not None for e in a_trancher)
+
+
+def test_jalons_2025_placent_les_3_dossiers_a_des_etapes_differentes() -> None:
+    dossiers, ledger, propositions = _depots()
+    signatures = InMemorySignatureRepository()
+    amorcer_demo(dossiers, ledger, propositions)
+
+    assert poser_jalons_demo(dossiers, ledger, signatures)
+    assert poser_jalons_demo(dossiers, ledger, signatures) == []
+
+    def etape(dossier_id: str) -> str:
+        preuves = {
+            type_document
+            for type_document in (
+                "cloture",
+                "validation_comptes",
+                "greffe_inpi",
+                "depot_impots",
+                "signature_legale",
+            )
+            if signatures.dernier(DossierId(dossier_id), type_document) is not None
+        }
+        return etape_depuis_preuves("actif", preuves)
+
+    assert etape("DEMO_karim") == "Clôture"
+    assert etape("DEMO_sophie") == "Greffe"
+    assert etape("DEMO_yanis") == "Signature légale"
+    assert signatures.dernier(DossierId("DEMO_karim"), "greffe_inpi") is None
 
 
 def test_amorcage_incomplet_est_refuse() -> None:

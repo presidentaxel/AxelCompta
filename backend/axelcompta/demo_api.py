@@ -61,6 +61,7 @@ from axelcompta.demo_comptes import (
     SupabaseCompteRepository,
     SupabaseConfig,
 )
+from axelcompta.demo_jalons import JALONS_EXERCICE, etape_depuis_preuves
 from axelcompta.demo_justificatifs import (
     FichierJustificatifRepository,
     JustificatifRepository,
@@ -345,33 +346,37 @@ def _verifier_acces_gestionnaire(
     return identite.tenant_id, identite
 
 
-def _etape_en_traitement(resume: DossierResume) -> str:
-    """Exercice terminé, en traitement l'année suivante (clôture, signatures,
-    greffe, impôts). Compte et suivi viennent de l'onboarding. Signé vient
-    du dépôt greffe déjà produit, sans exposer le détail des écritures."""
-    if resume.statut_invitation != "actif":
-        return "Compte"
-    if resume.greffe_inpi_signe:
-        return "Signé"
-    return "Suivi"
+def _preuves_exercice(signatures: SignatureRepository, dossier_id: DossierId) -> set[str]:
+    """Types de jalons déjà enregistrés pour ce dossier. Une lecture par
+    type : la table est append-only et indexée par dossier."""
+    return {
+        type_document
+        for type_document, _nom in JALONS_EXERCICE
+        if signatures.dernier(dossier_id, type_document) is not None
+    }
 
 
-def _frises(resume: DossierResume, dossier: Dossier) -> tuple[int, str, int, str]:
+def _frises(
+    resume: DossierResume, dossier: Dossier, preuves: set[str]
+) -> tuple[int, str, int, str]:
     """doc 19 §2.1 : deux frises, l'exercice en cours et celui d'avant, que
     l'on traite pendant le début de l'année suivante. L'exercice du dossier
-    est la seule donnée : terminé, il est celui d'avant et porte la vraie
-    étape ; pas encore terminé, il est celui en cours et rien n'est connu
-    de l'exercice d'avant. Retourne (année en cours, étape, année d'avant,
-    étape)."""
+    est la seule donnée : terminé, il est celui d'avant et son étape est
+    celle des preuves (`etape_depuis_preuves`) ; pas encore terminé, il est
+    celui en cours et rien n'est connu de l'exercice d'avant. Retourne
+    (année en cours, étape, année d'avant, étape)."""
     fin = dossier.fin_exercice()
     compte = "Suivi" if resume.statut_invitation == "actif" else "Compte"
     if fin < datetime.now(UTC).date():
-        return fin.year + 1, compte, fin.year, _etape_en_traitement(resume)
+        etape = etape_depuis_preuves(resume.statut_invitation, preuves)
+        return fin.year + 1, compte, fin.year, etape
     return fin.year, compte, fin.year - 1, "Sans exercice"
 
 
-def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
-    annee_courante, etape_courante, annee_precedente, etape_precedente = _frises(resume, dossier)
+def _agregat(resume: DossierResume, dossier: Dossier, preuves: set[str]) -> DossierAgregat:
+    annee_courante, etape_courante, annee_precedente, etape_precedente = _frises(
+        resume, dossier, preuves
+    )
     return DossierAgregat(
         dossier_id=resume.dossier_id,
         nom=resume.nom,
@@ -744,7 +749,11 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         if en_cache is not None:
             return en_cache
         agregats = [
-            _agregat(_resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures), d)
+            _agregat(
+                _resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures),
+                d,
+                _preuves_exercice(signatures, d.id),
+            )
             for d in dossiers.lister_par_tenant(tenant_id)
         ]
         _ecrire_cache_agregats(request.app, str(tenant_id), agregats)
@@ -1318,7 +1327,8 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         pdf_non_signe = _document_greffe_inpi(dossier, ledger)
         document = SignatureDemoProvider().signer(pdf_non_signe, identite.user_id)
         signatures.enregistrer(dossier.id, TYPE_DOCUMENT_GREFFE_INPI, document)
-        # La frise du gestionnaire avance jusqu'à Greffe.
+        # Preuve greffe enregistrée. La frise n'avance que si clôture et
+        # signature de validation sont déjà là (préfixe, demo_jalons).
         _vider_cache_agregats(request.app, str(dossier.tenant_id))
         return SignatureGreffeVue(
             dossier_id=dossier.id,
