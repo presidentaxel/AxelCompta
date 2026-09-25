@@ -60,13 +60,35 @@ gestionnaire :
   compte actif, qui a été invité et n'a pas répondu, qui n'a toujours pas
   de compte (§3.2, inchangé).
 - Invitation, individuelle ou en masse (§3.1, étendu le 2026-09-11).
-- **Peut-être** un indicateur « documents de clôture déposés : oui/non »
-  par dossier — **désactivé par défaut, en attente de confirmation
-  juridique** (§2.4, doc 02 §10).
-  **Écran au 2026-09-25** : liste filtrable (nom, avancement du compte,
-  signe du résultat), totaux du portefeuille, aucun tag de régime. Pas
-  d'indicateur de clôture ni de complétude des écritures. L'invitation
-  vit sur `/invitations`, pas sur le tableau de bord.
+- **Écran au 2026-09-25, soir** : le mot affiché est **entreprise**, pas
+  chauffeur. La liste est sur `/portefeuille`. À côté du nom : Compte
+  ouvert, Invitation envoyée ou Compte fermé, et le résultat. Deux frises
+  par ligne, l'année en cours et l'année d'avant. La frise est un palier
+  grossier, pas le détail que §2.4 réserve encore à une confirmation
+  juridique.
+  - **Compte** regroupe l'invitation, le profil et la banque. Une fois
+    le compte ouvert, l'étape est faite pour toutes les années.
+  - Le reste est réglementaire, par exercice (doc 02 §4 et §6, §5.3,
+    doc 20 §4bis) : Clôture, Signature de validation, dépôt au Greffe,
+    dépôt aux Impôts, Signature légale. L'année d'avant, une fois close,
+    ne bouge plus.
+  - Pas de nombre d'écritures, pas de justificatif, pas de pièce. Tant
+    que le dépôt greffe n'est pas signé, la frise s'arrête à Compte.
+    Une signature greffe déjà enregistrée avance jusqu'à Greffe.
+  - Le nom de l'organisation (`tenants.nom`) se change dans la barre
+    latérale, qui reste fixe au défilement. Invitations est le lien en
+    haut à droite de la liste, et n'est plus dans la barre.
+  - **Rappels** (`/rappels`) : règles SMS, e-mail ou appel, pour toutes
+    les entreprises ou certaines, manuelles ou N jours avant la clôture.
+    L'envoi n'est pas branché. Trois règles de base sont posées au
+    premier passage. Les boutons correspondants sont sur la fiche.
+  - **Équipe** (`/equipe`) : Admin (nom, équipe, retraits, règles),
+    Membre (invitations et rappels), Lecture. Un compte déjà là sans
+    ligne de droit est admin.
+  - **Intégrations** (`/integrations`) : Bridge, Volubile, SMS, e-mail,
+    annoncés comme prévus, rien n'est connecté depuis l'écran.
+  - Retirer une entreprise la masque de la liste (`dossiers.retire_le`).
+    Les écritures restent.
 
 ### 2.2 Le chauffeur (mobile) — nouveau
 
@@ -293,14 +315,18 @@ plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
    le gestionnaire (contrat B2B), pas avec chaque dossier individuellement.
 2. Import en masse des dossiers (CSV, doc 14 §1.4) — configuration
    comptable de chaque indiv.
-3. **Invitation des indivs** — lien individuel ou **import en masse depuis
-   une base clients** (§3.1, précisé 2026-09-11). Page dédiée
-   `/invitations`, ouverte par un bouton, pas un bloc sur le tableau de
-   bord. Le suivi d'onboarding (§3.2) reste visible dans la liste.
-4. **Dashboard portefeuille, état des lieux agrégé seulement** (§2.1) :
-   CA/charges/résultat par dossier, statut d'onboarding, recherche et
-   filtres. Pas d'indicateur de clôture tant que §2.4 n'est pas confirmé.
-   Jamais le détail d'une transaction, d'un justificatif ou d'une signature.
+3. **Invitation des entreprises** — une entreprise et un e-mail, depuis
+   `/invitations` (lien en haut à droite de la liste, §3.1). Le collage
+   en masse reste disponible dans l'API, plus comme bloc de texte sur
+   l'écran. Le suivi d'onboarding (§3.2) est le mot à côté du nom.
+4. **Liste, état des lieux** (§2.1) : résultat, compte ouvert ou fermé,
+   frise réglementaire de l'année en cours et de l'année d'avant. Jamais
+   le détail d'une transaction ou d'un justificatif. La fiche pousse la
+   liste ; elle porte les rappels préparés et le retrait, avec
+   confirmation.
+5. **Rappels, équipe, intégrations, compte** — réglages décrits au §2.1.
+   Le compte (`/compte`) porte le nom de l'organisation, l'e-mail et le
+   mot de passe.
 
 ## 7. Portée technique
 
