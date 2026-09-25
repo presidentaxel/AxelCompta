@@ -42,7 +42,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, Row
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot, ParametresCloture
@@ -883,7 +883,31 @@ def _exiger_admin(identite: IdentiteAuthentifiee, tenant_id: TenantId) -> None:
         raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
 
 
-def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
+def _rappel_vue(ligne: Row[Any]) -> RappelVue:
+    return RappelVue(
+        id=ligne.id,
+        dossier_id=ligne.dossier_id,
+        regle_id=ligne.regle_id,
+        message=ligne.message,
+        canal=ligne.canal,
+        cree_le=ligne.cree_le.isoformat(),
+    )
+
+
+def _regle_vue(ligne: Row[Any]) -> RegleVue:
+    return RegleVue(
+        id=ligne.id,
+        libelle=ligne.libelle,
+        message=ligne.message,
+        canaux=list(ligne.canaux),
+        portee=ligne.portee,
+        dossier_ids=list(ligne.dossier_ids or []),
+        declencheur=ligne.declencheur,
+        jours_avant=ligne.jours_avant,
+    )
+
+
+def _enregistrer_routes_portefeuille(app: FastAPI) -> None:
     @app.get("/portefeuille", response_model=NomPortefeuille)
     def lire_portefeuille(dossiers: DossiersDep, identite: IdentiteDep) -> NomPortefeuille:
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
@@ -915,6 +939,8 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
         _vider_cache_agregats(request.app, str(tenant_id))
         return {"dossier_id": dossier.id}
 
+
+def _enregistrer_routes_rappels(app: FastAPI) -> None:
     @app.get("/rappels", response_model=list[RappelVue])
     def lister_rappels(identite: IdentiteDep) -> list[RappelVue]:
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
@@ -925,18 +951,52 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
                 .where(rappels.c.tenant_id == str(tenant_id))
                 .order_by(rappels.c.cree_le.desc())
             ).all()
-        return [
-            RappelVue(
-                id=ligne.id,
-                dossier_id=ligne.dossier_id,
-                regle_id=ligne.regle_id,
-                message=ligne.message,
-                canal=ligne.canal,
-                cree_le=ligne.cree_le.isoformat(),
-            )
-            for ligne in lignes
-        ]
+        return [_rappel_vue(ligne) for ligne in lignes]
 
+    @app.post("/rappels", response_model=RappelVue)
+    def declencher_rappel(entree: RappelEntree, identite: IdentiteDep) -> RappelVue:
+        """Enregistre un envoi à partir d'une règle. Le canal n'est pas
+        branché : SMS, e-mail et appel restent à connecter."""
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        if _role_membre(tenant_id, identite.email) == "lecture":
+            raise HTTPException(
+                status_code=403, detail="La lecture seule ne déclenche pas de rappel."
+            )
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            regle = connexion.execute(
+                select(regles_rappel).where(
+                    regles_rappel.c.id == entree.regle_id,
+                    regles_rappel.c.tenant_id == str(tenant_id),
+                )
+            ).first()
+        if regle is None:
+            raise HTTPException(status_code=404, detail="Règle introuvable.")
+        vue = RappelVue(
+            id=str(uuid.uuid4()),
+            dossier_id=entree.dossier_id,
+            regle_id=regle.id,
+            message=regle.message,
+            canal=",".join(regle.canaux),
+            cree_le=datetime.now(UTC).isoformat(),
+        )
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(rappels).values(
+                    id=vue.id,
+                    tenant_id=str(tenant_id),
+                    dossier_id=entree.dossier_id,
+                    regle_id=regle.id,
+                    message=regle.message,
+                    canal=vue.canal,
+                    cree_le=datetime.now(UTC),
+                )
+            )
+        return vue
+
+
+def _enregistrer_routes_regles(app: FastAPI) -> None:
     @app.get("/regles-rappel", response_model=list[RegleVue])
     def lister_regles(identite: IdentiteDep) -> list[RegleVue]:
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
@@ -945,19 +1005,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
             lignes = connexion.execute(
                 select(regles_rappel).where(regles_rappel.c.tenant_id == str(tenant_id))
             ).all()
-        return [
-            RegleVue(
-                id=ligne.id,
-                libelle=ligne.libelle,
-                message=ligne.message,
-                canaux=list(ligne.canaux),
-                portee=ligne.portee,
-                dossier_ids=list(ligne.dossier_ids or []),
-                declencheur=ligne.declencheur,
-                jours_avant=ligne.jours_avant,
-            )
-            for ligne in lignes
-        ]
+        return [_regle_vue(ligne) for ligne in lignes]
 
     @app.post("/regles-rappel", response_model=RegleVue)
     def creer_regle(entree: RegleEntree, identite: IdentiteDep) -> RegleVue:
@@ -1002,48 +1050,8 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
             )
         return vue
 
-    @app.post("/rappels", response_model=RappelVue)
-    def declencher_rappel(entree: RappelEntree, identite: IdentiteDep) -> RappelVue:
-        """Enregistre un envoi à partir d'une règle. Le canal n'est pas
-        branché : SMS, e-mail et appel restent à connecter."""
-        tenant_id, identite = _verifier_acces_gestionnaire(identite)
-        if _role_membre(tenant_id, identite.email) == "lecture":
-            raise HTTPException(
-                status_code=403, detail="La lecture seule ne déclenche pas de rappel."
-            )
-        with _engine().connect() as connexion:
-            appliquer_rls(connexion)
-            regle = connexion.execute(
-                select(regles_rappel).where(
-                    regles_rappel.c.id == entree.regle_id,
-                    regles_rappel.c.tenant_id == str(tenant_id),
-                )
-            ).first()
-        if regle is None:
-            raise HTTPException(status_code=404, detail="Règle introuvable.")
-        vue = RappelVue(
-            id=str(uuid.uuid4()),
-            dossier_id=entree.dossier_id,
-            regle_id=regle.id,
-            message=regle.message,
-            canal=",".join(regle.canaux),
-            cree_le=datetime.now(UTC).isoformat(),
-        )
-        with _engine().begin() as connexion:
-            appliquer_rls(connexion)
-            connexion.execute(
-                insert(rappels).values(
-                    id=vue.id,
-                    tenant_id=str(tenant_id),
-                    dossier_id=entree.dossier_id,
-                    regle_id=regle.id,
-                    message=regle.message,
-                    canal=vue.canal,
-                    cree_le=datetime.now(UTC),
-                )
-            )
-        return vue
 
+def _enregistrer_routes_membres(app: FastAPI) -> None:
     @app.get("/portefeuille/membres", response_model=list[MembrePortefeuille])
     def lister_membres(comptes: ComptesDep, identite: IdentiteDep) -> list[MembrePortefeuille]:
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
@@ -1090,6 +1098,8 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
             )
         return MembrePortefeuille(email=email, role=entree.role)
 
+
+def _enregistrer_routes_invitation(app: FastAPI) -> None:
     @app.post("/invitations/en-masse", response_model=InvitationsMasseVue)
     def inviter_en_masse(
         request: Request,
@@ -1290,6 +1300,10 @@ def create_app() -> FastAPI:
     _configurer_contexte_rls(app)
     _enregistrer_routes_dossiers(app)
     _enregistrer_routes_transactions(app)
+    _enregistrer_routes_portefeuille(app)
+    _enregistrer_routes_rappels(app)
+    _enregistrer_routes_regles(app)
+    _enregistrer_routes_membres(app)
     _enregistrer_routes_invitation(app)
     _enregistrer_routes_cloture(app)
     _enregistrer_routes_greffe_inpi(app)
