@@ -167,6 +167,11 @@ class SupabaseCompteRepository(CompteRepository):
         return sorted(emails)
 
     def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
+        # `/invite` répond 422 sur un e-mail déjà connu : on le dit avant.
+        if any(
+            (u.get("email") or "").lower() == email.lower() for u in self._tous_les_utilisateurs()
+        ):
+            raise CompteDejaInviteError(f"un compte existe déjà : {email}")
         reponse = self._client.post("/invite", json={"email": email})
         reponse.raise_for_status()
         utilisateur_id = reponse.json()["id"]

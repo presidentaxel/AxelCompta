@@ -136,9 +136,10 @@ export async function changerEmailGestionnaire(email: string): Promise<void> {
   }
 }
 
-/** Requête authentifiée vers `demo_api`. Sur 401/403, la session est
- * effacée (jeton expiré ou compte sans droit) : l'appelant redirige alors
- * vers la connexion via `ErreurAuthGestionnaire`. */
+/** Requête authentifiée vers `demo_api`. Sur 401, la session est effacée
+ * (jeton expiré) : l'appelant redirige alors vers la connexion via
+ * `ErreurAuthGestionnaire`. Un 403 est un refus de rôle (membre, lecture) :
+ * la session reste, l'appelant reçoit la réponse et affiche le refus. */
 async function requeteGestionnaire(path: string, init: RequestInit = {}): Promise<Response> {
   const session = obtenirSessionGestionnaire();
   if (!session) {
@@ -149,9 +150,9 @@ async function requeteGestionnaire(path: string, init: RequestInit = {}): Promis
     headers: { ...init.headers, Authorization: `Bearer ${session.accessToken}` },
     cache: "no-store",
   });
-  if (reponse.status === 401 || reponse.status === 403) {
+  if (reponse.status === 401) {
     deconnecterGestionnaire();
-    throw new ErreurAuthGestionnaire("Session expirée ou accès refusé.");
+    throw new ErreurAuthGestionnaire("Session expirée.");
   }
   return reponse;
 }

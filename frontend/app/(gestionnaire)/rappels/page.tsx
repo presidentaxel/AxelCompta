@@ -72,8 +72,10 @@ export default function RappelsPage() {
         const manquantes = PREFAITS.filter(
           (modele) => !liste.some((regle) => regle.libelle === modele.libelle),
         );
+        // Seul un admin crée les règles préfaites ; un membre ou une
+        // lecture voit la liste telle quelle.
         for (const modele of manquantes) {
-          await creerRegle({ ...modele, portee: "tous" });
+          await creerRegle({ ...modele, portee: "tous" }).catch(() => undefined);
         }
         setRegles(manquantes.length > 0 ? await listerRegles() : liste);
       })

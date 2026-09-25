@@ -34,6 +34,7 @@ from axelcompta.demo_api import (
     get_justificatifs,
     get_ledger,
     get_propositions,
+    get_role_membre,
     get_signatures_inpi,
 )
 from axelcompta.demo_chauffeurs_type import construire_ledger
@@ -118,9 +119,9 @@ def _jwks_factice(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def _client_et_stubs() -> tuple[
-    TestClient, InMemoryDecisionRepository, InMemoryJustificatifRepository
-]:
+def _client_et_stubs(
+    role: str = "admin",
+) -> tuple[TestClient, InMemoryDecisionRepository, InMemoryJustificatifRepository]:
     app = create_app()
     # Même instance à chaque requête (pas juste la classe : une nouvelle
     # instance par requête serait vide à chaque fois) — une décision ou une
@@ -145,6 +146,8 @@ def _client_et_stubs() -> tuple[
     app.dependency_overrides[get_comptes] = lambda: comptes_stub
     app.dependency_overrides[get_justificatifs] = lambda: justificatifs_stub
     app.dependency_overrides[get_signatures_inpi] = lambda: signatures_stub
+    # `droits_membre` est en Postgres : le rôle est fixé ici.
+    app.dependency_overrides[get_role_membre] = lambda: role
     return TestClient(app), decisions_stub, justificatifs_stub
 
 
@@ -453,6 +456,18 @@ def test_inviter_avec_jeton_indiv_est_refuse() -> None:
         headers=_en_tete("DEMO_karim"),
     )
     assert reponse.status_code == 403
+
+
+def test_inviter_en_lecture_seule_est_refuse() -> None:
+    client = _client_et_stubs(role="lecture")[0]
+    reponse = client.post(
+        "/dossiers/DEMO_karim/inviter",
+        json={"email": "karim@example.com"},
+        headers=_en_tete_gestionnaire(),
+    )
+    assert reponse.status_code == 403
+    lignes = [{"dossier_id": "DEMO_karim", "email": "karim@example.com"}]
+    assert _en_masse(client, lignes).status_code == 403
 
 
 def test_inviter_dossier_inconnu_est_404_pour_un_gestionnaire() -> None:

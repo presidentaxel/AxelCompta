@@ -32,4 +32,6 @@ class InMemoryCompteRepository(CompteRepository):
         return sorted(self._membres.get(tenant_id, ()))
 
     def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
+        if any(email.strip() in emails for emails in self._membres.values()):
+            raise CompteDejaInviteError(f"un compte existe déjà : {email}")
         self._membres.setdefault(tenant_id, set()).add(email.strip())

@@ -769,6 +769,7 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         response_model=TransactionVue,
     )
     def trancher_transaction(
+        request: Request,
         ecriture_id: str,
         entree: DecisionEntree,
         dossier: DossierDep,
@@ -785,6 +786,8 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         ecriture = _trancher(
             dossier, ecriture_id, entree.categorie, base, decisions, propositions, identite.user_id
         )
+        # Le résultat de l'agrégat change : la liste gestionnaire se recalcule.
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
         # `_trancher` refuse une écriture contre-passée : celle-ci ne l'est pas.
         return _transaction_vue(
             ecriture, justificatifs.a_un_justificatif(dossier.id, ecriture_id), annulee=False
@@ -883,6 +886,37 @@ def _exiger_admin(identite: IdentiteAuthentifiee, tenant_id: TenantId) -> None:
         raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
 
 
+def get_role_membre(identite: IdentiteDep) -> str:
+    """Rôle de l'appelant dans son portefeuille. En dépendance pour que la
+    suite rapide le surcharge sans ouvrir Postgres."""
+    tenant_id, identite = _verifier_acces_gestionnaire(identite)
+    return _role_membre(tenant_id, identite.email)
+
+
+RoleMembreDep = Annotated[str, Depends(get_role_membre)]
+
+
+def _exiger_ecriture(role: str, detail: str) -> None:
+    """doc 19 §2.1 : Lecture consulte, n'invite pas et ne relance pas."""
+    if role == "lecture":
+        raise HTTPException(status_code=403, detail=detail)
+
+
+def _ecrire_role(tenant_id: TenantId, email: str, role: str) -> None:
+    """Upsert : réinviter ou changer le rôle d'un membre déjà présent ne
+    bute pas sur la clé primaire."""
+    with _engine().begin() as connexion:
+        appliquer_rls(connexion)
+        connexion.execute(
+            pg_insert(droits_membre)
+            .values(tenant_id=str(tenant_id), email=email, role=role)
+            .on_conflict_do_update(
+                index_elements=[droits_membre.c.tenant_id, droits_membre.c.email],
+                set_={"role": role},
+            )
+        )
+
+
 def _rappel_vue(ligne: Row[Any]) -> RappelVue:
     return RappelVue(
         id=ligne.id,
@@ -954,14 +988,13 @@ def _enregistrer_routes_rappels(app: FastAPI) -> None:
         return [_rappel_vue(ligne) for ligne in lignes]
 
     @app.post("/rappels", response_model=RappelVue)
-    def declencher_rappel(entree: RappelEntree, identite: IdentiteDep) -> RappelVue:
+    def declencher_rappel(
+        entree: RappelEntree, identite: IdentiteDep, role: RoleMembreDep
+    ) -> RappelVue:
         """Enregistre un envoi à partir d'une règle. Le canal n'est pas
         branché : SMS, e-mail et appel restent à connecter."""
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
-        if _role_membre(tenant_id, identite.email) == "lecture":
-            raise HTTPException(
-                status_code=403, detail="La lecture seule ne déclenche pas de rappel."
-            )
+        _exiger_ecriture(role, "La lecture seule ne déclenche pas de rappel.")
         with _engine().connect() as connexion:
             appliquer_rls(connexion)
             regle = connexion.execute(
@@ -1069,14 +1102,13 @@ def _enregistrer_routes_membres(app: FastAPI) -> None:
         if entree.role not in _ROLES:
             raise HTTPException(status_code=400, detail="Rôle inconnu.")
         email = entree.email.strip().lower()
-        with _engine().begin() as connexion:
-            appliquer_rls(connexion)
-            connexion.execute(
-                insert(droits_membre).values(
-                    tenant_id=str(tenant_id), email=email, role=entree.role
-                )
-            )
-        comptes.inviter_membre(str(tenant_id), email, entree.role)
+        # Invitation d'abord : si elle échoue, aucun droit orphelin ne reste
+        # en base pour faire échouer le nouvel essai.
+        try:
+            comptes.inviter_membre(str(tenant_id), email, entree.role)
+        except CompteDejaInviteError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _ecrire_role(tenant_id, email, entree.role)
         return MembrePortefeuille(email=email, role=entree.role)
 
     @app.patch("/portefeuille/membres", response_model=MembrePortefeuille)
@@ -1086,16 +1118,7 @@ def _enregistrer_routes_membres(app: FastAPI) -> None:
         if entree.role not in _ROLES:
             raise HTTPException(status_code=400, detail="Rôle inconnu.")
         email = entree.email.strip().lower()
-        with _engine().begin() as connexion:
-            appliquer_rls(connexion)
-            connexion.execute(
-                pg_insert(droits_membre)
-                .values(tenant_id=str(tenant_id), email=email, role=entree.role)
-                .on_conflict_do_update(
-                    index_elements=[droits_membre.c.tenant_id, droits_membre.c.email],
-                    set_={"role": entree.role},
-                )
-            )
+        _ecrire_role(tenant_id, email, entree.role)
         return MembrePortefeuille(email=email, role=entree.role)
 
 
@@ -1107,11 +1130,13 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:
         dossiers: DossiersDep,
         comptes: ComptesDep,
         identite: IdentiteDep,
+        role: RoleMembreDep,
     ) -> InvitationsMasseVue:
         """doc 19 §3.1 : le gestionnaire invite ses chauffeurs depuis une base
         clients, pas seulement un par un. Jusqu'à `MAX_INVITATIONS_PAR_LOT`
         lignes, résultat ligne par ligne."""
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        _exiger_ecriture(role, "La lecture seule n'invite pas.")
         du_portefeuille = {str(d.id) for d in dossiers.lister_par_tenant(tenant_id)}
         vue = _inviter_en_masse(entree.invitations, du_portefeuille, comptes)
         _vider_cache_agregats(request.app, str(tenant_id))
@@ -1123,11 +1148,13 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:
         entree: InvitationEntree,
         dossier: DossierPortefeuilleDep,
         comptes: ComptesDep,
+        role: RoleMembreDep,
     ) -> InvitationVue:
         """doc 17 §9 bloc B, doc 19 §3.1 : le gestionnaire invite, jamais
         de self-signup (disable_signup, vérifié 2026-09-07). Envoie un
         vrai e-mail via Supabase Auth — pas un simulateur. Uniquement pour un
         dossier de son propre portefeuille (`DossierPortefeuilleDep`)."""
+        _exiger_ecriture(role, "La lecture seule n'invite pas.")
         try:
             invitation = comptes.inviter(dossier.id, entree.email)
         except CompteDejaInviteError as exc:
@@ -1277,6 +1304,7 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
 
     @app.post("/dossiers/{dossier_id}/greffe-inpi/signature", response_model=SignatureGreffeVue)
     def signer_greffe_inpi(
+        request: Request,
         dossier: DossierDep,
         ledger: LedgerDossierDep,
         signatures: SignaturesInpiDep,
@@ -1286,6 +1314,8 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         pdf_non_signe = _document_greffe_inpi(dossier, ledger)
         document = SignatureDemoProvider().signer(pdf_non_signe, identite.user_id)
         signatures.enregistrer(dossier.id, TYPE_DOCUMENT_GREFFE_INPI, document)
+        # La frise du gestionnaire avance jusqu'à Greffe.
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
         return SignatureGreffeVue(
             dossier_id=dossier.id,
             signe=True,
