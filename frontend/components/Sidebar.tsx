@@ -1,33 +1,84 @@
-import Link from "next/link";
+"use client";
 
-/** Sidebar sombre 240px (DESIGN.md — le seul endroit sombre de l'app en V1,
- * tokens `sidebar`/`sidebar-header`/`sidebar-item`). Pas de liste de
- * dossiers ici : la démo n'a que 3 dossiers, tous sur le tableau de bord —
- * la vraie navigation portefeuille (doc 11 §2) viendra quand ça sera
- * nécessaire, pas avant.
- */
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { LayoutGrid, Mail, Users } from "lucide-react";
+
+import { Marque } from "@/components/Marque";
+import { deconnecterGestionnaire, obtenirSessionGestionnaire } from "@/lib/auth-gestionnaire";
+
+const LIENS = [
+  { href: "/portefeuille", libelle: "Portefeuille", Icone: LayoutGrid },
+  { href: "/invitations", libelle: "Invitations", Icone: Mail },
+  { href: "/equipe", libelle: "Équipe", Icone: Users },
+];
+
 export function Sidebar() {
+  const chemin = usePathname();
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEmail(obtenirSessionGestionnaire()?.email ?? "");
+  }, []);
+
+  function seDeconnecter() {
+    deconnecterGestionnaire();
+    router.push("/connexion");
+  }
+
+  const initiales = email.slice(0, 2).toUpperCase() || "AX";
+
   return (
-    <aside className="w-60 shrink-0 bg-surface-dark px-2 py-3 text-on-dark">
-      <div className="border-b border-[rgba(248,250,252,0.08)] px-3 pb-2 pt-1 text-sm font-semibold">
-        AxeLCompta
+    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-canvas-app px-3 py-4">
+      <div className="px-2 pb-4">
+        <Marque />
       </div>
-      <nav className="mt-3 flex flex-col gap-1">
-        <Link
-          href="/"
-          className="rounded-md px-3 py-2 text-sm font-medium text-on-dark-mute transition-colors duration-150 hover:bg-[rgba(248,250,252,0.07)] hover:text-on-dark"
-        >
-          Tableau de bord
-        </Link>
+      <div className="mb-4 flex items-center gap-2 rounded-lg bg-canvas px-2.5 py-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary">
+          {initiales}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold text-ink">Portefeuille</span>
+          <span className="block text-xs text-subtle">Gestionnaire</span>
+        </span>
+      </div>
+      <nav className="flex flex-1 flex-col gap-1">
+        {LIENS.map(({ href, libelle, Icone }) => {
+          const actif = chemin === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors duration-150 ${
+                actif ? "bg-canvas text-ink shadow-sm" : "text-subtle hover:bg-canvas hover:text-ink"
+              }`}
+            >
+              <Icone className="h-4 w-4" aria-hidden />
+              {libelle}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="mt-4 border-t border-border pt-3">
+        <p className="truncate px-2 text-xs text-subtle">{email}</p>
         <Link
           href="/compte"
-          className="rounded-md px-3 py-2 text-sm font-medium text-on-dark-mute transition-colors duration-150 hover:bg-[rgba(248,250,252,0.07)] hover:text-on-dark"
+          className={`mt-1 block rounded-lg px-2 py-1.5 text-sm ${
+            chemin === "/compte" ? "bg-canvas font-medium text-ink" : "text-subtle hover:bg-canvas hover:text-ink"
+          }`}
         >
           Compte
         </Link>
-      </nav>
-      <div className="mt-4 px-3 text-[11px] uppercase tracking-wide text-on-dark-mute">
-        Démo — doc 17 / doc 19
+        <button
+          type="button"
+          onClick={seDeconnecter}
+          className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-sm text-subtle hover:bg-canvas hover:text-ink"
+        >
+          Se déconnecter
+        </button>
       </div>
     </aside>
   );
