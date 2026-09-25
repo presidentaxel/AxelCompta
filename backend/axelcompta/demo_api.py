@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import re
 import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -39,13 +40,14 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import insert, select
 from sqlalchemy.engine import Engine
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
-from axelcompta.core.rls import contexte_identite
+from axelcompta.core.rls import appliquer_rls, contexte_identite
 from axelcompta.demo_auth import (
     IdentiteAuthentifiee,
     identite_chauffeur_optionnelle,
@@ -76,6 +78,7 @@ from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
 from axelcompta.packs.vtc_demo import charger_compte_par_categorie
 from axelcompta.tenants.models import Dossier
+from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
@@ -617,7 +620,7 @@ def _configurer_cors(app: FastAPI) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[ORIGINE_FRONTEND_DEV],
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["*"],
         # Lu par le front pour enregistrer un fichier sous le nom choisi par
         # le serveur (FEC : `<SIREN>FEC<AAAAMMJJ>.txt`, nom légal A.47 A-1).
@@ -774,21 +777,252 @@ def _enregistrer_routes_transactions(app: FastAPI) -> None:
         )
 
 
+_ROLES = frozenset({"admin", "membre", "lecture"})
+_CANAUX = frozenset({"sms", "mail", "appel"})
+
+
 class MembrePortefeuille(BaseModel):
     email: str
-    acces: str
+    role: str
 
 
-def _enregistrer_routes_invitation(app: FastAPI) -> None:
+class InvitationMembreEntree(BaseModel):
+    email: str
+    role: str = "membre"
+
+
+class NomPortefeuille(BaseModel):
+    nom: str
+
+
+class RegleEntree(BaseModel):
+    libelle: str
+    message: str
+    canaux: list[str]
+
+
+class RegleVue(BaseModel):
+    id: str
+    libelle: str
+    message: str
+    canaux: list[str]
+
+
+class RappelEntree(BaseModel):
+    regle_id: str
+    dossier_id: str
+
+
+class RappelVue(BaseModel):
+    id: str
+    dossier_id: str | None
+    regle_id: str | None
+    message: str
+    canal: str
+    cree_le: str
+
+
+def _role_membre(tenant_id: TenantId, email: str) -> str:
+    """Sans ligne, le compte déjà là est admin : les premiers gestionnaires
+    existaient avant la table des droits."""
+    with _engine().connect() as connexion:
+        appliquer_rls(connexion)
+        ligne = connexion.execute(
+            select(droits_membre.c.role).where(
+                droits_membre.c.tenant_id == str(tenant_id),
+                droits_membre.c.email == email.lower(),
+            )
+        ).first()
+    return ligne.role if ligne else "admin"
+
+
+def _exiger_admin(identite: IdentiteAuthentifiee, tenant_id: TenantId) -> None:
+    if _role_membre(tenant_id, identite.email) != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
+
+
+def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
+    @app.get("/portefeuille", response_model=NomPortefeuille)
+    def lire_portefeuille(dossiers: DossiersDep, identite: IdentiteDep) -> NomPortefeuille:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant = dossiers.obtenir_tenant(tenant_id)
+        return NomPortefeuille(nom=tenant.nom if tenant else "")
+
+    @app.patch("/portefeuille", response_model=NomPortefeuille)
+    def renommer_portefeuille(
+        entree: NomPortefeuille, dossiers: DossiersDep, identite: IdentiteDep
+    ) -> NomPortefeuille:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        nom = entree.nom.strip()
+        if not nom:
+            raise HTTPException(status_code=400, detail="Le nom est vide.")
+        dossiers.renommer_tenant(tenant_id, nom)
+        return NomPortefeuille(nom=nom)
+
+    @app.post("/dossiers/{dossier_id}/retirer")
+    def retirer_dossier(
+        request: Request,
+        dossier: DossierPortefeuilleDep,
+        dossiers: DossiersDep,
+        identite: IdentiteDep,
+    ) -> dict[str, str]:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        dossiers.retirer(dossier.id)
+        _vider_cache_agregats(request.app, str(tenant_id))
+        return {"dossier_id": dossier.id}
+
+    @app.get("/rappels", response_model=list[RappelVue])
+    def lister_rappels(identite: IdentiteDep) -> list[RappelVue]:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            lignes = connexion.execute(
+                select(rappels)
+                .where(rappels.c.tenant_id == str(tenant_id))
+                .order_by(rappels.c.cree_le.desc())
+            ).all()
+        return [
+            RappelVue(
+                id=ligne.id,
+                dossier_id=ligne.dossier_id,
+                regle_id=ligne.regle_id,
+                message=ligne.message,
+                canal=ligne.canal,
+                cree_le=ligne.cree_le.isoformat(),
+            )
+            for ligne in lignes
+        ]
+
+    @app.get("/regles-rappel", response_model=list[RegleVue])
+    def lister_regles(identite: IdentiteDep) -> list[RegleVue]:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            lignes = connexion.execute(
+                select(regles_rappel).where(regles_rappel.c.tenant_id == str(tenant_id))
+            ).all()
+        return [
+            RegleVue(
+                id=ligne.id,
+                libelle=ligne.libelle,
+                message=ligne.message,
+                canaux=list(ligne.canaux),
+            )
+            for ligne in lignes
+        ]
+
+    @app.post("/regles-rappel", response_model=RegleVue)
+    def creer_regle(entree: RegleEntree, identite: IdentiteDep) -> RegleVue:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        canaux = [canal for canal in entree.canaux if canal in _CANAUX]
+        libelle = entree.libelle.strip()
+        message = entree.message.strip()
+        if not libelle or not message or not canaux:
+            raise HTTPException(status_code=400, detail="Libellé, message et au moins un canal.")
+        vue = RegleVue(id=str(uuid.uuid4()), libelle=libelle, message=message, canaux=canaux)
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(regles_rappel).values(
+                    id=vue.id,
+                    tenant_id=str(tenant_id),
+                    libelle=libelle,
+                    message=message,
+                    canaux=canaux,
+                )
+            )
+        return vue
+
+    @app.post("/rappels", response_model=RappelVue)
+    def declencher_rappel(entree: RappelEntree, identite: IdentiteDep) -> RappelVue:
+        """Enregistre un envoi à partir d'une règle. Le canal n'est pas
+        branché : SMS, e-mail et appel restent à connecter."""
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        if _role_membre(tenant_id, identite.email) == "lecture":
+            raise HTTPException(
+                status_code=403, detail="La lecture seule ne déclenche pas de rappel."
+            )
+        with _engine().connect() as connexion:
+            appliquer_rls(connexion)
+            regle = connexion.execute(
+                select(regles_rappel).where(
+                    regles_rappel.c.id == entree.regle_id,
+                    regles_rappel.c.tenant_id == str(tenant_id),
+                )
+            ).first()
+        if regle is None:
+            raise HTTPException(status_code=404, detail="Règle introuvable.")
+        vue = RappelVue(
+            id=str(uuid.uuid4()),
+            dossier_id=entree.dossier_id,
+            regle_id=regle.id,
+            message=regle.message,
+            canal=",".join(regle.canaux),
+            cree_le=datetime.now(UTC).isoformat(),
+        )
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(rappels).values(
+                    id=vue.id,
+                    tenant_id=str(tenant_id),
+                    dossier_id=entree.dossier_id,
+                    regle_id=regle.id,
+                    message=regle.message,
+                    canal=vue.canal,
+                    cree_le=datetime.now(UTC),
+                )
+            )
+        return vue
+
     @app.get("/portefeuille/membres", response_model=list[MembrePortefeuille])
     def lister_membres(comptes: ComptesDep, identite: IdentiteDep) -> list[MembrePortefeuille]:
-        """Comptes gestionnaire du même portefeuille. Même accès pour tous :
-        voir les agrégats et inviter. Pas le détail des écritures."""
         tenant_id = _verifier_acces_gestionnaire(identite)
         return [
-            MembrePortefeuille(email=email, acces="portefeuille")
+            MembrePortefeuille(email=email, role=_role_membre(tenant_id, email))
             for email in comptes.membres(str(tenant_id))
         ]
+
+    @app.post("/portefeuille/membres", response_model=MembrePortefeuille)
+    def inviter_membre(
+        entree: InvitationMembreEntree, comptes: ComptesDep, identite: IdentiteDep
+    ) -> MembrePortefeuille:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        if entree.role not in _ROLES:
+            raise HTTPException(status_code=400, detail="Rôle inconnu.")
+        email = entree.email.strip().lower()
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(droits_membre).values(
+                    tenant_id=str(tenant_id), email=email, role=entree.role
+                )
+            )
+        comptes.inviter_membre(str(tenant_id), email, entree.role)
+        return MembrePortefeuille(email=email, role=entree.role)
+
+    @app.patch("/portefeuille/membres", response_model=MembrePortefeuille)
+    def changer_role(entree: InvitationMembreEntree, identite: IdentiteDep) -> MembrePortefeuille:
+        tenant_id = _verifier_acces_gestionnaire(identite)
+        _exiger_admin(identite, tenant_id)
+        if entree.role not in _ROLES:
+            raise HTTPException(status_code=400, detail="Rôle inconnu.")
+        email = entree.email.strip().lower()
+        with _engine().begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                insert(droits_membre)
+                .values(tenant_id=str(tenant_id), email=email, role=entree.role)
+                .on_conflict_do_update(
+                    index_elements=[droits_membre.c.tenant_id, droits_membre.c.email],
+                    set_={"role": entree.role},
+                )
+            )
+        return MembrePortefeuille(email=email, role=entree.role)
 
     @app.post("/invitations/en-masse", response_model=InvitationsMasseVue)
     def inviter_en_masse(

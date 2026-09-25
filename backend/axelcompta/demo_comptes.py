@@ -69,6 +69,10 @@ class CompteRepository(ABC):
         fournisseur ne sait pas les lister (tests en mémoire)."""
         return []
 
+    def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
+        """Ouvre un compte gestionnaire sur la même organisation."""
+        raise NotImplementedError
+
     def statuts(self, dossier_ids: Iterable[DossierId]) -> dict[DossierId, Invitation]:
         """Statut de plusieurs dossiers (seuls ceux qui ont été invités
         figurent dans le résultat). Par défaut un appel par dossier ;
@@ -161,6 +165,16 @@ class SupabaseCompteRepository(CompteRepository):
             if email:
                 emails.append(email)
         return sorted(emails)
+
+    def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
+        reponse = self._client.post("/invite", json={"email": email})
+        reponse.raise_for_status()
+        utilisateur_id = reponse.json()["id"]
+        lien = self._client.put(
+            f"/admin/users/{utilisateur_id}",
+            json={"app_metadata": {"tenant_id": tenant_id, "role": role}},
+        )
+        lien.raise_for_status()
 
     def _tous_les_utilisateurs(self) -> list[dict[str, Any]]:
         """`GET /admin/users` est **paginé** (50 par page par défaut) et n'a
