@@ -1102,13 +1102,14 @@ def _enregistrer_routes_membres(app: FastAPI) -> None:
         if entree.role not in _ROLES:
             raise HTTPException(status_code=400, detail="Rôle inconnu.")
         email = entree.email.strip().lower()
-        # Invitation d'abord : si elle échoue, aucun droit orphelin ne reste
-        # en base pour faire échouer le nouvel essai.
+        # Le droit d'abord : un compte sans ligne est admin (`_role_membre`),
+        # il ne doit jamais exister avant son rôle. L'upsert laisse un nouvel
+        # essai passer si l'invitation a échoué après.
+        _ecrire_role(tenant_id, email, entree.role)
         try:
             comptes.inviter_membre(str(tenant_id), email, entree.role)
         except CompteDejaInviteError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        _ecrire_role(tenant_id, email, entree.role)
         return MembrePortefeuille(email=email, role=entree.role)
 
     @app.patch("/portefeuille/membres", response_model=MembrePortefeuille)
