@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import {
   changerRole,
   ErreurAuthGestionnaire,
+  integrerMembreSession,
   inviterMembre,
+  lireEquipeSession,
   listerMembres,
   obtenirSessionGestionnaire,
   type MembrePortefeuille,
@@ -36,14 +38,33 @@ export default function EquipePage() {
       router.replace("/connexion");
       return;
     }
+    // Lecture de sessionStorage avant le rafraîchissement réseau.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEmail(session.email);
-    listerMembres()
-      .then(setMembres)
-      .catch((exception) => {
-        if (exception instanceof ErreurAuthGestionnaire) router.replace("/connexion");
-        else setErreur("Impossible de charger l'équipe.");
-      });
+    const memo = lireEquipeSession();
+    if (memo) setMembres(memo);
+
+    let ignore = false;
+    const charger = () => {
+      listerMembres()
+        .then((liste) => {
+          if (!ignore) setMembres(liste);
+        })
+        .catch((exception) => {
+          if (ignore) return;
+          if (exception instanceof ErreurAuthGestionnaire) router.replace("/connexion");
+          else if (!lireEquipeSession()) setErreur("Impossible de charger l'équipe.");
+        });
+    };
+    charger();
+    const surVisibilite = () => {
+      if (document.visibilityState === "visible") charger();
+    };
+    document.addEventListener("visibilitychange", surVisibilite);
+    return () => {
+      ignore = true;
+      document.removeEventListener("visibilitychange", surVisibilite);
+    };
   }, [router]);
 
   const liste = membres && membres.length > 0 ? membres : email ? [{ email, role: "admin" as const }] : [];
@@ -62,9 +83,9 @@ export default function EquipePage() {
           setEnCours(true);
           setErreur(null);
           try {
-            await inviterMembre(emailInvite.trim(), roleInvite);
+            const membre = await inviterMembre(emailInvite.trim(), roleInvite);
             setEmailInvite("");
-            setMembres(await listerMembres());
+            setMembres((actuels) => integrerMembreSession(actuels ?? [], membre));
           } catch (exception) {
             setErreur(exception instanceof Error ? exception.message : "Échec de l'invitation.");
           } finally {
@@ -99,8 +120,8 @@ export default function EquipePage() {
                 onChoisir={async (role) => {
                   if (role === membre.role) return;
                   try {
-                    await changerRole(membre.email, role);
-                    setMembres(await listerMembres());
+                    const misAJour = await changerRole(membre.email, role);
+                    setMembres((actuels) => integrerMembreSession(actuels ?? [], misAJour));
                   } catch (exception) {
                     setErreur(exception instanceof Error ? exception.message : "Échec du changement.");
                   }
