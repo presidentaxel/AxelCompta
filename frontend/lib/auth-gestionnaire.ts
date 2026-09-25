@@ -392,3 +392,34 @@ export async function inviterEnMasse(
   }
   return corps as InvitationsMasse;
 }
+
+export type PartieDemo = { cle: string; libelle: string; detail: string };
+
+/** Menu Démo : le portefeuille de démo seulement (`TENANT_DEMO`). */
+export function estPortefeuilleDemo(): boolean {
+  return obtenirSessionGestionnaire()?.tenantId === "TENANT_DEMO";
+}
+
+export async function listerPartiesDemo(): Promise<PartieDemo[]> {
+  const reponse = await requeteGestionnaire("/demo/parties");
+  if (!reponse.ok) {
+    const corps = await reponse.json().catch(() => ({}));
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return (await reponse.json()) as PartieDemo[];
+}
+
+/** Remet à neuf les parties cochées. Le grand livre n'en fait jamais partie. */
+export async function reinitialiserDemo(parties: string[]): Promise<string[]> {
+  const reponse = await requeteGestionnaire("/demo/reinitialiser", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parties }),
+  });
+  const corps = await reponse.json().catch(() => ({}));
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  window.sessionStorage.removeItem(CLE_PORTEFEUILLE);
+  return corps.dossiers as string[];
+}

@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, LayoutGrid, Plug, Users } from "lucide-react";
+import { Bell, FlaskConical, LayoutGrid, Plug, Users } from "lucide-react";
 
 import { Marque } from "@/components/Marque";
 import {
   deconnecterGestionnaire,
+  estPortefeuilleDemo,
   lireNomPortefeuille,
   obtenirSessionGestionnaire,
   renommerPortefeuille,
@@ -25,10 +26,12 @@ export function Sidebar() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [nom, setNom] = useState("Organisation");
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEmail(obtenirSessionGestionnaire()?.email ?? "");
+    setDemo(estPortefeuilleDemo());
     lireNomPortefeuille()
       .then((valeur) => {
         if (valeur) setNom(valeur);
@@ -90,6 +93,17 @@ export function Sidebar() {
       </nav>
       <div className="mt-4 border-t border-border pt-3">
         <p className="truncate px-2 text-xs text-subtle">{email}</p>
+        {demo && (
+          <Link
+            href="/demo"
+            className={`mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm ${
+              chemin === "/demo" ? "bg-canvas font-medium text-ink" : "text-subtle hover:bg-canvas hover:text-ink"
+            }`}
+          >
+            <FlaskConical className="h-4 w-4" aria-hidden />
+            Démo
+          </Link>
+        )}
         <Link
           href="/compte"
           className={`mt-1 block rounded-lg px-2 py-1.5 text-sm ${
