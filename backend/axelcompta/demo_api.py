@@ -41,6 +41,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFi
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
@@ -328,17 +329,20 @@ def _verifier_acces_dossier(
     return identite
 
 
-def _verifier_acces_gestionnaire(identite: IdentiteAuthentifiee | None) -> TenantId:
+def _verifier_acces_gestionnaire(
+    identite: IdentiteAuthentifiee | None,
+) -> tuple[TenantId, IdentiteAuthentifiee]:
     """doc 03 §7 : le lien `tenant_id` ouvre le portefeuille (agrégats,
     invitations), jamais le détail d'un dossier — voir
     `_verifier_acces_dossier`, qui ne regarde que `dossier_id`. Un compte
     indiv seul n'a pas de `tenant_id` : 403. Retourne le tenant de l'appelant
-    (les dossiers visibles sont ensuite filtrés par ce tenant)."""
+    et l'identité (narrowée, non optionnelle) : les dossiers visibles sont
+    ensuite filtrés par ce tenant."""
     if identite is None:
         raise HTTPException(status_code=401, detail="Authentification requise.")
     if identite.tenant_id is None:
         raise HTTPException(status_code=403, detail="Compte sans portefeuille.")
-    return identite.tenant_id
+    return identite.tenant_id, identite
 
 
 def _annee_courante(dossier: Dossier) -> int:
@@ -519,7 +523,7 @@ def get_dossier_du_portefeuille(
     """Accès gestionnaire à un dossier **de son portefeuille**. Un dossier
     d'un autre tenant répond 404, pas 403 : un gestionnaire ne doit pas
     pouvoir sonder l'existence des dossiers d'un autre portefeuille."""
-    tenant_id = _verifier_acces_gestionnaire(identite)
+    tenant_id, identite = _verifier_acces_gestionnaire(identite)
     dossier = dossiers.obtenir(DossierId(dossier_id))
     if dossier is None or dossier.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail=f"Dossier inconnu : {dossier_id}")
@@ -732,7 +736,7 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         """Vue gestionnaire (doc 19 §2.1) : agrégats des dossiers **de son
         portefeuille** seulement (`tenant_id` du jeton), rien d'autre.
         Les montants changent peu : on les garde dix minutes par portefeuille."""
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         en_cache = _lire_cache_agregats(request.app, str(tenant_id))
         if en_cache is not None:
             return en_cache
@@ -882,7 +886,7 @@ def _exiger_admin(identite: IdentiteAuthentifiee, tenant_id: TenantId) -> None:
 def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
     @app.get("/portefeuille", response_model=NomPortefeuille)
     def lire_portefeuille(dossiers: DossiersDep, identite: IdentiteDep) -> NomPortefeuille:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         tenant = dossiers.obtenir_tenant(tenant_id)
         return NomPortefeuille(nom=tenant.nom if tenant else "")
 
@@ -890,7 +894,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
     def renommer_portefeuille(
         entree: NomPortefeuille, dossiers: DossiersDep, identite: IdentiteDep
     ) -> NomPortefeuille:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         _exiger_admin(identite, tenant_id)
         nom = entree.nom.strip()
         if not nom:
@@ -905,7 +909,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
         dossiers: DossiersDep,
         identite: IdentiteDep,
     ) -> dict[str, str]:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         _exiger_admin(identite, tenant_id)
         dossiers.retirer(dossier.id)
         _vider_cache_agregats(request.app, str(tenant_id))
@@ -913,7 +917,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
 
     @app.get("/rappels", response_model=list[RappelVue])
     def lister_rappels(identite: IdentiteDep) -> list[RappelVue]:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         with _engine().connect() as connexion:
             appliquer_rls(connexion)
             lignes = connexion.execute(
@@ -935,7 +939,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
 
     @app.get("/regles-rappel", response_model=list[RegleVue])
     def lister_regles(identite: IdentiteDep) -> list[RegleVue]:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         with _engine().connect() as connexion:
             appliquer_rls(connexion)
             lignes = connexion.execute(
@@ -957,7 +961,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
 
     @app.post("/regles-rappel", response_model=RegleVue)
     def creer_regle(entree: RegleEntree, identite: IdentiteDep) -> RegleVue:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         _exiger_admin(identite, tenant_id)
         canaux = [canal for canal in entree.canaux if canal in _CANAUX]
         libelle = entree.libelle.strip()
@@ -1002,7 +1006,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
     def declencher_rappel(entree: RappelEntree, identite: IdentiteDep) -> RappelVue:
         """Enregistre un envoi à partir d'une règle. Le canal n'est pas
         branché : SMS, e-mail et appel restent à connecter."""
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         if _role_membre(tenant_id, identite.email) == "lecture":
             raise HTTPException(
                 status_code=403, detail="La lecture seule ne déclenche pas de rappel."
@@ -1042,7 +1046,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
 
     @app.get("/portefeuille/membres", response_model=list[MembrePortefeuille])
     def lister_membres(comptes: ComptesDep, identite: IdentiteDep) -> list[MembrePortefeuille]:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         return [
             MembrePortefeuille(email=email, role=_role_membre(tenant_id, email))
             for email in comptes.membres(str(tenant_id))
@@ -1052,7 +1056,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
     def inviter_membre(
         entree: InvitationMembreEntree, comptes: ComptesDep, identite: IdentiteDep
     ) -> MembrePortefeuille:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         _exiger_admin(identite, tenant_id)
         if entree.role not in _ROLES:
             raise HTTPException(status_code=400, detail="Rôle inconnu.")
@@ -1069,7 +1073,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
 
     @app.patch("/portefeuille/membres", response_model=MembrePortefeuille)
     def changer_role(entree: InvitationMembreEntree, identite: IdentiteDep) -> MembrePortefeuille:
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         _exiger_admin(identite, tenant_id)
         if entree.role not in _ROLES:
             raise HTTPException(status_code=400, detail="Rôle inconnu.")
@@ -1077,7 +1081,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
         with _engine().begin() as connexion:
             appliquer_rls(connexion)
             connexion.execute(
-                insert(droits_membre)
+                pg_insert(droits_membre)
                 .values(tenant_id=str(tenant_id), email=email, role=entree.role)
                 .on_conflict_do_update(
                     index_elements=[droits_membre.c.tenant_id, droits_membre.c.email],
@@ -1097,7 +1101,7 @@ def _enregistrer_routes_invitation(app: FastAPI) -> None:  # noqa: C901, PLR0915
         """doc 19 §3.1 : le gestionnaire invite ses chauffeurs depuis une base
         clients, pas seulement un par un. Jusqu'à `MAX_INVITATIONS_PAR_LOT`
         lignes, résultat ligne par ligne."""
-        tenant_id = _verifier_acces_gestionnaire(identite)
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
         du_portefeuille = {str(d.id) for d in dossiers.lister_par_tenant(tenant_id)}
         vue = _inviter_en_masse(entree.invitations, du_portefeuille, comptes)
         _vider_cache_agregats(request.app, str(tenant_id))
