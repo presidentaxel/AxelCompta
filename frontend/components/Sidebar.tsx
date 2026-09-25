@@ -19,6 +19,12 @@ export function Sidebar() {
         >
           Tableau de bord
         </Link>
+        <Link
+          href="/compte"
+          className="rounded-md px-3 py-2 text-sm font-medium text-on-dark-mute transition-colors duration-150 hover:bg-[rgba(248,250,252,0.07)] hover:text-on-dark"
+        >
+          Compte
+        </Link>
       </nav>
       <div className="mt-4 px-3 text-[11px] uppercase tracking-wide text-on-dark-mute">
         Démo — doc 17 / doc 19

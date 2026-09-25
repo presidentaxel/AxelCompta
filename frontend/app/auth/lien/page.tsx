@@ -1,0 +1,144 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  connexionParMotDePasse,
+  decoderChargeUtileJwt,
+  definirMotDePasseAvecJeton,
+  ErreurAuthChauffeur,
+} from "@/lib/auth-chauffeur";
+import { connexionGestionnaire } from "@/lib/auth-gestionnaire";
+import { lireFragmentAuth, ouvrirSessionDepuisJetons, type FragmentAuth } from "@/lib/auth-lien";
+
+type Etape = "lecture" | "mot_de_passe" | "email_confirme" | "erreur";
+
+/** Cible des liens Supabase : magique, réinitialisation, confirmation
+ * d'adresse. Les jetons restent dans le fragment, jamais envoyés au serveur. */
+export default function LienAuthPage() {
+  const router = useRouter();
+  const [etape, setEtape] = useState<Etape>("lecture");
+  const [fragment, setFragment] = useState<FragmentAuth | null>(null);
+  const [destination, setDestination] = useState("/");
+  const [motDePasse, setMotDePasse] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Le fragment `#access_token` n'existe que dans le navigateur.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const code = new URLSearchParams(window.location.search).get("code");
+      if (code && !window.location.hash.includes("access_token=")) {
+        throw new ErreurAuthChauffeur(
+          "Ce lien ne peut pas être terminé ici. Redemandez un lien de connexion ou de réinitialisation.",
+        );
+      }
+      const recu = lireFragmentAuth(window.location.hash);
+      if (recu.type === "recovery") {
+        setFragment(recu);
+        setEtape("mot_de_passe");
+        return;
+      }
+      const chemin = ouvrirSessionDepuisJetons(recu.accessToken, recu.refreshToken);
+      if (recu.type === "email_change") {
+        setDestination(chemin);
+        setEtape("email_confirme");
+        return;
+      }
+      router.replace(chemin);
+    } catch (exception) {
+      setErreur(exception instanceof Error ? exception.message : "Lien invalide.");
+      setEtape("erreur");
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [router]);
+
+  async function valider(evenement: React.FormEvent) {
+    evenement.preventDefault();
+    if (!fragment) return;
+    setEnCours(true);
+    setErreur(null);
+    try {
+      await definirMotDePasseAvecJeton(fragment.accessToken, motDePasse);
+      const charge = decoderChargeUtileJwt(fragment.accessToken);
+      const email = typeof charge.email === "string" ? charge.email : "";
+      const meta = (charge.app_metadata ?? {}) as { dossier_id?: string };
+      if (meta.dossier_id) {
+        const session = await connexionParMotDePasse(email, motDePasse);
+        router.replace(`/chauffeur/${session.dossierId}`);
+      } else {
+        await connexionGestionnaire(email, motDePasse);
+        router.replace("/");
+      }
+    } catch (exception) {
+      setErreur(
+        exception instanceof ErreurAuthChauffeur
+          ? exception.message
+          : "Échec de l'enregistrement du mot de passe.",
+      );
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  if (etape === "lecture") {
+    return <p className="mx-auto mt-24 max-w-sm px-4 text-sm text-subtle">Vérification du lien…</p>;
+  }
+
+  if (etape === "erreur") {
+    return (
+      <main className="mx-auto mt-24 max-w-sm px-4">
+        <p className="text-sm text-danger">{erreur}</p>
+        <p className="mt-2 text-sm text-subtle">
+          <Link href="/connexion" className="text-primary hover:underline">
+            Connexion gestionnaire
+          </Link>
+          {" · "}
+          <Link href="/chauffeur/login" className="text-primary hover:underline">
+            Connexion chauffeur
+          </Link>
+        </p>
+      </main>
+    );
+  }
+
+  if (etape === "email_confirme") {
+    return (
+      <main className="mx-auto mt-24 max-w-sm px-4">
+        <h1 className="mb-2 text-xl font-bold text-ink">Adresse confirmée</h1>
+        <p className="mb-4 text-sm text-subtle">La nouvelle adresse est active.</p>
+        <Button type="button" onClick={() => router.replace(destination)}>
+          Continuer
+        </Button>
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto mt-24 max-w-sm px-4">
+      <h1 className="mb-1 text-xl font-bold text-ink">Nouveau mot de passe</h1>
+      <p className="mb-6 text-sm text-subtle">Choisissez le mot de passe de vos prochaines connexions.</p>
+      <form className="space-y-3" onSubmit={valider}>
+        <Input
+          type="password"
+          uiSize="lg"
+          value={motDePasse}
+          onChange={(evenement) => setMotDePasse(evenement.target.value)}
+          placeholder="Nouveau mot de passe"
+          required
+          minLength={8}
+          disabled={enCours}
+        />
+        {erreur && <p className="text-sm text-danger">{erreur}</p>}
+        <Button type="submit" disabled={enCours} className="w-full">
+          {enCours ? "Enregistrement…" : "Valider"}
+        </Button>
+      </form>
+    </main>
+  );
+}

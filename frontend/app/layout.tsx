@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import "./globals.css";
+import { RebondLienAuth } from "@/components/RebondLienAuth";
 import { cn } from "@/lib/utils";
 
 // DESIGN.md : une seule famille, Inter, partout — jamais mélangée à une
@@ -23,7 +24,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={cn("font-sans", inter.variable)}>
-      <body className="min-h-screen bg-canvas-app font-sans text-ink">{children}</body>
+      <body className="min-h-screen bg-canvas-app font-sans text-ink">
+        <RebondLienAuth />
+        {children}
+      </body>
     </html>
   );
 }
