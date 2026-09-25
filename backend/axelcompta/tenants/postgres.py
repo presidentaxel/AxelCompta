@@ -3,9 +3,10 @@ qui fait de l'I/O)."""
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Engine
 
@@ -48,6 +49,7 @@ class PostgresDossierRepository(DossierRepository):
                     contact_nr=dossier.contact_nr,
                     exercice_fin=dossier.exercice_fin,
                     identite=identite_vers_json(dossier.identite),
+                    retire_le=dossier.retire_le,
                 )
                 .on_conflict_do_nothing(index_elements=[dossiers.c.id])
             )
@@ -62,9 +64,31 @@ class PostgresDossierRepository(DossierRepository):
         with self._engine.connect() as connexion:
             appliquer_rls(connexion)
             lignes = connexion.execute(
-                select(dossiers).where(dossiers.c.tenant_id == tenant_id).order_by(dossiers.c.id)
+                select(dossiers)
+                .where(dossiers.c.tenant_id == tenant_id, dossiers.c.retire_le.is_(None))
+                .order_by(dossiers.c.id)
             ).all()
         return tuple(_vers_dossier(ligne) for ligne in lignes)
+
+    def obtenir_tenant(self, tenant_id: TenantId) -> Tenant | None:
+        with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
+            ligne = connexion.execute(select(tenants).where(tenants.c.id == tenant_id)).first()
+        if ligne is None:
+            return None
+        return Tenant(id=TenantId(ligne.id), nom=ligne.nom)
+
+    def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(update(tenants).where(tenants.c.id == tenant_id).values(nom=nom))
+
+    def retirer(self, dossier_id: DossierId) -> None:
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                update(dossiers).where(dossiers.c.id == dossier_id).values(retire_le=date.today())
+            )
 
     def par_contact_nr(self, contact_nr: str) -> Dossier | None:
         # Utilisé uniquement par `synchro_digifactory` (rôle `user`,
@@ -94,4 +118,5 @@ def _vers_dossier(ligne: Any) -> Dossier:
         contact_nr=ligne.contact_nr,
         exercice_fin=ligne.exercice_fin,
         identite=identite_depuis_json(ligne.identite),
+        retire_le=ligne.retire_le,
     )
