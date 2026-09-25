@@ -11,19 +11,12 @@ compta), statut juridique et régime fiscal configurés **par dossier** (EURL ic
 SASU là, micro demain), et des « packs métier » par secteur dont le VTC n'est que
 le premier.
 
-**Statut du projet : cadrage relu (Louis, 2026-09-02), sprint démo en cours.**
-Ces documents restent la référence à amender au fil de l'eau, mais ce ne sont
-plus des brouillons pré-code : le moteur comptable, l'ingestion, la
-catégorisation, la clôture fiscale (liasse 2065 + 2033 sur les formulaires
-officiels, FEC au format légal, depuis le 2026-09-23) et une première
-interface (gestionnaire + comptes via Supabase Auth) tournent déjà en vrai
-sur des dossiers synthétiques, avec
-suite de tests, lint et vérification des frontières de modules en continu
-(doc 08). **L'état réel du code, module par module, se lit dans
-[doc 18 — Organisation du code](docs/18-organisation-code.md) ; le plan de
-sprint actif est [doc 17](docs/17-plan-demo-backend.md), le plan V1 est
-[doc 12](docs/12-roadmap-todo.md).** Ces trois docs peuvent être en avance
-sur ce paragraphe — s'y fier plutôt qu'à ce résumé en cas de doute.
+**Où lire l'état du projet :** un seul endroit, le
+[doc 12](docs/12-roadmap-todo.md) (fait, en cours, jalons). Le plan de la
+démo est le [doc 17](docs/17-plan-demo-backend.md), la carte du code le
+[doc 18](docs/18-organisation-code.md). L'historique daté (journaux de
+sprint, notes de session) est dans [docs/archive](docs/archive/) et ne se
+met plus à jour.
 
 ## Sommaire
 
@@ -46,12 +39,12 @@ sur ce paragraphe — s'y fier plutôt qu'à ce résumé en cas de doute.
 | [14 — Onboarding / Offboarding](docs/14-onboarding-offboarding.md) | Cycle de vie d'un tenant : collecte des données, import en masse, connexion providers, reprise historique, export et purge | Avant le pilote client (phase 4) et à la signature de tout nouveau client |
 | [15 — Observabilité](docs/15-observabilite.md) | Métriques métier (KPIs taux catégorisation, coût LLM, balance, FEC), métriques techniques (mémoire ML, file de jobs, Bridge/Rollee), logs structurés JSON, alerting, dashboards Grafana | Avant le premier déploiement staging |
 | [16 — Intégration Digifactory](docs/16-integration-digifactory.md) | Connecteur Digifactory (agrégateur Bridge), schéma fixtures, statut du blocage token (401) | Avant tout code d'ingestion bancaire |
-| [17 — Plan démo produit](docs/17-plan-demo-backend.md) | Pivot 2026-09-06 : UX des deux interfaces (gestionnaire PC, chauffeur mobile) + moteur réel branché sur 3 chauffeurs type fabriqués à la main, semaine par semaine, golden tests | Avant de démarrer la démo interne — **distinct du roadmap doc 12** |
-| [18 — Organisation du code](docs/18-organisation-code.md) | Correspondance entre l'arborescence `backend/`/`frontend/` et les modules du doc 03, graphe de dépendances, statut démo vs V1 par module | Avant de toucher au code, pour situer un module dans l'arbre |
+| [17 — Plan démo produit](docs/17-plan-demo-backend.md) | But, dossiers, périmètre, lancement, risques de la démo | Avant de préparer ou de lancer la démo |
+| [18 — Organisation du code](docs/18-organisation-code.md) | Carte de l'arborescence `backend/`/`frontend/` vers les modules du doc 03, graphe de dépendances | Avant de toucher au code, pour situer un module |
 | [19 — Parcours utilisateur](docs/19-parcours-utilisateur.md) | Compte chauffeur (mobile) relié à sa propre banque, onboarding et visibilité gestionnaire, deux modes de connexion bancaire par dossier, mono-compte | Avant tout code front — complète doc 11 et doc 14 |
 | [20 — Dépôt des comptes annuels (INPI)](docs/20-integration-inpi-depot-comptes.md) | Schéma de l'API de dépôt Guichet Unique, pièces jointes, signature qualifiée RGS obligatoire (recoupe ADR-004) | Avant tout code de génération du dossier greffe/INPI |
 | [ADR 001-007](docs/adr/) | Architecture Decision Records : monolithe, file de jobs, hébergement, signature, OCR, PDF liasses, modèle ML de catégorisation | À lire avant de remettre en question une décision d'architecture |
-| [Référence Revolut](docs/references/DESIGN-revolut.md) | Analyse du design system marketing Revolut (source : getdesign.md) — inspiration pour la rigueur de tokenisation | Contexte de conception de DESIGN.md |
+| [Archive](docs/archive/) | Journaux de sprint, notes de session, référence Revolut | Pour retrouver pourquoi une chose a été faite |
 
 ## Les 7 décisions structurantes déjà prises (à confirmer)
 
