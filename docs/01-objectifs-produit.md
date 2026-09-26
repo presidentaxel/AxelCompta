@@ -147,7 +147,7 @@ flowchart LR
 ## 9. Questions ouvertes à trancher avec le client
 
 - [x] ~~Structure du client pilote~~ → confirmé : 1 entité gestionnaire → ~200 dossiers indépendants, chacun avec son statut, ses comptes et sa liasse.
-- [x] ~~Statuts juridiques~~ → confirmé : mix SASU/EURL à l'IS + quelques-unes avec option IR (bornée 5 exercices, doc 06 §7). Reste à collecter la **liste exacte statut par chauffeur** à l'onboarding — chaque dossier est paramétré individuellement.
+- [x] ~~Statuts juridiques~~ → confirmé : mix SASU/EURL à l'IS + quelques-unes avec option IR (bornée 5 exercices, doc 06 §7). Chaque dossier est paramétré individuellement à sa création ; la liste exacte du pilote n'est plus collectée à l'avance (tous les formats codés, doc 12 J2 annulé le 2026-09-26).
 - [x] ~~Régime TVA~~ → confirmé : les chauffeurs du pilote sont normalement tous au **réel** ; la franchise doit être supportée aussi. Les deux dans la V1, réel testé en priorité.
 - [ ] Qui valide en dernier ressort chaque dossier : le service compta du client gestionnaire, ou un cabinet comptable partenaire ?
 - [ ] Le client a-t-il déjà un contrat Bridge ou faut-il le souscrire (et qui paie) ? — pour le pilote, l'accès passe par Digifactory (doc 16) ; cette question ne concerne que la piste Bridge directe (doc 16 §8).
