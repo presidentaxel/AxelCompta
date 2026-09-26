@@ -35,6 +35,7 @@ from axelcompta.workflow.notifications import (
     NotificationRepository,
     ResultatNotification,
     notifier_a_trancher,
+    notifier_cloture_a_valider,
 )
 from axelcompta.workflow.notifications_postgres import PostgresNotificationRepository
 
@@ -51,6 +52,11 @@ def notifier_portefeuille(
         try:
             resultats.append(
                 notifier_a_trancher(dossier.id, ledger, decisions, notifications, maintenant)
+            )
+            resultats.append(
+                notifier_cloture_a_valider(
+                    dossier.id, dossier.fin_exercice(), notifications, maintenant
+                )
             )
         except Exception as exc:  # noqa: BLE001 — un dossier en échec ne bloque pas les autres
             resultats.append(ResultatNotification(dossier.id, "echec", detail=type(exc).__name__))

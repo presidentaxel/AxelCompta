@@ -70,6 +70,13 @@ from axelcompta.demo_justificatifs import (
     JustificatifRepository,
 )
 from axelcompta.demo_seed import TENANT_DEMO
+from axelcompta.exercices import (
+    PassageExercice,
+    PassageRefuse,
+    attestation,
+    executer_passage,
+    preparer_passage,
+)
 from axelcompta.filings.cerfa_2031 import PdfCerfa2031Renderer
 from axelcompta.filings.cerfa_2033 import extraire_page_2033
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
@@ -93,6 +100,8 @@ from axelcompta.tenants.avenants import (
     alerte_option_ir,
 )
 from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
+from axelcompta.tenants.exercices import ExerciceRepository
+from axelcompta.tenants.exercices_postgres import PostgresExerciceRepository
 from axelcompta.tenants.franchise_tva import MillesimeInconnu, suivre_franchise
 from axelcompta.tenants.models import Dossier
 from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
@@ -759,6 +768,15 @@ def get_avenants() -> AvenantRegimeRepository:
 
 
 AvenantsDep = Annotated[AvenantRegimeRepository, Depends(get_avenants)]
+
+
+def get_exercices() -> ExerciceRepository:
+    """Dépendance FastAPI — historique des exercices clos. Surchargée en
+    mémoire dans les tests."""
+    return PostgresExerciceRepository(_engine())
+
+
+ExercicesDep = Annotated[ExerciceRepository, Depends(get_exercices)]
 
 
 def _trancher(
@@ -1660,6 +1678,107 @@ def _enregistrer_routes_notifications(app: FastAPI) -> None:
         return NotificationsLuesVue(lues=notifications.marquer_lues(dossier.id, maintenant))
 
 
+class ClotureExerciceVue(BaseModel):
+    """Ce que la clôture fera, avant que le chauffeur la valide (doc 06 §5)."""
+
+    possible: bool
+    raison: str | None = None
+    exercice_debut: str
+    exercice_fin: str
+    nouvel_exercice_debut: str | None = None
+    ecritures: list[str] = []
+    changements: list[str] = []
+    # Texte à accepter tel quel ; renvoyé à l'identique pour valider.
+    attestation: str | None = None
+
+
+class ValidationClotureEntree(BaseModel):
+    attestation: str
+
+
+def _signataire(dossier: Dossier, identite: IdentiteAuthentifiee) -> str:
+    if dossier.identite is not None:
+        dirigeant = dossier.identite.dirigeant
+        return f"{dirigeant.prenoms} {dirigeant.nom}"
+    return identite.email
+
+
+def _preparer_cloture(
+    dossier: Dossier,
+    ledger: LedgerService,
+    decisions: DecisionRepository,
+    avenants: AvenantRegimeRepository,
+) -> PassageExercice:
+    try:
+        return preparer_passage(
+            dossier, ledger, decisions, avenants.lister(dossier.id), datetime.now(UTC).date()
+        )
+    except PassageRefuse as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+def _enregistrer_routes_cloture_exercice(app: FastAPI) -> None:
+    """Louis, 2026-09-26 : la clôture appartient au chauffeur, et à lui seul
+    (le gestionnaire n'a aucun droit sur les comptes). L'automatisation a
+    tout préparé ; il relit, accepte l'attestation mot pour mot, et c'est
+    cette validation qui clôt. Sans elle, rien ne se passe."""
+
+    @app.get("/dossiers/{dossier_id}/cloture-exercice", response_model=ClotureExerciceVue)
+    def apercu_cloture(
+        dossier: DossierDep,
+        ledger: LedgerBaseDep,
+        decisions: DecisionsDep,
+        avenants: AvenantsDep,
+        identite: IdentiteDep,
+    ) -> ClotureExerciceVue:
+        identite = _verifier_acces_dossier(dossier.id, identite)
+        debut, fin = dossier.exercice_debut.isoformat(), dossier.fin_exercice().isoformat()
+        try:
+            passage = _preparer_cloture(dossier, ledger, decisions, avenants)
+        except HTTPException as refus:
+            return ClotureExerciceVue(
+                possible=False, raison=str(refus.detail), exercice_debut=debut, exercice_fin=fin
+            )
+        return ClotureExerciceVue(
+            possible=True,
+            exercice_debut=debut,
+            exercice_fin=fin,
+            nouvel_exercice_debut=passage.apres.exercice_debut.isoformat(),
+            ecritures=[e.libelle for e in passage.ecritures],
+            changements=list(passage.changements),
+            attestation=attestation(dossier, _signataire(dossier, identite)),
+        )
+
+    @app.post("/dossiers/{dossier_id}/cloture-exercice", response_model=ClotureExerciceVue)
+    def valider_cloture(
+        request: Request,
+        corps: ValidationClotureEntree,
+        dossier: DossierDep,
+        ledger: LedgerBaseDep,
+        decisions: DecisionsDep,
+        avenants: AvenantsDep,
+        dossiers: DossiersDep,
+        exercices: ExercicesDep,
+        identite: IdentiteDep,
+    ) -> ClotureExerciceVue:
+        identite = _verifier_acces_dossier(dossier.id, identite)
+        texte = attestation(dossier, _signataire(dossier, identite))
+        if corps.attestation != texte:
+            raise HTTPException(
+                status_code=422, detail="L'attestation ne correspond pas au texte présenté."
+            )
+        passage = _preparer_cloture(dossier, ledger, decisions, avenants)
+        maintenant = datetime.now(UTC).replace(tzinfo=None)
+        executer_passage(passage, ledger, dossiers, exercices, maintenant, identite.user_id, texte)
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
+        return ClotureExerciceVue(
+            possible=False,
+            raison="Exercice clos.",
+            exercice_debut=passage.apres.exercice_debut.isoformat(),
+            exercice_fin=passage.apres.fin_exercice().isoformat(),
+        )
+
+
 class PartieVue(BaseModel):
     cle: str
     libelle: str
@@ -1752,6 +1871,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_pieces_greffe(app)
     _enregistrer_routes_greffe_inpi(app)
     _enregistrer_routes_notifications(app)
+    _enregistrer_routes_cloture_exercice(app)
     _enregistrer_routes_demo(app)
     return app
 

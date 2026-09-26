@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from axelcompta.core.ids import DossierId, EcritureId
 from axelcompta.ledger.contrepassation import annulees
@@ -30,6 +30,9 @@ from axelcompta.ledger.service import LedgerService
 from .decisions import DecisionRepository
 
 TYPE_A_TRANCHER = "a_trancher"
+# Exercice terminé, en attente de la validation du chauffeur (doc 06 §5) :
+# c'est lui qui clôt, la cloche le lui rappelle.
+TYPE_CLOTURE_A_VALIDER = "cloture_a_valider"
 COMPTE_ATTENTE = "471"
 INTERVALLE_MIN = timedelta(hours=6)
 RAPPEL = timedelta(days=7)
@@ -46,6 +49,8 @@ class NotificationEnvoyee:
 
     @property
     def message(self) -> str:
+        if self.type == TYPE_CLOTURE_A_VALIDER:
+            return "Votre exercice est terminé : relisez-le et validez sa clôture."
         return message(len(self.ecriture_ids))
 
 
@@ -109,6 +114,7 @@ class ResultatNotification:
     statut: str  # creee | rien_a_faire | deja_notifie | echec
     nb_a_trancher: int = 0
     detail: str | None = None
+    type: str = TYPE_A_TRANCHER
 
 
 def message(nb: int) -> str:
@@ -148,3 +154,31 @@ def notifier_a_trancher(
         )
     )
     return ResultatNotification(dossier_id, "creee", len(en_attente))
+
+
+def notifier_cloture_a_valider(
+    dossier_id: DossierId,
+    fin_exercice: date,
+    notifications: NotificationRepository,
+    maintenant: datetime,
+) -> ResultatNotification:
+    """Tant que l'exercice terminé n'est pas clos : une notification, puis un
+    rappel par `RAPPEL`. Clore déplace l'exercice du dossier, ce qui arrête
+    les rappels d'eux-mêmes."""
+    if fin_exercice >= maintenant.date():
+        return ResultatNotification(dossier_id, "rien_a_faire", type=TYPE_CLOTURE_A_VALIDER)
+    derniere = notifications.derniere(dossier_id, TYPE_CLOTURE_A_VALIDER)
+    if derniere is not None and (
+        derniere.envoye_le.date() > fin_exercice and maintenant - derniere.envoye_le < RAPPEL
+    ):
+        return ResultatNotification(dossier_id, "deja_notifie", type=TYPE_CLOTURE_A_VALIDER)
+    notifications.enregistrer(
+        NotificationEnvoyee(
+            id=uuid.uuid4().hex,
+            dossier_id=dossier_id,
+            type=TYPE_CLOTURE_A_VALIDER,
+            envoye_le=maintenant,
+            ecriture_ids=(),
+        )
+    )
+    return ResultatNotification(dossier_id, "creee", type=TYPE_CLOTURE_A_VALIDER)

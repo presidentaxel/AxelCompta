@@ -6,7 +6,7 @@ repository (`DossierRepository.lister_par_tenant`) ; la RLS Postgres de la V1
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import JSON, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text
 
 from axelcompta.core.db import metadata
 
@@ -52,6 +52,8 @@ exercices_clos = Table(
     Column("clos_le", DateTime, nullable=False),
     Column("clos_par", String, nullable=False),
     Column("changements", JSON, nullable=False),
+    # Texte exact accepté par le chauffeur en validant la clôture (preuve).
+    Column("attestation", Text, nullable=True),
 )
 
 # Avenants de régime d'imposition (doc 06 §7), append-only : verrou en base

@@ -7,20 +7,21 @@ Composition root, comme `taches.py`. Deux temps :
    nouvel exercice (avenant de régime en vigueur, sortie de la franchise de
    TVA si le seuil de base a été dépassé) ;
 2. `executer_passage` l'écrit : écritures en base (append-only), exercice
-   clos dans l'historique, dossier ouvert sur le nouvel exercice.
+   clos dans l'historique avec l'attestation acceptée, dossier ouvert sur
+   le nouvel exercice.
 
 L'exécution est rejouable : si elle s'interrompt, la relancer n'ajoute ni
 écriture ni exercice en double (identifiants stables) et termine le travail.
-Rien ne la déclenche seul : la décision de clore reste humaine (doc 06 §5,
-doc 19 §5.3), par la ligne de commande ci-dessous.
+Qui clôt (Louis, 2026-09-26) : **le chauffeur, et lui seul**, légalement
+responsable de sa comptabilité. L'automatisation prépare et le relance
+(`axelcompta.taches`) ; il valide depuis son écran en acceptant
+l'attestation de `attestation(...)`, gardée mot pour mot avec son identité
+(`exercices_clos`, journal d'audit). Le gestionnaire n'a aucun droit sur les
+comptes. Sans décision du chauffeur, rien ne se passe.
 
-Usage, depuis backend/ (DATABASE_URL défini) :
+La ligne de commande ne fait donc que simuler, pour vérifier un dossier :
 
-    python -m axelcompta.exercices --dossier <dossier_id>             # simulation
-    python -m axelcompta.exercices --dossier <dossier_id> --executer
-
-Le portefeuille de démo est refusé à l'exécution sans `--y-compris-demo` :
-le menu Démo ne sait pas effacer des à-nouveaux (verrouillés en base).
+    python -m axelcompta.exercices --dossier <dossier_id>
 """
 
 from __future__ import annotations
@@ -41,7 +42,6 @@ from axelcompta.closing.models import ParametresCloture
 from axelcompta.closing.ouverture import ecriture_a_nouveaux
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId
-from axelcompta.demo_seed import TENANT_DEMO
 from axelcompta.ledger.models import Ecriture
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
@@ -49,7 +49,6 @@ from axelcompta.packs.vtc_demo import charger_compte_par_categorie
 from axelcompta.tenants.avenants import AvenantRegime, regime_pour_exercice
 from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
 from axelcompta.tenants.exercices import ExerciceClos, ExerciceDejaClos, ExerciceRepository
-from axelcompta.tenants.exercices_postgres import PostgresExerciceRepository
 from axelcompta.tenants.franchise_tva import EtatFranchise, MillesimeInconnu, suivre_franchise
 from axelcompta.tenants.models import Dossier
 from axelcompta.tenants.postgres import PostgresDossierRepository
@@ -145,6 +144,18 @@ def _configuration_suivante(
     return apres, tuple(changements)
 
 
+def attestation(dossier: Dossier, signataire: str) -> str:
+    """Le texte que le chauffeur accepte pour clore. Le serveur le produit,
+    le client le renvoie tel quel : on garde la preuve de ce qu'il a lu."""
+    fin = dossier.fin_exercice()
+    return (
+        f"Je soussigné(e) {signataire}, dirigeant(e) de {dossier.nom}, ai relu les comptes "
+        f"de l'exercice du {dossier.exercice_debut:%d/%m/%Y} au {fin:%d/%m/%Y} et j'en valide "
+        "la clôture. AxeLCompta a préparé les écritures ; je reste seul(e) responsable de "
+        "ma comptabilité et de ma décision."
+    )
+
+
 def executer_passage(
     passage: PassageExercice,
     ledger: LedgerService,
@@ -152,6 +163,7 @@ def executer_passage(
     exercices: ExerciceRepository,
     maintenant: datetime,
     auteur: str,
+    texte_attestation: str | None = None,
 ) -> None:
     avant = passage.avant
     deja = {e.id for e in ledger.grand_livre(avant.id)}
@@ -167,6 +179,7 @@ def executer_passage(
                 clos_le=maintenant,
                 clos_par=auteur,
                 changements=passage.changements,
+                attestation=texte_attestation,
             )
         )
     except ExerciceDejaClos:
@@ -187,48 +200,26 @@ def _afficher(passage: PassageExercice) -> None:
 def main() -> int:
     parseur = argparse.ArgumentParser(description=__doc__)
     parseur.add_argument("--dossier", required=True)
-    parseur.add_argument("--executer", action="store_true", help="écrit en base")
-    parseur.add_argument(
-        "--y-compris-demo",
-        action="store_true",
-        help="autorise le portefeuille de démo (le menu Démo ne sait pas l'annuler)",
-    )
     args = parseur.parse_args()
 
     engine = engine_depuis_env()
-    depot = PostgresDossierRepository(engine)
-    dossier = depot.obtenir(DossierId(args.dossier))
+    dossier = PostgresDossierRepository(engine).obtenir(DossierId(args.dossier))
     if dossier is None:
         print(f"Dossier inconnu : {args.dossier}", file=sys.stderr)
         return 1
-    if args.executer and dossier.tenant_id == TENANT_DEMO and not args.y_compris_demo:
-        print(
-            "Portefeuille de démo : les écritures d'à-nouveaux sont verrouillées et le menu Démo "
-            "ne les efface pas. Relancer avec --y-compris-demo pour le faire quand même.",
-            file=sys.stderr,
-        )
-        return 1
-    ledger = PostgresLedgerService(engine)
-    maintenant = datetime.now(UTC).replace(tzinfo=None)
     try:
         passage = preparer_passage(
             dossier,
-            ledger,
+            PostgresLedgerService(engine),
             PostgresDecisionRepository(engine),
             PostgresAvenantRegimeRepository(engine).lister(dossier.id),
-            maintenant.date(),
+            datetime.now(UTC).date(),
         )
     except PassageRefuse as exc:
         print(f"{dossier.id} : passage refusé, {exc}", file=sys.stderr)
         return 1
     _afficher(passage)
-    if not args.executer:
-        print("Simulation : rien n'est écrit (--executer pour clore).")
-        return 0
-    executer_passage(
-        passage, ledger, depot, PostgresExerciceRepository(engine), maintenant, "ligne_de_commande"
-    )
-    print("Exercice clos, nouvel exercice ouvert.")
+    print("Simulation : seule la validation du chauffeur, depuis son écran, clôt l'exercice.")
     return 0
 
 

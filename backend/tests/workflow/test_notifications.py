@@ -17,6 +17,7 @@ from axelcompta.workflow.notifications import (
     ecritures_a_trancher,
     message,
     notifier_a_trancher,
+    notifier_cloture_a_valider,
 )
 
 D = DossierId("d1")
@@ -154,3 +155,19 @@ def test_une_ecriture_contre_passee_ne_reste_pas_a_trancher() -> None:
     env.ledger.enregistrer(contrepasser(_ecriture("e1", "471")))
 
     assert ecritures_a_trancher(env.ledger, env.decisions, D) == ()
+
+
+def test_la_cloture_a_valider_se_rappelle_chaque_semaine_jusqu_a_la_cloture() -> None:
+    notifs = InMemoryNotificationRepository()
+    fin = date(2025, 12, 31)
+    debut_2026 = datetime(2026, 1, 5, 9, 0)
+
+    assert notifier_cloture_a_valider(D, fin, notifs, datetime(2025, 12, 20)).statut == (
+        "rien_a_faire"
+    )
+    assert notifier_cloture_a_valider(D, fin, notifs, debut_2026).statut == "creee"
+    lendemain = debut_2026 + timedelta(days=1)
+    assert notifier_cloture_a_valider(D, fin, notifs, lendemain).statut == "deja_notifie"
+    assert notifier_cloture_a_valider(D, fin, notifs, debut_2026 + RAPPEL).statut == "creee"
+    (premiere, _) = notifs.lister(D, limite=5)[::-1]
+    assert premiere.message == "Votre exercice est terminé : relisez-le et validez sa clôture."

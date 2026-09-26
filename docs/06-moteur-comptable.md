@@ -177,8 +177,10 @@ Checklist automatisée, chaque étape produisant des écritures OD traçables :
     `axelcompta/exercices.py`) : écritures d'inventaire passées en base,
     comptes de bilan repris au premier jour de l'exercice suivant, résultat
     en 120 ou 129 jusqu'à son affectation, nouvel exercice ouvert avec le
-    régime en vigueur. Le déclencheur et le délai de battement du §5bis
-    restent à décider.
+    régime en vigueur. **Déclencheur tranché le 2026-09-26 : le chauffeur
+    seul valide la clôture** (attestation gardée mot pour mot, journal
+    d'audit) ; l'automatisation prépare et relance, le gestionnaire ne
+    peut rien. Le délai de battement du §5bis reste à fixer.
 
 ### 5bis. Complétude bancaire à la clôture — pas une simple case à cocher
 

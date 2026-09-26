@@ -6,11 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
-from axelcompta.core.ids import DossierId
+from axelcompta.core.ids import DossierId, UserId
 from axelcompta.core.rls import appliquer_rls
+from axelcompta.workflow.audit import noter
 
 from .exercices import ExerciceClos, ExerciceDejaClos, ExerciceRepository
 from .orm import exercices_clos as table
+
+TYPE_ACTE_CLOTURE = "cloture_exercice"
 
 
 class PostgresExerciceRepository(ExerciceRepository):
@@ -29,7 +32,18 @@ class PostgresExerciceRepository(ExerciceRepository):
                         clos_le=exercice.clos_le,
                         clos_par=exercice.clos_par,
                         changements=list(exercice.changements),
+                        attestation=exercice.attestation,
                     )
+                )
+                # Même transaction que l'exercice clos : pas de clôture sans
+                # sa trace dans le journal d'audit, ni l'inverse.
+                noter(
+                    connexion,
+                    exercice.dossier_id,
+                    TYPE_ACTE_CLOTURE,
+                    f"exercice:{exercice.debut.isoformat()}",
+                    UserId(exercice.clos_par),
+                    exercice.clos_le,
                 )
         except IntegrityError as exc:
             message = f"{exercice.dossier_id} : exercice {exercice.debut} déjà clos"
@@ -49,6 +63,7 @@ class PostgresExerciceRepository(ExerciceRepository):
                 clos_le=ligne.clos_le,
                 clos_par=ligne.clos_par,
                 changements=tuple(ligne.changements),
+                attestation=ligne.attestation,
             )
             for ligne in lignes
         )

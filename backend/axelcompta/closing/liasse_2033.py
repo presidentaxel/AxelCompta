@@ -189,6 +189,12 @@ def bilan(balance: Balance, resultat_exercice: int) -> dict[str, int]:
     même chiffre des deux côtés, pas un recalcul qui pourrait diverger d'un
     euro d'arrondi."""
     centimes, tva = _detail_bilan(balance)
+    # Un solde en 12x au bilan est le résultat d'un exercice antérieur repris
+    # en à-nouveaux (`closing/ouverture.py`), pas encore affecté par
+    # l'associé : il figure en report à nouveau (134), la ligne 136 ne
+    # portant que le résultat de l'exercice.
+    if "136" in centimes:
+        centimes["134"] = centimes.get("134", 0) + centimes.pop("136")
     lignes = _arrondir(centimes)
     lignes["136"] = resultat_exercice
     lignes["169"] = arrondir_euros(tva)
