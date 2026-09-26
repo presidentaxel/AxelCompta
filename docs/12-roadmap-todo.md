@@ -123,12 +123,18 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   à-nouveaux et pas encore affecté figure en 2033-A ligne 134, la ligne
   136 ne portant que le résultat de l'exercice.
 - **Rémunération du dirigeant** catégorisée par le chauffeur lui-même
-  (« Ma rémunération » dans la question de catégorisation) : 641 pour le
-  président de SASU/SAS, 644 pour le gérant d'EURL (non salarié), 108 pour
-  l'exploitant d'EI (prélèvement), lus dans la matrice des statuts. Pour
-  une SARL, le compte dépend de la situation du gérant (majoritaire ou
-  non) : demandé plutôt que deviné. Les charges sociales et le bulletin de
-  paie du président de SASU ne sont pas produits.
+  (« Ma rémunération » dans la question de catégorisation) : 644 pour le
+  gérant d'EURL (non salarié), 108 pour l'exploitant d'EI (prélèvement),
+  lus dans la matrice des statuts. Pour une SARL, le compte dépend de la
+  situation du gérant (majoritaire ou non) : demandé plutôt que deviné.
+  **Depuis le 2026-09-27**, le président de SASU/SAS saisit ses bulletins
+  (écran Exercice, « Ma paie » ; `closing/paie.py`) : 641 brut, 645
+  patronales, 431 cotisations, 4421 prélèvement à la source, 421 net à
+  payer ; son virement net solde le 421. Ses cotisations payées à
+  l'URSSAF se catégorisent « Mes cotisations sociales » (431 pour le
+  président, 646 pour le gérant non salarié et l'exploitant). AxeLCompta
+  n'établit ni le bulletin ni la DSN : c'est le rôle d'un logiciel de
+  paie.
 - **Affectation du résultat par le chauffeur, sur son propre écran**
   (`/chauffeur/{id}/resultat`, sociétés à l'IS) : après la clôture, on
   chiffre la réserve légale (5 % jusqu'à 10 % du capital), le
@@ -145,9 +151,16 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   sociaux 18,6 % en 2026 (LFSS 2026, art. 12), 17,2 % en 2025. Pas chiffré,
   et dit comme tel : les cotisations du gérant non salarié sur la part au-
   delà de 10 % du capital, et l'option pour le barème progressif (dépend
-  du foyer). Restent : le paiement des dividendes (457 vers banque, PFU
-  prélevé à la source, déclaration 2777), et les écritures de paie du
-  président de SASU.
+  du foyer).
+- **Versement des dividendes** (2026-09-27, `closing/dividendes.py`,
+  section « Mes dividendes » de l'écran Mon résultat) : le chauffeur
+  déclare la date du versement et, s'il l'a demandée, la dispense du
+  prélèvement forfaitaire ; les retenues à la source (12,8 % sauf
+  dispense, CSG, CRDS, solidarité, taux de l'année du versement) passent
+  du 457 au 4423, avec l'échéance de la déclaration 2777 (le 15 du mois
+  suivant). Le virement net se catégorise « Mes dividendes » (457), le
+  paiement de la 2777 « Impôts sur mes dividendes » (4423). Pas produit :
+  le formulaire 2777 lui-même.
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :

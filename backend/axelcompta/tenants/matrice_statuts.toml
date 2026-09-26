@@ -3,7 +3,7 @@
 # Ajouter un statut, c'est ajouter des données ici (et ses formulaires), pas
 # une migration. Toute modification change `version`.
 
-version = "2026-09-26.4"
+version = "2026-09-27"
 
 # Une colonne de la matrice = un traitement comptable et fiscal.
 # - disponible : le moteur sait produire ses comptes et sa liasse de bout en bout.
@@ -122,13 +122,25 @@ colonne = "micro"
 
 # Rémunération du dirigeant, catégorisée par le chauffeur lui-même (Louis,
 # 2026-09-26) : le compte dépend de la forme, pas de la colonne.
-# - SASU, SAS : président assimilé salarié, 641 ;
+# - SASU, SAS : président assimilé salarié. Son virement net solde la paie
+#   due (421), passée depuis son bulletin (`closing/paie.py` : 641 brut, 645
+#   charges patronales, 431 cotisations, 4421 prélèvement à la source) ;
 # - EURL : gérant associé unique, donc majoritaire, travailleur non salarié, 644 ;
 # - EI : prélèvement de l'exploitant, 108 (pas une charge).
 # SARL absente exprès : 644 si le gérant est majoritaire, 641 sinon ; on le
 # demande plutôt que de le deviner.
 [remuneration_dirigeant]
-SASU = "641"
-SAS = "641"
+SASU = "421"
+SAS = "421"
 EURL = "644"
 EI = "108"
+
+# Cotisations sociales du dirigeant payées à l'URSSAF, catégorisées par le
+# chauffeur : dette de cotisations (431) pour le président assimilé salarié,
+# qui naît de son bulletin ; charge de l'exploitant ou du gérant non salarié
+# (646) sinon. SARL absente pour la même raison que plus haut.
+[cotisations_dirigeant]
+SASU = "431"
+SAS = "431"
+EURL = "646"
+EI = "646"

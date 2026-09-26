@@ -6,6 +6,7 @@ import { use, useEffect, useState } from "react";
 import { ClotureExerciceSection } from "@/components/ClotureExerciceSection";
 import { ClotureSection } from "@/components/ClotureSection";
 import { GreffeInpiSection } from "@/components/GreffeInpiSection";
+import { PaieSection } from "@/components/PaieSection";
 import { useDossierChauffeur } from "@/app/chauffeur/use-dossier";
 import { fetchAvecAuthChauffeur } from "@/lib/auth-chauffeur";
 import { formatDate } from "@/lib/format";
@@ -62,6 +63,7 @@ export default function ExerciceChauffeurPage({
         {dossier.depot_greffe && <GreffeInpiSection dossier={dossier} />}
         <ClotureExerciceSection dossierId={dossierId} onClos={() => window.location.reload()} />
         <LienAffectation dossierId={dossierId} />
+        {dossier.paie_par_bulletin && <PaieSection dossierId={dossierId} />}
       </div>
     </div>
   );

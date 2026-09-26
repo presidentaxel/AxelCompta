@@ -8,6 +8,8 @@
 #   partir du 1er janvier 2026 (CSG 10,6 %, CRDS 0,5 %, solidarité 7,5 %),
 #   loi n° 2025-1403 du 30 décembre 2025 (LFSS 2026), art. 12 ; 17,2 %
 #   avant. Source : service-public.gouv.fr, fiche F2329.
+# - csg / crds / solidarite : détail des prélèvements sociaux, tel que la
+#   déclaration 2777 le demande.
 # - seuil_tns_capital : part des dividendes d'un gérant majoritaire (EURL,
 #   SARL) soumise aux cotisations des travailleurs non salariés au-delà de
 #   10 % du capital, des primes et des comptes courants (CSS art. L131-6).
@@ -15,9 +17,15 @@
 [annees.2025]
 pfu_impot_revenu_pct = "12.8"
 prelevements_sociaux_pct = "17.2"
+csg_pct = "9.2"
+crds_pct = "0.5"
+solidarite_pct = "7.5"
 seuil_tns_capital_pct = "10"
 
 [annees.2026]
 pfu_impot_revenu_pct = "12.8"
 prelevements_sociaux_pct = "18.6"
+csg_pct = "10.6"
+crds_pct = "0.5"
+solidarite_pct = "7.5"
 seuil_tns_capital_pct = "10"

@@ -30,11 +30,12 @@ backend/ (nécessite `pip install -e ".[dev]"` pour uvicorn).
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import time
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -47,8 +48,13 @@ from sqlalchemy.engine import Engine, Row
 
 from axelcompta.affectations import (
     AffectationImpossible,
+    DividendesDecides,
     PropositionAffectation,
+    bulletins_enregistres,
     decider,
+    declarer_versement,
+    dividendes_decides,
+    enregistrer_bulletin,
     proposer,
 )
 from axelcompta.closing.affectation import (
@@ -59,7 +65,9 @@ from axelcompta.closing.affectation import (
 )
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.cloture_fiscale import chiffre_affaires_ht
+from axelcompta.closing.dividendes import RetenuesDividendes, retenues
 from axelcompta.closing.models import LiassePivot, ParametresCloture
+from axelcompta.closing.paie import Bulletin, BulletinIncoherent
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.core.rls import appliquer_rls, contexte_identite
@@ -239,6 +247,8 @@ class DossierResume(BaseModel):
     regimes_a_venir: list[RegimeAVenirVue] = []
     # Franchise en base : approche ou dépassement des seuils de l'année civile.
     alerte_tva: str | None = None
+    # Président assimilé salarié : sa paie se saisit depuis son bulletin.
+    paie_par_bulletin: bool = False
 
 
 class DossierAgregat(BaseModel):
@@ -1032,6 +1042,7 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
             update={
                 "alerte_regime": alerte_option_ir(dossier),
                 "regimes_a_venir": _regimes_a_venir(dossier, avenants.lister(dossier.id)),
+                "paie_par_bulletin": configuration_de(dossier).paie_par_bulletin,
             }
         )
 
@@ -1945,6 +1956,150 @@ def _enregistrer_routes_affectation(app: FastAPI) -> None:
         )
 
 
+class DividendesVue(BaseModel):
+    """Versement des dividendes décidés : retenues à la source et 2777."""
+
+    applicable: bool
+    raison: str | None = None
+    annee_exercice: int | None = None
+    brut_cts: int = 0
+    declare: bool = False
+    verse_le: str | None = None
+    dispense_prelevement: bool = False
+    prelevement_forfaitaire_cts: int = 0
+    csg_cts: int = 0
+    crds_cts: int = 0
+    solidarite_cts: int = 0
+    total_retenu_cts: int = 0
+    net_a_virer_cts: int = 0
+    echeance_2777: str | None = None
+
+
+class DeclarationDividendesEntree(BaseModel):
+    verse_le: date
+    dispense_prelevement: bool = False
+
+
+class BulletinEntree(BaseModel):
+    mois: str  # AAAA-MM
+    brut_cts: int
+    cotisations_salariales_cts: int
+    cotisations_patronales_cts: int
+    prelevement_a_la_source_cts: int = 0
+
+
+class BulletinVue(BaseModel):
+    mois: str
+    brut_cts: int
+    net_a_payer_cts: int
+
+
+def _vue_dividendes(decides: DividendesDecides, detail: RetenuesDividendes) -> DividendesVue:
+    return DividendesVue(
+        applicable=True,
+        annee_exercice=decides.annee_exercice,
+        brut_cts=decides.brut,
+        declare=decides.declare is not None,
+        verse_le=detail.verse_le.isoformat(),
+        dispense_prelevement=detail.dispense_prelevement,
+        prelevement_forfaitaire_cts=detail.prelevement_forfaitaire,
+        csg_cts=detail.csg,
+        crds_cts=detail.crds,
+        solidarite_cts=detail.solidarite,
+        total_retenu_cts=detail.total_retenu,
+        net_a_virer_cts=detail.net_a_virer,
+        echeance_2777=detail.echeance_2777.isoformat(),
+    )
+
+
+def _bulletin_vue(ecriture: Ecriture) -> BulletinVue:
+    montant = {ligne.compte: ligne.montant.centimes for ligne in ecriture.lignes}
+    return BulletinVue(
+        mois=(ecriture.reference_piece or "").removeprefix("BULLETIN-"),
+        brut_cts=montant.get("641", 0),
+        net_a_payer_cts=montant.get("421", 0),
+    )
+
+
+def _enregistrer_routes_dividendes_paie(app: FastAPI) -> None:
+    """Après l'affectation : le versement des dividendes (retenues à la
+    source, déclaration 2777). Au chauffeur seul, comme le reste de ses
+    comptes."""
+
+    @app.get("/dossiers/{dossier_id}/dividendes", response_model=DividendesVue)
+    def apercu_dividendes(
+        dossier: DossierDep,
+        ledger: LedgerBaseDep,
+        exercices: ExercicesDep,
+        affectations: AffectationsDep,
+        identite: IdentiteDep,
+    ) -> DividendesVue:
+        _verifier_acces_dossier(dossier.id, identite)
+        try:
+            decides = dividendes_decides(dossier, ledger, exercices, affectations)
+            # Pas encore déclaré : aperçu au taux d'aujourd'hui, sans dispense.
+            detail = decides.declare or retenues(decides.brut, datetime.now(UTC).date(), False)
+        except (AffectationImpossible, MillesimeDividendesInconnu) as exc:
+            return DividendesVue(applicable=False, raison=str(exc))
+        return _vue_dividendes(decides, detail)
+
+    @app.post("/dossiers/{dossier_id}/dividendes", response_model=DividendesVue)
+    def declarer_dividendes(
+        corps: DeclarationDividendesEntree,
+        dossier: DossierDep,
+        ledger: LedgerBaseDep,
+        exercices: ExercicesDep,
+        affectations: AffectationsDep,
+        identite: IdentiteDep,
+    ) -> DividendesVue:
+        _verifier_acces_dossier(dossier.id, identite)
+        try:
+            decides = dividendes_decides(dossier, ledger, exercices, affectations)
+            detail = declarer_versement(
+                decides,
+                dossier,
+                ledger,
+                corps.verse_le,
+                corps.dispense_prelevement,
+                datetime.now(UTC).date(),
+            )
+        except (AffectationImpossible, MillesimeDividendesInconnu) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _vue_dividendes(dataclasses.replace(decides, declare=detail), detail)
+
+
+def _enregistrer_routes_paie(app: FastAPI) -> None:
+    """Paie du président assimilé salarié, saisie depuis son bulletin :
+    AxeLCompta n'établit ni bulletin ni DSN, il les passe en comptabilité."""
+
+    @app.get("/dossiers/{dossier_id}/bulletins", response_model=list[BulletinVue])
+    def lister_bulletins(
+        dossier: DossierDep, ledger: LedgerBaseDep, identite: IdentiteDep
+    ) -> list[BulletinVue]:
+        _verifier_acces_dossier(dossier.id, identite)
+        return [_bulletin_vue(e) for e in bulletins_enregistres(dossier, ledger)]
+
+    @app.post("/dossiers/{dossier_id}/bulletins", response_model=BulletinVue)
+    def saisir_bulletin(
+        corps: BulletinEntree, dossier: DossierDep, ledger: LedgerBaseDep, identite: IdentiteDep
+    ) -> BulletinVue:
+        _verifier_acces_dossier(dossier.id, identite)
+        bulletin = Bulletin(
+            mois=corps.mois,
+            brut=corps.brut_cts,
+            cotisations_salariales=corps.cotisations_salariales_cts,
+            cotisations_patronales=corps.cotisations_patronales_cts,
+            prelevement_a_la_source=corps.prelevement_a_la_source_cts,
+        )
+        try:
+            ecriture = enregistrer_bulletin(dossier, ledger, bulletin)
+        except AffectationImpossible as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except BulletinIncoherent as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _bulletin_vue(ecriture)
+
+
 class PartieVue(BaseModel):
     cle: str
     libelle: str
@@ -2039,6 +2194,8 @@ def create_app() -> FastAPI:
     _enregistrer_routes_notifications(app)
     _enregistrer_routes_cloture_exercice(app)
     _enregistrer_routes_affectation(app)
+    _enregistrer_routes_dividendes_paie(app)
+    _enregistrer_routes_paie(app)
     _enregistrer_routes_demo(app)
     return app
 

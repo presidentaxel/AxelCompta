@@ -38,6 +38,9 @@ class FiscaliteDividendes:
     pfu_impot_revenu: Decimal
     prelevements_sociaux: Decimal
     seuil_tns_capital: Decimal
+    csg: Decimal = Decimal(0)
+    crds: Decimal = Decimal(0)
+    solidarite: Decimal = Decimal(0)
 
 
 class MillesimeDividendesInconnu(LookupError):
@@ -50,9 +53,12 @@ def _fiscalites(chemin: Path = CHEMIN_FISCALITE) -> dict[int, FiscaliteDividende
         brut = tomllib.load(fichier)
     return {
         int(annee): FiscaliteDividendes(
-            Decimal(v["pfu_impot_revenu_pct"]) / 100,
-            Decimal(v["prelevements_sociaux_pct"]) / 100,
-            Decimal(v["seuil_tns_capital_pct"]) / 100,
+            pfu_impot_revenu=Decimal(v["pfu_impot_revenu_pct"]) / 100,
+            prelevements_sociaux=Decimal(v["prelevements_sociaux_pct"]) / 100,
+            seuil_tns_capital=Decimal(v["seuil_tns_capital_pct"]) / 100,
+            csg=Decimal(v["csg_pct"]) / 100,
+            crds=Decimal(v["crds_pct"]) / 100,
+            solidarite=Decimal(v["solidarite_pct"]) / 100,
         )
         for annee, v in brut["annees"].items()
     }

@@ -21,6 +21,11 @@ from pathlib import Path
 from .models import Dossier
 
 CHEMIN_MATRICE = Path(__file__).with_name("matrice_statuts.toml")
+# Comptes propres aux catégories de statut qui ne varient pas avec la forme.
+COMPTE_PAIE_DUE = "421"
+COMPTE_PAS = "4421"  # prélèvement à la source retenu sur la paie
+COMPTE_DIVIDENDES = "457"  # dividendes à payer
+COMPTE_RETENUES_DIVIDENDES = "4423"  # retenues et prélèvements sur distributions
 
 # L'option IR temporaire couvre au plus 5 exercices (art. 239 bis AB CGI).
 DUREE_OPTION_IR = 5
@@ -83,6 +88,7 @@ class Matrice:
     colonnes: dict[str, ColonneMatrice]
     combinaisons: dict[tuple[FormeJuridique, RegimeImposition], str]
     remuneration_dirigeant: dict[FormeJuridique, str]
+    cotisations_dirigeant: dict[FormeJuridique, str]
 
     def colonne(self, forme: FormeJuridique, regime: RegimeImposition) -> ColonneMatrice | None:
         cle = self.combinaisons.get((forme, regime))
@@ -118,11 +124,16 @@ def charger_matrice(chemin: Path = CHEMIN_MATRICE) -> Matrice:
         FormeJuridique(forme): compte
         for forme, compte in brut.get("remuneration_dirigeant", {}).items()
     }
+    cotisations = {
+        FormeJuridique(forme): compte
+        for forme, compte in brut.get("cotisations_dirigeant", {}).items()
+    }
     return Matrice(
         version=brut["version"],
         colonnes=colonnes,
         combinaisons=combinaisons,
         remuneration_dirigeant=remuneration,
+        cotisations_dirigeant=cotisations,
     )
 
 
@@ -145,13 +156,25 @@ class ConfigurationDossier:
     option_ir_debut: int | None
     colonne: ColonneMatrice
     compte_remuneration_dirigeant: str | None = None
+    compte_cotisations_dirigeant: str | None = None
+
+    @property
+    def paie_par_bulletin(self) -> bool:
+        """Président assimilé salarié : sa paie se passe depuis son bulletin,
+        son virement net solde la paie due (421)."""
+        return self.compte_remuneration_dirigeant == COMPTE_PAIE_DUE
 
     def comptes_categories_statut(self) -> dict[str, str | None]:
         """Catégories dont le compte dépend du statut et non du pack. `None`
         : sans écriture pour ce statut, ou à préciser."""
+        societe_is = self.colonne.soumis_is
         return {
             "usage_personnel": self.colonne.compte_usage_personnel,
             "remuneration_dirigeant": self.compte_remuneration_dirigeant,
+            "cotisations_dirigeant": self.compte_cotisations_dirigeant,
+            "prelevement_source_paie": COMPTE_PAS if self.paie_par_bulletin else None,
+            "dividendes": COMPTE_DIVIDENDES if societe_is else None,
+            "impots_dividendes": COMPTE_RETENUES_DIVIDENDES if societe_is else None,
         }
 
 
@@ -218,6 +241,7 @@ def _analyser(dossier: Dossier, matrice: Matrice) -> tuple[ConfigurationDossier 
         option_ir_debut=dossier.option_ir_debut,
         colonne=colonne,
         compte_remuneration_dirigeant=matrice.remuneration_dirigeant.get(forme),
+        compte_cotisations_dirigeant=matrice.cotisations_dirigeant.get(forme),
     )
     return configuration, []
 

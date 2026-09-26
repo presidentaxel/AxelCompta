@@ -35,6 +35,8 @@ export type DossierResume = {
   regimes_a_venir: RegimeAVenir[];
   // Franchise en base : approche ou dépassement des seuils de l'année.
   alerte_tva: string | null;
+  // Président assimilé salarié : sa paie se saisit depuis son bulletin.
+  paie_par_bulletin: boolean;
 };
 
 export type LignePortail = {
@@ -162,4 +164,28 @@ export type AffectationVue = {
   disponible_cts: number;
   scenarios: ScenarioAffectation[];
   avertissements: string[];
+};
+
+/** Versement des dividendes décidés : retenues à la source et 2777. */
+export type DividendesVue = {
+  applicable: boolean;
+  raison: string | null;
+  annee_exercice: number | null;
+  brut_cts: number;
+  declare: boolean;
+  verse_le: string | null;
+  dispense_prelevement: boolean;
+  prelevement_forfaitaire_cts: number;
+  csg_cts: number;
+  crds_cts: number;
+  solidarite_cts: number;
+  total_retenu_cts: number;
+  net_a_virer_cts: number;
+  echeance_2777: string | null;
+};
+
+export type BulletinVue = {
+  mois: string;
+  brut_cts: number;
+  net_a_payer_cts: number;
 };

@@ -1458,3 +1458,62 @@ def test_le_gestionnaire_ne_decide_pas_de_l_affectation() -> None:
         json={"scenario": "garder", "dividendes_cts": 0},
     )
     assert reponse.status_code in (401, 403)
+
+
+def test_verser_ses_dividendes_calcule_les_retenues_et_la_2777() -> None:
+    client = _client()
+    en_tete = _en_tete("DEMO_karim")
+    _clore_karim(client)
+    affectation = client.get("/dossiers/DEMO_karim/affectation", headers=en_tete).json()
+    maximum = affectation["scenarios"][-1]
+    client.post(
+        "/dossiers/DEMO_karim/affectation",
+        headers=en_tete,
+        json={"scenario": "maximum", "dividendes_cts": maximum["dividendes_cts"]},
+    )
+    url = "/dossiers/DEMO_karim/dividendes"
+
+    apercu = client.get(url, headers=en_tete).json()
+    assert apercu["applicable"] is True and apercu["declare"] is False
+    assert apercu["brut_cts"] == maximum["dividendes_cts"]
+
+    aujourd_hui = date.today()
+    corps = {"verse_le": aujourd_hui.isoformat(), "dispense_prelevement": True}
+    declare = client.post(url, headers=en_tete, json=corps).json()
+    assert declare["declare"] is True and declare["prelevement_forfaitaire_cts"] == 0
+    assert declare["net_a_virer_cts"] == declare["brut_cts"] - declare["total_retenu_cts"]
+    assert declare["echeance_2777"].endswith("-15")
+    assert client.get(url, headers=en_tete).json()["dispense_prelevement"] is True
+    deux_fois = client.post(url, headers=en_tete, json={"verse_le": aujourd_hui.isoformat()})
+    assert deux_fois.status_code == 409
+
+
+def test_pas_de_dividendes_a_verser_sans_affectation() -> None:
+    vue = _client().get("/dossiers/DEMO_karim/dividendes", headers=_en_tete("DEMO_karim")).json()
+    assert vue["applicable"] is False
+
+
+def test_le_president_de_sasu_saisit_ses_bulletins_le_gerant_d_eurl_non() -> None:
+    client = _client()
+    bulletin = {
+        "mois": "2025-11",
+        "brut_cts": 2_000_00,
+        "cotisations_salariales_cts": 440_00,
+        "cotisations_patronales_cts": 820_00,
+        "prelevement_a_la_source_cts": 60_00,
+    }
+    karim = _en_tete("DEMO_karim")
+    assert client.get("/dossiers/DEMO_karim", headers=karim).json()["paie_par_bulletin"] is True
+
+    url = "/dossiers/DEMO_karim/bulletins"
+    saisi = client.post(url, headers=karim, json=bulletin)
+    assert saisi.status_code == 200 and saisi.json()["net_a_payer_cts"] == 1_500_00
+    assert [b["mois"] for b in client.get(url, headers=karim).json()] == ["2025-11"]
+    assert client.post(url, headers=karim, json=bulletin).status_code == 409
+    faux = dict(bulletin, mois="2025-10", cotisations_salariales_cts=3_000_00)
+    assert client.post(url, headers=karim, json=faux).status_code == 422
+
+    sophie = _en_tete("DEMO_sophie")
+    assert client.get("/dossiers/DEMO_sophie", headers=sophie).json()["paie_par_bulletin"] is False
+    refus = client.post("/dossiers/DEMO_sophie/bulletins", headers=sophie, json=bulletin)
+    assert refus.status_code == 409
