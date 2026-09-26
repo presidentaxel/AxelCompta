@@ -392,8 +392,9 @@ committées.
 maintenant un vrai appel quand on lui fournit un `client_reel`. **Pas
 encore fait** : brancher `fetch_transactions`/`fetch_platform_settlements`
 sur le client réel — bloqué sur l'absence de la table `contact_nr →
-dossier_id` (§9 point 5, ~200 chauffeurs, dépend de la liste pilote
-attendue le week-end du 12-13/09, reportée à la semaine du 21/09, voir doc 12 recalage), pas un problème technique.
+dossier_id` (§9 point 5, ~200 chauffeurs), pas un problème technique : au
+2026-09-26, Digifactory ne connaît que 6 contacts, les chauffeurs du pilote
+n'y sont pas encore (doc 12, J3).
 
 ---
 
@@ -441,8 +442,8 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
    et le chemin A est branché : `DigifactoryProvider.lire_lot(dossier, curseur)`
    appelle `/transactions/{contact_nr}` avec le contact du dossier, et
    refuse (`ContactNonMappeError`) un dossier sans contact plutôt que d'en
-   deviner un. **Reste les données** : la liste des ~200 chauffeurs du
-   pilote (doc 12, recalage : week-end du 26-27/09).
+   deviner un. **Reste les données** : les ~200 chauffeurs du pilote
+   doivent d'abord exister chez Digifactory (6 contacts au 2026-09-26).
 6. Monitoring de fraîcheur et de santé de connexion par compte — **relevé
    fait le 2026-09-25** (une ligne par dossier, le plus mauvais compte :
    `sante`, `en_pause`, `acces_donnees`, `dernier_rafraichissement`,

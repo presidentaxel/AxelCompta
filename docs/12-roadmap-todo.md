@@ -1,6 +1,6 @@
 # 12 — Roadmap et TODO maître
 
-> Statut : brouillon à valider. Dernière mise à jour : 2026-09-25.
+> Statut : brouillon à valider. Dernière mise à jour : 2026-09-26.
 > **Seule source de l'état du projet** (fait, en cours, jalons). Les docs 17
 > et 18 n'en tiennent plus de copie. Les sections « Statuts » des READMEs de
 > modules en gardent une, en partie périmée, à retirer.
@@ -79,22 +79,22 @@ n'est imposée, on suit l'ordre plutôt que les dates) :
 | Jalon | Cible | Pourquoi dans cet ordre |
 |---|---|---|
 | J1. 500 lignes relues (~2 h avec la pré-passe), **week-end uniquement** | 2026-09-26/27 | Débloque la vraie mesure ML et le premier jeu de test gelé |
-| J2. Liste pilote statut/régime/TVA par chauffeur + table `contact_nr → dossier_id` (accès aux données pilote, **week-end**) | 2026-09-26/27 | Débloque le branchement Digifactory et la création des dossiers |
-| J3. Digifactory branché, synchro idempotente avec curseur, archive brute et quarantaine (**code fait le 2026-09-22**, doc 18) ; reste : un vrai dossier de bout en bout, dépend des données de J2 | 2026-10-02 | Premier flux réel, remplace les fixtures |
+| ~~J2. Liste pilote statut/régime/TVA par chauffeur~~ **Annulé le 2026-09-26** (décision de Louis) : on code tous les formats (SASU, SAS, EURL, SARL, EI, IS, IR, franchise ou réel de TVA), le mélange exact du pilote n'a plus à être collecté à l'avance. Le statut de chaque dossier reste à renseigner, dossier par dossier, quand il est créé | annulé | |
+| J3. Digifactory branché, synchro idempotente avec curseur, archive brute et quarantaine (**code fait le 2026-09-22**, doc 18) ; reste : un vrai dossier de bout en bout. Digifactory n'a que 6 contacts au 2026-09-26, c'est attendu : la démo sert à obtenir l'engagement du pilote, les chauffeurs y seront ajoutés ensuite. Le vrai dossier de bout en bout peut se faire sur l'un des 6 | 2026-10-02 | Premier flux réel, remplace les fixtures |
 | J4. Auth gestionnaire réelle + Postgres branché dans l'API + migrations (**fait le 2026-09-21**, doc 18) | fait | Aujourd'hui tout est en mémoire, `UTILISATEUR_DEMO` en dur |
-| J5. Notifications e-mail + invitations en masse (**code fait le 2026-09-22**, doc 18) ; reste : SMTP à configurer (le nôtre et celui de Supabase Auth) | 2026-10-16 | Sans elles, le modèle « l'indiv traite au fil de l'eau » (doc 19) ne tourne pas |
-| J6. Premier échange expert-comptable (taxonomie, templates, question CCA/FNP) | contact pris avant le 2026-09-30, échange en octobre | Délai externe long, à lancer maintenant même si l'échange vient plus tard |
+| J5. Notifications e-mail + invitations en masse (**code fait le 2026-09-22**, doc 18) ; SMTP de Supabase Auth configuré le 2026-09-26 (invitations plus plafonnées) ; reste : le SMTP des notifications (`SMTP_*` dans le `.env`) | 2026-10-16 | Sans elles, le modèle « l'indiv traite au fil de l'eau » (doc 19) ne tourne pas |
+| J6. Premier échange expert-comptable (taxonomie, templates, question CCA/FNP). **Reporté tout à la fin le 2026-09-26** (décision de Louis) : aucun expert-comptable disponible aujourd'hui, pas de moyen de le lancer. Ne pas le relancer d'ici là | tout à la fin | Reste un prérequis de la V1 |
 
 **À lancer en parallèle dès cette semaine (attente externe, coût faible) :**
 devis de signature qualifiée RGS (ADR-004), trame CGU/CGV/DPA, relance
 Digifactory pour le volume initial découpé (doc 16 §5).
 
-**Contrainte de rythme (2026-09-21) :** les tâches qui demandent le jugement de Louis sur les données (relecture des 500 lignes, données pilote) ne se font que le week-end ; la semaine est réservée au code. Le J4 et le J5 sont donc les jalons de semaine, faisables sans attendre J1/J2.
+**Contrainte de rythme (2026-09-21) :** les tâches qui demandent le jugement de Louis sur les données (relecture des 500 lignes, données pilote) ne se font que le week-end ; la semaine est réservée au code. Le J4 et le J5 sont donc les jalons de semaine, faisables sans attendre J1.
 
 **Capacité :** 1 dev seul, et cette estimation ne réserve aucun temps pour
 d'autres engagements (mémoire, études). Si un autre chantier prend la même
-énergie, les cibles glissent d'autant ; le J1 et le J2 sont les seuls qui ne
-doivent pas glisser, parce que tout le reste en dépend.
+énergie, les cibles glissent d'autant ; le J1 est le seul qui ne
+doit pas glisser, parce que tout le reste en dépend.
 
 ## Vue d'ensemble des phases
 
@@ -131,11 +131,10 @@ la phase suivante avec des invariants non tenus.
       déjà relu (2026-09-02)** ; la condition du README avant "code produit"
       est donc satisfaite côté relecture — plus d'associé à attendre. Sujet
       clos, ne pas rouvrir.
-- [ ] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR. Reste : collecter la **liste exacte statut par chauffeur** + `tva_recettes_regime` par dossier.
-      **Prévu le week-end du 2026-09-12/13, non fait (imprévu, voir recalage
-      du 2026-09-21).** Nouvelle cible : semaine du 21/09, en même temps que
-      la relecture des 500 lignes (§0.2) — les deux nécessitent le même accès
-      aux données du pilote.
+- [x] Structure du pilote confirmée : 1 gestionnaire → ~200 dossiers indépendants, mix SASU/EURL à l'IS + quelques option IR.
+      ~~Collecter la liste exacte statut par chauffeur~~ **Annulé le
+      2026-09-26** : tous les formats seront codés, le statut se renseigne
+      dossier par dossier à la création (voir J2 dans le recalage).
 - [x] Positionnement éditeur validé (doc 02 §2.3).
 - [ ] CGU/CGV + DPA rédigés (trame au moins).
 - [x] Token Digifactory fonctionnel — **débloqué le 2026-09-11** (doc 16
@@ -146,8 +145,8 @@ la phase suivante avec des invariants non tenus.
       implémenté et testé en réel (`DigifactoryHttpClient`, doc 16 §7/§9
       point 1). Reste : brancher ce client sur `fetch_transactions` —
       bloqué sur la table `contact_nr → dossier_id` (doc 16 §9 point 5),
-      pas un problème technique, dépend de la liste pilote, reportée à la semaine du 2026-09-21
-      (voir recalage).
+      pas un problème technique : dépend de l'arrivée des chauffeurs chez
+      Digifactory (voir J3 dans le recalage).
 - [ ] Contrat Bridge direct : pricing, volumes, statut, sandbox — piste parallèle non bloquante, testée après le pilote Digifactory (doc 16 §8).
 - [ ] Contrat Rollee : conditions fleet mode, volumes, API sandbox, pricing.
 - [ ] Choix prestataire signature (ADR-004) — devis Yousign/Docusign. **Précisé (2026-09-11, doc 20 §4)** : le dépôt des comptes annuels au greffe (INPI) exige spécifiquement une signature électronique **avancée avec certificat qualifié RGS** (C. com. art. R.123-5) — à vérifier explicitement dans le devis retenu, pas n'importe quel niveau de signature électronique.
@@ -299,7 +298,8 @@ indiv**. Nouveaux items concrets qui en découlent, aucun encore chiffré :
       pour l'e-mail** (`workflow/notifications.py`, `python -m
       axelcompta.notifier`, doc 18). Reste : push / in-app (non fait, pas
       décidé), un déclencheur automatique (cron ou file de jobs, aujourd'hui
-      lancement manuel), et un vrai fournisseur SMTP à configurer.
+      lancement manuel), et un vrai fournisseur SMTP à configurer (`SMTP_*`,
+      pas encore dans le `.env`).
       Avant : dès qu'une transaction arrive et que le pipeline ne sait pas
       trancher, notifier l'indiv —
       rien n'existait (pas d'email transactionnel, pas de push/in-app).
@@ -313,9 +313,9 @@ indiv**. Nouveaux items concrets qui en découlent, aucun encore chiffré :
       Le gestionnaire invite ses indivs depuis une base clients, pas seulement
       un par un — distinct du CSV dossiers (§1.1 ci-dessus), **qui reste à
       faire pour le pilote** (pas pour la démo).
-      **Limite à connaître** : les invitations partent de Supabase Auth, dont
-      l'envoi d'e-mails est plafonné tant qu'un SMTP personnalisé n'y est pas
-      configuré. Sans lui, un lot de 200 invitations ne partira pas en entier.
+      Les invitations partent de Supabase Auth, dont l'envoi était plafonné
+      sans SMTP personnalisé : **SMTP configuré le 2026-09-26**, un lot de
+      200 invitations peut partir en entier.
 - [ ] **Boucle de clôture/complétude bancaire** (doc 19 §5.3, doc 06 §5bis) :
       confirmation de l'indiv + délai de battement + CCA/FNP pour le
       résiduel — la durée du délai et la politique CCA/FNP restent à

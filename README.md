@@ -78,8 +78,8 @@ met plus à jour.
 1. **Auditer les 10 ans de données** — en particulier vérifier que le lien
    « libellé bancaire → imputation comptable » existe (doc 07 §2.1). C'est le
    risque n° 1 du projet.
-2. **Collecter la liste exacte statut par chauffeur** chez le pilote (mix confirmé :
-   SASU/EURL à l'IS, quelques option IR — doc 01 §9, doc 06 §7).
+2. ~~Collecter la liste exacte statut par chauffeur~~ **Annulé le 2026-09-26** :
+   tous les formats seront codés (doc 12, J2).
 
 ## Comment faire vivre cette doc
 
