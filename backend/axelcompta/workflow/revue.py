@@ -24,6 +24,13 @@ _SANS_COMPTE = {
         "pour ce statut, le compte de la rémunération dépend de la situation du gérant "
         "(majoritaire ou non) : à préciser"
     ),
+    "cotisations_dirigeant": (
+        "pour ce statut, le compte des cotisations dépend de la situation du gérant "
+        "(majoritaire ou non) : à préciser"
+    ),
+    "prelevement_source_paie": "seul un président assimilé salarié a un bulletin de paie",
+    "dividendes": "à l'impôt sur le revenu, il n'y a pas de dividendes",
+    "impots_dividendes": "à l'impôt sur le revenu, il n'y a pas de dividendes",
 }
 
 

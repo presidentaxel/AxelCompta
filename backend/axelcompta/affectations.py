@@ -1,4 +1,5 @@
-"""Affectation du résultat du dernier exercice clos, par le chauffeur seul
+"""Affectation du résultat du dernier exercice clos, versement des
+dividendes et paie du président, décidés par le chauffeur seul
 (Louis, 2026-09-26 : c'est lui qui gère ce qu'il fait de son résultat, sur
 un écran à lui).
 
@@ -25,6 +26,13 @@ from axelcompta.closing.affectation import (
     scenarios,
 )
 from axelcompta.closing.cloture_fiscale import soldes
+from axelcompta.closing.dividendes import (
+    RetenuesDividendes,
+    ecriture_retenues,
+    id_retenues,
+    retenues,
+)
+from axelcompta.closing.paie import Bulletin, ecriture_bulletin, id_bulletin
 from axelcompta.ledger.models import Ecriture
 from axelcompta.ledger.service import LedgerService
 from axelcompta.tenants.affectations import (
@@ -142,3 +150,81 @@ def decider(
             raise
     ledger.enregistrer(ecriture)
     return ecriture
+
+
+# --- Versement des dividendes décidés -----------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class DividendesDecides:
+    annee_exercice: int
+    brut: int
+    decide_le: date
+    declare: RetenuesDividendes | None  # None tant que le versement n'est pas déclaré
+
+
+def dividendes_decides(
+    dossier: Dossier,
+    ledger: LedgerService,
+    exercices: ExerciceRepository,
+    affectations: AffectationRepository,
+) -> DividendesDecides:
+    clos = _dernier_clos(dossier, exercices)
+    decision = affectations.obtenir(dossier.id, clos.fin.year)
+    if decision is None or decision.dividendes_cts <= 0:
+        raise AffectationImpossible("aucun dividende décidé sur le dernier exercice clos")
+    cible = id_retenues(dossier.id, decision.annee_exercice)
+    declare = next((e for e in ledger.grand_livre(dossier.id) if e.id == cible), None)
+    detail = None
+    if declare is not None:
+        # L'écriture ne garde que le total : la dispense se lit dans l'écart
+        # avec le total sans dispense.
+        total = sum(ligne.montant.centimes for ligne in declare.lignes if ligne.compte == "4423")
+        sans_dispense = retenues(decision.dividendes_cts, declare.date, dispense_prelevement=False)
+        dispense = total != sans_dispense.total_retenu
+        detail = retenues(decision.dividendes_cts, declare.date, dispense_prelevement=dispense)
+    return DividendesDecides(
+        annee_exercice=decision.annee_exercice,
+        brut=decision.dividendes_cts,
+        decide_le=decision.decide_le.date(),
+        declare=detail,
+    )
+
+
+def declarer_versement(
+    decides: DividendesDecides,
+    dossier: Dossier,
+    ledger: LedgerService,
+    verse_le: date,
+    dispense_prelevement: bool,
+    aujourd_hui: date,
+) -> RetenuesDividendes:
+    """Le chauffeur déclare avoir versé ses dividendes : les retenues à la
+    source passent en 4423, la 2777 est à déposer avant le 15 du mois suivant."""
+    if decides.declare is not None:
+        raise AffectationImpossible("ce versement est déjà déclaré")
+    if not decides.decide_le <= verse_le <= aujourd_hui:
+        raise AffectationImpossible(
+            "la date de versement doit suivre la décision et ne pas être dans le futur"
+        )
+    detail = retenues(decides.brut, verse_le, dispense_prelevement)
+    ledger.enregistrer(ecriture_retenues(dossier.id, decides.annee_exercice, detail))
+    return detail
+
+
+# --- Paie du président assimilé salarié ----------------------------------------
+
+
+def enregistrer_bulletin(dossier: Dossier, ledger: LedgerService, bulletin: Bulletin) -> Ecriture:
+    if not configuration_de(dossier).paie_par_bulletin:
+        raise AffectationImpossible("seul un président assimilé salarié a un bulletin de paie")
+    if any(e.id == id_bulletin(dossier.id, bulletin.mois) for e in ledger.grand_livre(dossier.id)):
+        raise AffectationImpossible(f"le bulletin de {bulletin.mois} est déjà enregistré")
+    ecriture = ecriture_bulletin(dossier.id, bulletin)
+    ledger.enregistrer(ecriture)
+    return ecriture
+
+
+def bulletins_enregistres(dossier: Dossier, ledger: LedgerService) -> tuple[Ecriture, ...]:
+    grand_livre = ledger.grand_livre(dossier.id)
+    return tuple(e for e in grand_livre if (e.reference_piece or "").startswith("BULLETIN-"))

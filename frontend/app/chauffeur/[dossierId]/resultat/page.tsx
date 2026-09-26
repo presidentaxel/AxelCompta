@@ -8,6 +8,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { DividendesSection } from "@/components/DividendesSection";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import {
@@ -47,6 +48,7 @@ export default function ResultatChauffeurPage({
     return (
       <div>
         <p className="text-sm text-ink">{fait}</p>
+        <DividendesSection dossierId={dossierId} />
         <div className="mt-4">{retour}</div>
       </div>
     );
@@ -58,6 +60,7 @@ export default function ResultatChauffeurPage({
     return (
       <div>
         <p className="text-sm text-subtle">{vue.raison}</p>
+        <DividendesSection dossierId={dossierId} />
         <div className="mt-4">{retour}</div>
       </div>
     );

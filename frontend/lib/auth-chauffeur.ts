@@ -17,6 +17,8 @@
 import { ApiError } from "./api";
 import type {
   AffectationVue,
+  BulletinVue,
+  DividendesVue,
   ClotureExerciceVue,
   NotificationVue,
   SignatureGreffeVue,
@@ -448,4 +450,50 @@ export async function deciderAffectationChauffeur(
     throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
   }
   return corps as AffectationVue;
+}
+
+/** POST JSON authentifié : factorise les envois du chauffeur qui renvoient
+ * une vue, avec le message d'erreur de l'API. */
+async function envoyerChauffeur<T>(path: string, corps: unknown): Promise<T> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const reponse = await fetch(`${baseUrlApi()}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.accessToken}`,
+    },
+    body: JSON.stringify(corps),
+  });
+  const donnees = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(donnees.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return donnees as T;
+}
+
+export function declarerDividendesChauffeur(
+  dossierId: string,
+  verseLe: string,
+  dispensePrelevement: boolean,
+): Promise<DividendesVue> {
+  return envoyerChauffeur(`/dossiers/${dossierId}/dividendes`, {
+    verse_le: verseLe,
+    dispense_prelevement: dispensePrelevement,
+  });
+}
+
+export function saisirBulletinChauffeur(
+  dossierId: string,
+  bulletin: {
+    mois: string;
+    brut_cts: number;
+    cotisations_salariales_cts: number;
+    cotisations_patronales_cts: number;
+    prelevement_a_la_source_cts: number;
+  },
+): Promise<BulletinVue> {
+  return envoyerChauffeur(`/dossiers/${dossierId}/bulletins`, bulletin);
 }

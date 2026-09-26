@@ -260,7 +260,7 @@ jamais les autres.
 | Comptabilité | Engagement complète | Engagement complète | Engagement complète | Livre des recettes (+ achats si commerce), suivi de seuils | Portée par la coop |
 | Imposition du résultat | IS (2065 + liasse 2050/2033) | IR chez les associés (2031 + annexes 2033/2050) | IR (2031 + annexes) | Micro-BIC/BNC (2042-C-PRO) | N/A (salarié) |
 | Dépôt comptes INPI | Oui | Oui | Non | Non | La coop pour elle-même |
-| Rémunération dirigeant | 641 (président SASU) / 644 (gérant d'EURL) | idem selon forme | Prélèvements 108 | N/A | Salaire |
+| Rémunération dirigeant | 421 soldé, bulletin en 641/645 (président SASU) / 644 (gérant d'EURL) | idem selon forme | Prélèvements 108 | N/A | Salaire |
 | Usage personnel détecté | 455 CCA | 455 CCA | 108 prélèvements | Signalé (pas d'écriture) | Refacturation interne |
 | TVA | Régime TVA configuré par dossier — **réel normal opérationnel V1 et seule trajectoire pour les nouveaux dossiers** (les chauffeurs du pilote sont normalement tous au réel), franchise supportée aussi ; réel simplifié en lecture d'historique seulement (doc 02 §7bis, supprimé au 01/01/2027) | idem | idem | Franchise par défaut, bascule si seuils | Portée par la coop |
 

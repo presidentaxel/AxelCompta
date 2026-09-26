@@ -88,7 +88,7 @@ def test_micro_entreprise_usage_personnel_signale_sans_ecriture() -> None:
 
 @pytest.mark.parametrize(
     ("forme", "regime", "compte"),
-    [("SASU", "IS", "641"), ("SAS", "IS", "641"), ("EURL", "IS", "644"), ("EI", "IR", "108")],
+    [("SASU", "IS", "421"), ("SAS", "IS", "421"), ("EURL", "IS", "644"), ("EI", "IR", "108")],
 )
 def test_la_remuneration_du_dirigeant_suit_la_forme(forme: str, regime: str, compte: str) -> None:
     resolue = resoudre_ecriture_a_trancher(
@@ -101,4 +101,41 @@ def test_la_remuneration_d_un_gerant_de_sarl_se_precise_plutot_que_se_devine() -
     with pytest.raises(CategorieInconnueError, match="majoritaire ou non"):
         resoudre_ecriture_a_trancher(
             _ecriture_a_trancher(), "remuneration_dirigeant", _comptes_statut("SARL", "IS"), COMPTES
+        )
+
+
+@pytest.mark.parametrize(
+    ("forme", "regime", "categorie", "compte"),
+    [
+        ("SASU", "IS", "cotisations_dirigeant", "431"),
+        ("EURL", "IS", "cotisations_dirigeant", "646"),
+        ("EI", "IR", "cotisations_dirigeant", "646"),
+        ("SASU", "IS", "prelevement_source_paie", "4421"),
+        ("SASU", "IS", "dividendes", "457"),
+        ("EURL", "IS", "impots_dividendes", "4423"),
+    ],
+)
+def test_categories_de_paie_et_de_dividendes_selon_le_statut(
+    forme: str, regime: str, categorie: str, compte: str
+) -> None:
+    resolue = resoudre_ecriture_a_trancher(
+        _ecriture_a_trancher(), categorie, _comptes_statut(forme, regime), COMPTES
+    )
+    assert {ligne.compte for ligne in resolue.lignes} == {"512", compte}
+
+
+@pytest.mark.parametrize(
+    ("forme", "regime", "categorie", "message"),
+    [
+        ("EURL", "IR", "dividendes", "pas de dividendes"),
+        ("EURL", "IS", "prelevement_source_paie", "bulletin de paie"),
+        ("SARL", "IS", "cotisations_dirigeant", "majoritaire ou non"),
+    ],
+)
+def test_categories_sans_objet_pour_le_statut(
+    forme: str, regime: str, categorie: str, message: str
+) -> None:
+    with pytest.raises(CategorieInconnueError, match=message):
+        resoudre_ecriture_a_trancher(
+            _ecriture_a_trancher(), categorie, _comptes_statut(forme, regime), COMPTES
         )

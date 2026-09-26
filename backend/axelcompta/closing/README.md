@@ -30,6 +30,10 @@ pivot de liasse (`LiassePivot`) avant rendu par `filings/`.
   disponible, scénarios de dividendes chiffrés au PFU de l'année de
   versement, écriture qui solde le résultat. Appelée par
   `axelcompta/affectations.py`.
+- `dividendes.py` (**2026-09-27**) : retenues à la source sur les
+  dividendes versés (457 vers 4423) et échéance de la 2777.
+- `paie.py` (**2026-09-27**) : bulletin du président assimilé salarié,
+  passé tel quel (641, 645, 431, 4421, 421), sans calcul de paie.
 - `ouverture.py` (**2026-09-26**) : écriture d'à-nouveaux (journal AN) à
   l'ouverture de l'exercice suivant, comptes de bilan repris, résultat en
   120 ou 129. Appelée par `axelcompta/exercices.py`.
