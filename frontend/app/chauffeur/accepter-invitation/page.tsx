@@ -11,6 +11,7 @@ import {
   definirMotDePasse,
   ErreurAuthChauffeur,
 } from "@/lib/auth-chauffeur";
+import { lireFragmentAuth, pageInvitation } from "@/lib/auth-lien";
 
 type Etape = "verification" | "definir_mot_de_passe" | "erreur";
 
@@ -32,7 +33,21 @@ export default function AccepterInvitationPage() {
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
-    accepterInvitation(window.location.hash)
+    // Le fragment `#access_token` n'existe que dans le navigateur.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const fragment = window.location.hash;
+    try {
+      const recu = lireFragmentAuth(fragment);
+      if (pageInvitation(recu.accessToken) === "gestionnaire") {
+        window.location.replace(`/auth/lien${fragment}`);
+        return;
+      }
+    } catch (exception) {
+      setErreur(exception instanceof ErreurAuthChauffeur ? exception.message : "Lien invalide.");
+      setEtape("erreur");
+      return;
+    }
+    accepterInvitation(fragment)
       .then((session) => {
         setDossierId(session.dossierId);
         setEtape("definir_mot_de_passe");
@@ -43,6 +58,7 @@ export default function AccepterInvitationPage() {
         );
         setEtape("erreur");
       });
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   async function valider(evenement: React.FormEvent) {
