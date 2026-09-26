@@ -10,7 +10,7 @@ description: |
   (tabular-nums, alignement à droite, codage couleur positif/négatif).
   L'interface s'adapte à deux modes (portefeuille N dossiers vs mono-entreprise)
   et au statut de chaque dossier — sans jamais afficher de fonctions grisées.
-  Référence d'inspiration : docs/references/DESIGN-revolut.md
+  Référence d'inspiration : docs/archive/DESIGN-revolut.md
 
 colors:
   # --- Marque ---
@@ -1021,7 +1021,7 @@ les colonnes numériques.
 
 ## Outils de référence
 
-- **Inspiration design** : `docs/references/DESIGN-revolut.md` — analyse du
+- **Inspiration design** : `docs/archive/DESIGN-revolut.md` — analyse du
   système marketing Revolut, utile pour comprendre la rigueur de tokenisation
   attendue. Ne pas copier les choix visuels (canvas noir, Aeonik Pro) — ils
   sont inadaptés au B2B comptable.

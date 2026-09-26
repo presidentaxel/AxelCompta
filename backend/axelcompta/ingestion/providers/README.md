@@ -61,4 +61,4 @@ pipeline selon le chemin retenu le jour de la démo.
 [doc 03 §3](../../../../docs/03-architecture.md#3--découpage-en-modules-monolithe-modulaire) (pattern DataProvider),
 [doc 13](../../../../docs/13-integrations-plateformes.md) (détail complet du pattern + Rollee),
 [doc 16](../../../../docs/16-integration-digifactory.md) (Digifactory),
-[doc 17 §4-5](../../../../docs/17-plan-demo-backend.md#4-filet-de-sécurité--ingestion-bancaire-digifactorybridge).
+[doc 17 §4-5](../../../../docs/archive/17-plan-demo-journal-2026-09.md#4-filet-de-sécurité--ingestion-bancaire-digifactorybridge).

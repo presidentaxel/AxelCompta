@@ -47,4 +47,4 @@ reste.
 
 [doc 06](../../../docs/06-moteur-comptable.md) (référence complète du module),
 [doc 13 §5](../../../docs/13-integrations-plateformes.md#5-génération-décritures-depuis-un-settlement-réconcilié) (templates de settlement),
-[doc 17 §7](../../../docs/17-plan-demo-backend.md#7-golden-test-de-sortie).
+[doc 17 §7](../../../docs/archive/17-plan-demo-journal-2026-09.md#7-golden-test-de-sortie).
