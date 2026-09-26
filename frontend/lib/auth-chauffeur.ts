@@ -15,7 +15,7 @@
  */
 
 import { ApiError } from "./api";
-import type { SignatureGreffeVue, TransactionVue } from "./types";
+import type { NotificationVue, SignatureGreffeVue, TransactionVue } from "./types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -371,4 +371,24 @@ export async function joindreJustificatifChauffeur(
     throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
   }
   return corps as TransactionVue;
+}
+
+/** Notifications internes du chauffeur, les plus récentes d'abord. */
+export async function listerNotificationsChauffeur(dossierId: string): Promise<NotificationVue[]> {
+  return fetchAvecAuthChauffeur<NotificationVue[]>(`/dossiers/${dossierId}/notifications`);
+}
+
+/** Ouvrir la cloche vaut lecture : tout ce qui n'était pas lu le devient. */
+export async function marquerNotificationsLuesChauffeur(dossierId: string): Promise<void> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/notifications/lues`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.accessToken}` },
+  });
+  if (!reponse.ok) {
+    throw new ApiError(`HTTP ${reponse.status}`, reponse.status);
+  }
 }

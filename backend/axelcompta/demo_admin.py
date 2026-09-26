@@ -56,8 +56,8 @@ PARTIES: tuple[Partie, ...] = (
     Partie("rappels", "Rappels", "Règles de rappel et rappels déclenchés."),
     Partie(
         "notifications",
-        "Notifications envoyées",
-        "L'historique des e-mails, qui bloque les renvois trop rapprochés.",
+        "Notifications",
+        "Les notifications de la cloche, qui bloquent aussi les renvois trop rapprochés.",
     ),
     Partie(
         "portefeuille",

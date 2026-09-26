@@ -63,15 +63,17 @@ Supabase ouverts dans l'application, premier chargement Digifactory découpé.
 La frise de l'année d'avant montre l'exercice terminé en cours de
 traitement, jamais cochée d'office (doc 19 §2.1).
 
-**En cours le 2026-09-25 :**
+**Fait le 2026-09-25/26 (PR #17 et #18) :**
 - Frise par jalons : chaque étape après le compte (clôture, signature de
   validation, greffe, impôts, signature légale) est une preuve dans
   `documents_signes`, et la frise s'arrête au premier jalon absent
   (`demo_jalons.py`, `demo_seed.poser_jalons_demo`).
-- Refonte UX du parcours chauffeur (retour du 22/09).
-- Menu Démo du gestionnaire pour remettre la démo à neuf : la méthode
-  d'effacement des décisions et signatures verrouillées reste à décider
-  (doc 17 §6).
+- Refonte UX du parcours chauffeur (retour du 22/09) : app utilisable au
+  téléphone, jusqu'à la liasse et au greffe.
+- Menu Démo du gestionnaire : remise à neuf à la carte. Les données
+  verrouillées s'effacent par la connexion propriétaire, verrous suspendus
+  le temps d'une seule transaction, portefeuille de démo et admin seulement
+  (`demo_admin.py`, doc 17 §6).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
@@ -82,7 +84,7 @@ n'est imposée, on suit l'ordre plutôt que les dates) :
 | ~~J2. Liste pilote statut/régime/TVA par chauffeur~~ **Annulé le 2026-09-26** (décision de Louis) : on code tous les formats (SASU, SAS, EURL, SARL, EI, IS, IR, franchise ou réel de TVA), le mélange exact du pilote n'a plus à être collecté à l'avance. Le statut de chaque dossier reste à renseigner, dossier par dossier, quand il est créé | annulé | |
 | J3. Digifactory branché, synchro idempotente avec curseur, archive brute et quarantaine (**code fait le 2026-09-22**, doc 18) ; reste : un vrai dossier de bout en bout. Digifactory n'a que 6 contacts au 2026-09-26, c'est attendu : la démo sert à obtenir l'engagement du pilote, les chauffeurs y seront ajoutés ensuite. Le vrai dossier de bout en bout peut se faire sur l'un des 6 | 2026-10-02 | Premier flux réel, remplace les fixtures |
 | J4. Auth gestionnaire réelle + Postgres branché dans l'API + migrations (**fait le 2026-09-21**, doc 18) | fait | Aujourd'hui tout est en mémoire, `UTILISATEUR_DEMO` en dur |
-| J5. Notifications e-mail + invitations en masse (**code fait le 2026-09-22**, doc 18) ; SMTP de Supabase Auth configuré le 2026-09-26 (invitations plus plafonnées) ; reste : le SMTP des notifications (`SMTP_*` dans le `.env`) | 2026-10-16 | Sans elles, le modèle « l'indiv traite au fil de l'eau » (doc 19) ne tourne pas |
+| J5. Notifications + invitations en masse (**code fait le 2026-09-22**). **Notifications internes depuis le 2026-09-26** (cloche de l'espace chauffeur, plus d'e-mail : e-mail et SMS sont des intégrations du gestionnaire) et **cron installé** (`axelcompta.taches`, toutes les heures sur le poste de démo, même script sur le futur serveur). SMTP de Supabase Auth configuré le 2026-09-26 (invitations plus plafonnées) | fait | |
 | J6. Premier échange expert-comptable (taxonomie, templates, question CCA/FNP). **Reporté tout à la fin le 2026-09-26** (décision de Louis) : aucun expert-comptable disponible aujourd'hui, pas de moyen de le lancer. Ne pas le relancer d'ici là | tout à la fin | Reste un prérequis de la V1 |
 
 **À lancer en parallèle dès cette semaine (attente externe, coût faible) :**
@@ -294,12 +296,13 @@ début.
 et la signature **quittent le gestionnaire pour devenir exclusivement
 indiv**. Nouveaux items concrets qui en découlent, aucun encore chiffré :
 
-- [x] **Système de notification** (doc 19 §5.2) : **fait le 2026-09-22
-      pour l'e-mail** (`workflow/notifications.py`, `python -m
-      axelcompta.notifier`, doc 18). Reste : push / in-app (non fait, pas
-      décidé), un déclencheur automatique (cron ou file de jobs, aujourd'hui
-      lancement manuel), et un vrai fournisseur SMTP à configurer (`SMTP_*`,
-      pas encore dans le `.env`).
+- [x] **Système de notification** (doc 19 §5.2) : **fait le 2026-09-22,
+      internes depuis le 2026-09-26** (décision de Louis : pas de SMTP chez
+      nous, la cloche de l'espace chauffeur est le canal ; e-mail et SMS
+      sont des intégrations que le gestionnaire branche). Déclenchées par
+      `python -m axelcompta.taches` depuis un cron (poste de démo ; serveur
+      plus tard, même script). Reste : l'écran d'intégrations du
+      gestionnaire (e-mail, SMS), pas décidé.
       Avant : dès qu'une transaction arrive et que le pipeline ne sait pas
       trancher, notifier l'indiv —
       rien n'existait (pas d'email transactionnel, pas de push/in-app).

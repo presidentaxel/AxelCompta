@@ -35,6 +35,10 @@ class DossierRepository(ABC):
         """`None` si le portefeuille n'existe pas."""
 
     @abstractmethod
+    def lister_tenants(self) -> tuple[Tenant, ...]:
+        """Tous les portefeuilles, triés par id (tâches planifiées)."""
+
+    @abstractmethod
     def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
         """Le nom affiché du portefeuille, choisi par l'organisation."""
 

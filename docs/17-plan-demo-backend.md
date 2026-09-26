@@ -92,15 +92,15 @@ Pièges connus :
 
 ## 6. Remettre la démo à neuf
 
-Pas encore possible depuis l'écran. Les décisions et les signatures sont
-verrouillées en base (triggers `*_immuables`, doc 12 §1.3), même pour la
-démo. Une répétition qui tranche la dépense de Sophie ou signe un dépôt
-greffe laisse donc sa trace pour de bon. L'ancienne méthode (supprimer la
-ligne à la main, redémarrer l'API) ne marche plus depuis le 24/09.
-
-Un menu Démo dans la barre latérale du gestionnaire est prévu pour ça. La
-façon d'effacer des données verrouillées reste à décider : c'est une
-question de sécurité, pas seulement de code.
+**Fait le 2026-09-25 (PR #17)** : menu Démo dans la barre latérale du
+gestionnaire, remise à neuf à la carte (dépenses tranchées, frise,
+justificatifs, rappels, notifications). Les décisions et les signatures
+sont verrouillées en base (triggers `*_immuables`, doc 12 §1.3) : le menu
+passe par la connexion propriétaire (`DATABASE_URL`) et suspend ces
+verrous le temps d'une seule transaction, annulée en entier au moindre
+échec. Seuls le portefeuille de démo et un admin y ont accès, et le grand
+livre, le journal d'audit et les comptes Supabase ne sont jamais touchés
+(`demo_admin.py`).
 
 ## 7. Risques
 

@@ -1,4 +1,4 @@
-"""Orchestration multi-dossiers de l'envoi de notifications."""
+"""Orchestration multi-dossiers des notifications internes."""
 
 from __future__ import annotations
 
@@ -6,13 +6,12 @@ from datetime import date, datetime
 
 from axelcompta.core.ids import DossierId, EcritureId, TenantId
 from axelcompta.core.money import Money
-from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.notifier import notifier_portefeuille
 from axelcompta.tenants.models import Dossier
+from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
-from axelcompta.workflow.emails import Courriel, EmailSender
 from axelcompta.workflow.notifications import InMemoryNotificationRepository
 
 T0 = datetime(2026, 9, 22, 9, 0)
@@ -52,48 +51,25 @@ def _ledger_avec_attente(*ids: str) -> InMemoryLedgerService:
     return ledger
 
 
-class _EnvoiQuiEchoueSurB(EmailSender):
-    def __init__(self) -> None:
-        self.envoyes: list[Courriel] = []
-
-    def envoyer(self, courriel: Courriel) -> None:
-        if courriel.destinataire.startswith("b@"):
-            raise ConnectionError("smtp")
-        self.envoyes.append(courriel)
+class _DecisionsQuiEchouentSurB(InMemoryDecisionRepository):
+    def lister_decisions(self, dossier_id: DossierId) -> tuple[DecisionHumaine, ...]:
+        if dossier_id == "b":
+            raise ConnectionError("base")
+        return super().lister_decisions(dossier_id)
 
 
-def test_seuls_les_comptes_actifs_sont_notifies_et_un_echec_ne_bloque_pas_les_autres() -> None:
-    comptes = InMemoryCompteRepository()
-    for id_, email in (("a", "a@x.fr"), ("b", "b@x.fr"), ("c", "c@x.fr")):
-        comptes.inviter(DossierId(id_), email)
-    # « a » et « b » ont accepté leur invitation, « c » non ; « d » n'a jamais été invité.
-    comptes._invitations[DossierId("a")] = _actif(comptes, "a")
-    comptes._invitations[DossierId("b")] = _actif(comptes, "b")
-    envoi = _EnvoiQuiEchoueSurB()
+def test_chaque_dossier_en_attente_est_notifie_et_un_echec_ne_bloque_pas_les_autres() -> None:
+    notifications = InMemoryNotificationRepository()
+    decisions: DecisionRepository = _DecisionsQuiEchouentSurB()
 
     resultats = notifier_portefeuille(
         tuple(_dossier(i) for i in "abcd"),
-        _ledger_avec_attente("a", "b", "c", "d"),
-        InMemoryDecisionRepository(),
-        InMemoryNotificationRepository(),
-        envoi,
-        comptes,
-        "https://app/login",
+        _ledger_avec_attente("a", "b", "c"),
+        decisions,
+        notifications,
         T0,
     )
 
     statuts = {r.dossier_id: r.statut for r in resultats}
-    assert statuts == {
-        "a": "envoyee",
-        "b": "echec",
-        "c": "pas_de_compte_actif",
-        "d": "pas_de_compte_actif",
-    }
-    assert [c.destinataire for c in envoi.envoyes] == ["a@x.fr"]
-
-
-def _actif(comptes: InMemoryCompteRepository, id_: str):  # type: ignore[no-untyped-def]
-    from axelcompta.demo_comptes import Invitation, StatutInvitation
-
-    inv = comptes._invitations[DossierId(id_)]
-    return Invitation(inv.dossier_id, inv.email, StatutInvitation.ACTIF)
+    assert statuts == {"a": "creee", "b": "echec", "c": "creee", "d": "rien_a_faire"}
+    assert sorted(n.dossier_id for n in notifications.historique) == ["a", "c"]

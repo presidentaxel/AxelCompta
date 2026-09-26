@@ -68,10 +68,13 @@ seul module autorisé à transformer une `ProposedEntry` (sortie de
   conserve la proposition d'origine du pipeline par écriture (étage,
   confiance), nécessaire à la file de revue depuis que le ledger est
   persisté et non recalculé. Table `propositions_categorisation`.
-- `emails.py` / `notifications.py` / `notifications_postgres.py` (**fait,
-  2026-09-22**) : e-mail « opérations à confirmer » (doc 19 §5.2), regroupé
-  par dossier, anti-harcèlement, sans donnée comptable dans le message.
-  Lancé par `axelcompta/notifier.py`. Table `notifications_envoyees`.
+- `notifications.py` / `notifications_postgres.py` (**fait, 2026-09-22 ;
+  internes depuis le 2026-09-26**) : notification « opérations à confirmer »
+  (doc 19 §5.2) posée dans l'application, regroupée par dossier,
+  anti-harcèlement, sans donnée comptable, avec un état lu (`lue_le`). Plus
+  d'e-mail : c'est au gestionnaire de brancher e-mail ou SMS. Lancé par
+  `axelcompta/notifier.py` via `axelcompta/taches.py`. Table
+  `notifications_envoyees`.
 - `synchro.py` (**fait, 2026-09-22**) : synchronisation d'un dossier réel
   (lot du fournisseur, archive brute, catégorisation, écritures, curseur).
   Idempotente, ledger append-only. Une transaction modifiée ou supprimée

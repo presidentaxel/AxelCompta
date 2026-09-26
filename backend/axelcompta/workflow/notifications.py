@@ -2,25 +2,25 @@
 
 Le modèle du produit repose sur un traitement au fil de l'eau, pas sur une
 revue de fin d'année : sans ce signal, la file de revue reste vide de
-lecteurs. Règles, pensées pour ne pas harceler :
+lecteurs. La notification vit dans l'application (cloche de l'espace
+chauffeur), pas dans un e-mail : Louis, 2026-09-26, les e-mails et SMS sont
+des intégrations que le gestionnaire branche lui-même, pas un canal
+d'AxeLCompta. Règles, pensées pour ne pas harceler :
 
-- un seul e-mail par dossier regroupe tout ce qui attend, jamais un par
-  transaction ;
-- il ne repart que s'il y a des opérations **nouvelles** depuis le dernier
-  envoi, et pas avant `INTERVALLE_MIN` ;
+- une seule notification par dossier regroupe tout ce qui attend, jamais une
+  par transaction ;
+- elle ne se répète que s'il y a des opérations **nouvelles** depuis la
+  dernière, et pas avant `INTERVALLE_MIN` ;
 - s'il ne s'est rien passé, un rappel unique par `RAPPEL` tant que ça attend ;
-- le message ne contient aucun montant ni libellé (l'e-mail n'est pas un
-  canal sûr pour de la donnée comptable), seulement le nombre et le lien ;
-- l'envoi n'est enregistré qu'une fois réussi : un échec se retente au
-  passage suivant.
+- le message ne contient aucun montant ni libellé, seulement le nombre :
+  le détail est à un clic, dans l'écran qui l'affiche déjà.
 """
 
 from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 from axelcompta.core.ids import DossierId, EcritureId
@@ -28,7 +28,6 @@ from axelcompta.ledger.contrepassation import annulees
 from axelcompta.ledger.service import LedgerService
 
 from .decisions import DecisionRepository
-from .emails import Courriel, EmailSender
 
 TYPE_A_TRANCHER = "a_trancher"
 COMPTE_ATTENTE = "471"
@@ -43,6 +42,11 @@ class NotificationEnvoyee:
     type: str
     envoye_le: datetime
     ecriture_ids: tuple[EcritureId, ...]
+    lue_le: datetime | None = None
+
+    @property
+    def message(self) -> str:
+        return message(len(self.ecriture_ids))
 
 
 class NotificationRepository(ABC):
@@ -51,6 +55,14 @@ class NotificationRepository(ABC):
 
     @abstractmethod
     def enregistrer(self, notification: NotificationEnvoyee) -> None: ...
+
+    @abstractmethod
+    def lister(self, dossier_id: DossierId, limite: int) -> list[NotificationEnvoyee]:
+        """Les plus récentes d'abord."""
+
+    @abstractmethod
+    def marquer_lues(self, dossier_id: DossierId, maintenant: datetime) -> int:
+        """Marque lues toutes celles qui ne l'étaient pas ; renvoie leur nombre."""
 
 
 class InMemoryNotificationRepository(NotificationRepository):
@@ -63,6 +75,18 @@ class InMemoryNotificationRepository(NotificationRepository):
 
     def enregistrer(self, notification: NotificationEnvoyee) -> None:
         self.historique.append(notification)
+
+    def lister(self, dossier_id: DossierId, limite: int) -> list[NotificationEnvoyee]:
+        du_dossier = [n for n in self.historique if n.dossier_id == dossier_id]
+        return sorted(du_dossier, key=lambda n: n.envoye_le, reverse=True)[:limite]
+
+    def marquer_lues(self, dossier_id: DossierId, maintenant: datetime) -> int:
+        nb = 0
+        for i, n in enumerate(self.historique):
+            if n.dossier_id == dossier_id and n.lue_le is None:
+                self.historique[i] = replace(n, lue_le=maintenant)
+                nb += 1
+        return nb
 
 
 def ecritures_a_trancher(
@@ -82,31 +106,17 @@ def ecritures_a_trancher(
 @dataclass(frozen=True, slots=True)
 class ResultatNotification:
     dossier_id: DossierId
-    statut: str  # envoyee | rien_a_faire | deja_notifie | pas_de_compte_actif | echec
+    statut: str  # creee | rien_a_faire | deja_notifie | echec
     nb_a_trancher: int = 0
     detail: str | None = None
 
 
-def composer(nb: int, lien: str) -> Courriel:
-    """Sans destinataire : posé par l'appelant. Deux textes distincts plutôt
-    qu'un gabarit à trous, pour que le singulier se lise naturellement."""
+def message(nb: int) -> str:
+    """Deux textes distincts plutôt qu'un gabarit à trous, pour que le
+    singulier se lise naturellement."""
     if nb == 1:
-        sujet = "Une opération attend votre confirmation"
-        constat = (
-            "Un de vos derniers mouvements bancaires est resté sans catégorie : "
-            "nous n'avons pas su le classer seuls. Vous le confirmez en quelques secondes."
-        )
-    else:
-        sujet = f"{nb} opérations attendent votre confirmation"
-        constat = (
-            f"{nb} de vos derniers mouvements bancaires sont restés sans catégorie : "
-            "nous n'avons pas su les classer seuls. Comptez quelques secondes chacun."
-        )
-    corps = (
-        f"Bonjour,\n\n{constat}\nPlus vous confirmez tôt, plus votre comptabilité "
-        f"reste à jour.\n\nOuvrir l'application : {lien}\n\nL'équipe AxeLCompta\n"
-    )
-    return Courriel(destinataire="", sujet=sujet, corps=corps)
+        return "Une opération attend votre confirmation"
+    return f"{nb} opérations attendent votre confirmation"
 
 
 def notifier_a_trancher(
@@ -114,9 +124,6 @@ def notifier_a_trancher(
     ledger: LedgerService,
     decisions: DecisionRepository,
     notifications: NotificationRepository,
-    emails: EmailSender,
-    destinataire: Callable[[DossierId], str | None],
-    lien_application: str,
     maintenant: datetime,
 ) -> ResultatNotification:
     en_attente = ecritures_a_trancher(ledger, decisions, dossier_id)
@@ -127,19 +134,10 @@ def notifier_a_trancher(
     if derniere is not None:
         age = maintenant - derniere.envoye_le
         nouvelles = set(en_attente) - set(derniere.ecriture_ids)
-        a_envoyer = (bool(nouvelles) and age >= INTERVALLE_MIN) or age >= RAPPEL
-        if not a_envoyer:
+        a_notifier = (bool(nouvelles) and age >= INTERVALLE_MIN) or age >= RAPPEL
+        if not a_notifier:
             return ResultatNotification(dossier_id, "deja_notifie", len(en_attente))
 
-    adresse = destinataire(dossier_id)
-    if adresse is None:
-        return ResultatNotification(dossier_id, "pas_de_compte_actif", len(en_attente))
-
-    courriel = composer(len(en_attente), lien_application)
-    try:
-        emails.envoyer(Courriel(adresse, courriel.sujet, courriel.corps))
-    except Exception as exc:  # noqa: BLE001 — à retenter au prochain passage
-        return ResultatNotification(dossier_id, "echec", len(en_attente), f"{type(exc).__name__}")
     notifications.enregistrer(
         NotificationEnvoyee(
             id=uuid.uuid4().hex,
@@ -149,4 +147,4 @@ def notifier_a_trancher(
             ecriture_ids=en_attente,
         )
     )
-    return ResultatNotification(dossier_id, "envoyee", len(en_attente))
+    return ResultatNotification(dossier_id, "creee", len(en_attente))

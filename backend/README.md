@@ -156,19 +156,35 @@ Synchroniser les transactions Digifactory d'un portefeuille (nécessite
 .venv/bin/python -m axelcompta.synchro_digifactory --tenant <tenant_id>
 ```
 
-Idempotent et reprenable (curseur par dossier) ; pas de planificateur pour
-l'instant, à lancer à la main ou depuis un cron.
+Idempotent et reprenable (curseur par dossier).
 
-Prévenir les indivs qu'ils ont des opérations à confirmer (SMTP_* et
-APP_BASE_URL dans l'environnement, voir `.env.example`) :
+Prévenir les indivs qu'ils ont des opérations à confirmer : notification
+interne (cloche de l'espace chauffeur), aucun e-mail. Un même dossier n'est
+pas renotifié avant 6 h (sauf rappel à 7 jours).
 
 ```bash
-.venv/bin/python -m axelcompta.notifier --tenant <tenant_id> --simulation  # sans envoi
+.venv/bin/python -m axelcompta.notifier --tenant <tenant_id> --simulation  # sans rien enregistrer
 .venv/bin/python -m axelcompta.notifier --tenant <tenant_id>
 ```
 
-À lancer après la synchro, depuis un cron. Seuls les comptes activés sont
-notifiés ; un même dossier n'est pas relancé avant 6 h (sauf rappel à 7 jours).
+### Tâches planifiées (cron)
+
+`python -m axelcompta.taches` enchaîne, pour chaque portefeuille, la synchro
+Digifactory (sautée si aucun dossier n'a de `contact_nr`) puis les
+notifications. `scripts/taches_planifiees.sh` l'enveloppe pour un
+planificateur : charge le `.env` racine s'il existe, empêche deux passages
+simultanés (`flock`), écrit dans `_demo_output/journaux/taches.log`
+(`AXELCOMPTA_JOURNAUX` pour changer). Installé sur le poste de démo le
+2026-09-26, toutes les heures :
+
+```
+7 * * * * /chemin/vers/AxeLCompta/backend/scripts/taches_planifiees.sh
+```
+
+Sur le serveur de production, même script, sans `.env` : variables fournies
+par le service (crontab de l'utilisateur ou timer systemd avec
+`EnvironmentFile`), journaux dans `/var/log/axelcompta`. Retirer du poste :
+`crontab -e` et supprimer la ligne.
 
 Comptes Supabase : `scripts/creer_compte_gestionnaire.py` (gestionnaire),
 `scripts/migrer_liens_vers_app_metadata.py` (comptes chauffeur créés avant

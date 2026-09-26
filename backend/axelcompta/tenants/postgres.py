@@ -78,6 +78,12 @@ class PostgresDossierRepository(DossierRepository):
             return None
         return Tenant(id=TenantId(ligne.id), nom=ligne.nom)
 
+    def lister_tenants(self) -> tuple[Tenant, ...]:
+        with self._engine.connect() as connexion:
+            appliquer_rls(connexion)
+            lignes = connexion.execute(select(tenants).order_by(tenants.c.id)).all()
+        return tuple(Tenant(id=TenantId(ligne.id), nom=ligne.nom) for ligne in lignes)
+
     def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)

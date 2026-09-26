@@ -38,6 +38,7 @@ from axelcompta.demo_api import (
     get_dossiers,
     get_justificatifs,
     get_ledger,
+    get_notifications,
     get_propositions,
     get_reinitialiseur,
     get_role_membre,
@@ -52,6 +53,7 @@ from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
+from axelcompta.workflow.notifications import InMemoryNotificationRepository, NotificationEnvoyee
 from axelcompta.workflow.propositions import InMemoryPropositionRepository
 from axelcompta.workflow.signature import DocumentSigne
 from axelcompta.workflow.signature_memory import InMemorySignatureRepository
@@ -158,6 +160,8 @@ def _client_et_stubs(
     app.dependency_overrides[get_comptes] = lambda: comptes_stub
     app.dependency_overrides[get_justificatifs] = lambda: justificatifs_stub
     app.dependency_overrides[get_signatures_inpi] = lambda: signatures_stub
+    notifications_stub = InMemoryNotificationRepository()
+    app.dependency_overrides[get_notifications] = lambda: notifications_stub
     # `droits_membre` est en Postgres : le rôle est fixé ici.
     app.dependency_overrides[get_role_membre] = lambda: role
     return TestClient(app), decisions_stub, justificatifs_stub, signatures_stub
@@ -1162,3 +1166,43 @@ def test_remise_a_neuf_reservee_a_un_admin_du_portefeuille_demo() -> None:
     assert autre.post("/demo/reinitialiser", json=corps, headers=en_tete_autre).status_code == 403
     assert autre.post("/demo/reinitialiser", json=corps).status_code == 401
     assert appels_membre == appels_autre == []
+
+
+def _poser_notification(client: TestClient, dossier_id: str, id_: str, heure: int) -> None:
+    depot = client.app.dependency_overrides[get_notifications]()  # type: ignore[attr-defined]
+    depot.enregistrer(
+        NotificationEnvoyee(
+            id=id_,
+            dossier_id=DossierId(dossier_id),
+            type="a_trancher",
+            envoye_le=datetime(2026, 9, 26, heure, 0),
+            ecriture_ids=(EcritureId("e1"), EcritureId("e2")),
+        )
+    )
+
+
+def test_notifications_du_chauffeur_les_plus_recentes_dabord_puis_lues() -> None:
+    client = _client()
+    _poser_notification(client, "DEMO_sophie", "n1", 9)
+    _poser_notification(client, "DEMO_sophie", "n2", 15)
+    _poser_notification(client, "DEMO_karim", "n3", 10)
+    url = "/dossiers/DEMO_sophie/notifications"
+    en_tete = _en_tete("DEMO_sophie")
+
+    liste = client.get(url, headers=en_tete).json()
+    assert [(n["id"], n["lue"]) for n in liste] == [("n2", False), ("n1", False)]
+    assert liste[0]["message"] == "2 opérations attendent votre confirmation"
+
+    assert client.post(f"{url}/lues", headers=en_tete).json() == {"lues": 2}
+    assert all(n["lue"] for n in client.get(url, headers=en_tete).json())
+    karim = client.get("/dossiers/DEMO_karim/notifications", headers=_en_tete("DEMO_karim"))
+    assert [n["lue"] for n in karim.json()] == [False]
+
+
+def test_notifications_exigent_le_jeton_du_dossier() -> None:
+    client = _client()
+    url = "/dossiers/DEMO_sophie/notifications"
+
+    assert client.get(url).status_code == 401
+    assert client.get(url, headers=_en_tete("DEMO_karim")).status_code == 403
+    assert client.post(f"{url}/lues", headers=_en_tete("DEMO_karim")).status_code == 403

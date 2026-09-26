@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileText, List, UserRound } from "lucide-react";
 
+import { Cloche } from "@/components/Cloche";
 import { Marque } from "@/components/Marque";
 import { obtenirSession, type SessionChauffeur } from "@/lib/auth-chauffeur";
 
@@ -31,6 +32,7 @@ export default function ChauffeurLayout({ children }: { children: React.ReactNod
       <header className="sticky top-0 z-10 border-b border-border bg-canvas">
         <div className="mx-auto flex h-14 max-w-md items-center px-4">
           <Marque />
+          {espace && session && <Cloche dossierId={session.dossierId} chemin={chemin} />}
         </div>
       </header>
       <main className={`mx-auto max-w-md px-4 py-6 ${espace ? "pb-24" : ""}`}>{children}</main>

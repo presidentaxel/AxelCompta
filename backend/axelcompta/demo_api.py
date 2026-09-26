@@ -89,6 +89,8 @@ from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
+from axelcompta.workflow.notifications import NotificationRepository
+from axelcompta.workflow.notifications_postgres import PostgresNotificationRepository
 from axelcompta.workflow.propositions import PropositionRepository
 from axelcompta.workflow.propositions_postgres import PostgresPropositionRepository
 from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
@@ -645,6 +647,16 @@ def get_signatures_inpi() -> SignatureRepository:
 
 
 SignaturesInpiDep = Annotated[SignatureRepository, Depends(get_signatures_inpi)]
+
+
+def get_notifications() -> NotificationRepository:
+    """Dépendance FastAPI — notifications internes posées par
+    `axelcompta.taches`. Les tests surchargent avec
+    `InMemoryNotificationRepository`."""
+    return PostgresNotificationRepository(_engine())
+
+
+NotificationsDep = Annotated[NotificationRepository, Depends(get_notifications)]
 
 
 def _trancher(
@@ -1473,6 +1485,48 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         )
 
 
+class NotificationVue(BaseModel):
+    id: str
+    message: str
+    cree_le: str
+    lue: bool
+
+
+class NotificationsLuesVue(BaseModel):
+    lues: int
+
+
+# Assez pour une cloche : au-delà, les plus anciennes n'apportent rien,
+# l'écran « À traiter » montre déjà tout ce qui attend.
+_NOTIFICATIONS_AFFICHEES = 20
+
+
+def _enregistrer_routes_notifications(app: FastAPI) -> None:
+    """Cloche de l'espace chauffeur (doc 19 §5.2) : indiv seulement, comme
+    le reste de son dossier."""
+
+    @app.get("/dossiers/{dossier_id}/notifications", response_model=list[NotificationVue])
+    def lister_notifications(
+        dossier: DossierDep, notifications: NotificationsDep
+    ) -> list[NotificationVue]:
+        return [
+            NotificationVue(
+                id=n.id,
+                message=n.message,
+                cree_le=n.envoye_le.isoformat(),
+                lue=n.lue_le is not None,
+            )
+            for n in notifications.lister(dossier.id, _NOTIFICATIONS_AFFICHEES)
+        ]
+
+    @app.post("/dossiers/{dossier_id}/notifications/lues", response_model=NotificationsLuesVue)
+    def marquer_notifications_lues(
+        dossier: DossierDep, notifications: NotificationsDep
+    ) -> NotificationsLuesVue:
+        maintenant = datetime.now(UTC).replace(tzinfo=None)
+        return NotificationsLuesVue(lues=notifications.marquer_lues(dossier.id, maintenant))
+
+
 class PartieVue(BaseModel):
     cle: str
     libelle: str
@@ -1563,6 +1617,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_cloture(app)
     _enregistrer_routes_pieces_greffe(app)
     _enregistrer_routes_greffe_inpi(app)
+    _enregistrer_routes_notifications(app)
     _enregistrer_routes_demo(app)
     return app
 

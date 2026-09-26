@@ -308,9 +308,11 @@ tout concentrer sur la période de clôture — risque déjà identifié doc 09
    façon stable) : si enseigne et montant collent, on confirme ; sinon
    l'écran dit pourquoi (montant ou enseigne) et propose un autre mouvement.
 
-**Système de notification : e-mail fait le 2026-09-22** (regroupé par
-dossier, anti-harcèlement, sans donnée comptable dans le message ; doc 18).
-Restent le push / in-app (pas décidé) et un déclencheur automatique. Écrit
+**Système de notification : interne depuis le 2026-09-26** (cloche de
+l'espace chauffeur, regroupé par dossier, anti-harcèlement, sans donnée
+comptable ; posé toutes les heures par `axelcompta.taches`). Pas d'e-mail
+envoyé par AxeLCompta (Louis, 2026-09-26) : e-mail et SMS sont des
+intégrations que le gestionnaire branche lui-même, non construites. Écrit
 avant, à l'origine : « entièrement à construire, rien n'existe » — un vrai
 chantier technique, pas une case UI à ajouter.
 
@@ -380,10 +382,11 @@ plus de signature — tout ça a migré côté indiv (§5). Ce qui reste :
 
 **Ajoutés le 2026-09-11, chantiers réels pas encore scopés** :
 
-- **Système de notification** (§5.2) — **e-mail fait le 2026-09-22** : un
-  seul message regroupé par dossier, renvoyé seulement s'il y a des
-  opérations nouvelles (pas avant 6 h) ou en rappel hebdomadaire, sans aucun
-  montant ni libellé dans le message. Reste à trancher : push / in-app.
+- **Système de notification** (§5.2) — **interne depuis le 2026-09-26**
+  (e-mail du 2026-09-22 retiré) : une notification regroupée par dossier
+  dans la cloche, reposée seulement s'il y a des opérations nouvelles (pas
+  avant 6 h) ou en rappel hebdomadaire, sans montant ni libellé. E-mail et
+  SMS : intégrations côté gestionnaire, à construire.
 - **Import en masse des invitations** (§3.1, §6) — **fait le 2026-09-22** :
   collage ou fichier `dossier_id, e-mail`, 500 lignes au plus, résultat par
   ligne ; distinct du CSV dossiers déjà spécifié doc 14 §1.4 (à faire pour
