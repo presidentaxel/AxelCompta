@@ -321,6 +321,42 @@ def test_exercices_clos_append_only_isoles_et_ouverture_du_suivant(
     assert rouvert is not None and rouvert.exercice_debut == date(2027, 1, 1)
 
 
+def test_la_cloture_par_l_api_n_ecrit_que_dans_le_dossier_du_chauffeur(
+    engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """Migration `c5f2a8d3e914` : l'API peut poser les écritures de clôture
+    et ouvrir l'exercice suivant, mais seulement pour le dossier de
+    l'identité, et sans toucher aux autres colonnes du dossier."""
+    montant = Money(100)
+
+    def _ecriture(dossier_id: str) -> Ecriture:
+        return Ecriture(
+            id=EcritureId(f"{dossier_id}-an"),
+            dossier_id=DossierId(dossier_id),
+            journal=Journal.AN,
+            date=date(2027, 1, 1),
+            libelle="À-nouveaux",
+            reference_piece="AN-2027",
+            lignes=(
+                LigneEcriture(compte="512", sens=Sens.DEBIT, montant=montant),
+                LigneEcriture(compte="120", sens=Sens.CREDIT, montant=montant),
+            ),
+        )
+
+    with contexte_identite(dossier_id="karim", tenant_id=None):
+        PostgresLedgerService(engine_web).enregistrer(_ecriture("karim"))
+        with pytest.raises((ProgrammingError, DBAPIError)):
+            PostgresLedgerService(engine_web).enregistrer(_ecriture("sophie"))
+        with engine_web.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                text("UPDATE dossiers SET exercice_debut = '2027-01-01' WHERE id = 'karim'")
+            )
+        with engine_web.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
+            appliquer_rls(connexion)
+            connexion.execute(text("UPDATE dossiers SET nom = 'x' WHERE id = 'karim'"))
+
+
 def test_le_role_administrateur_nest_jamais_soumis_aux_policies(
     engine: Engine, deux_tenants_trois_dossiers: None
 ) -> None:

@@ -169,17 +169,20 @@ pas renotifié avant 6 h (sauf rappel à 7 jours).
 
 ### Passer un dossier à l'exercice suivant
 
+Seul le chauffeur clôt son exercice, depuis son écran Exercice
+(`POST /dossiers/{id}/cloture-exercice`, attestation gardée mot pour mot).
+La ligne de commande ne fait que simuler, pour vérifier un dossier :
+
 ```bash
-.venv/bin/python -m axelcompta.exercices --dossier <dossier_id>             # simulation
-.venv/bin/python -m axelcompta.exercices --dossier <dossier_id> --executer
+.venv/bin/python -m axelcompta.exercices --dossier <dossier_id>
 ```
 
 Refusé tant que l'exercice n'est pas terminé ou qu'une opération attend une
-décision. Passe en base les écritures d'inventaire et les à-nouveaux, clôt
-l'exercice dans l'historique et ouvre le suivant (avenant de régime en
-vigueur, sortie de franchise de TVA le cas échéant). Rejouable sans
-doublon. Refusé sur le portefeuille de démo sans `--y-compris-demo` : le
-menu Démo ne sait pas effacer des à-nouveaux.
+décision. La clôture passe en base les écritures d'inventaire et les
+à-nouveaux, clôt l'exercice dans l'historique et ouvre le suivant (avenant
+de régime en vigueur, sortie de franchise de TVA le cas échéant). Rejouable
+sans doublon. Le menu Démo ne sait pas effacer des à-nouveaux : une clôture
+faite sur la démo reste.
 
 ### Tâches planifiées (cron)
 

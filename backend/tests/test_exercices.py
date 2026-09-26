@@ -12,6 +12,7 @@ import pytest
 from axelcompta import demo_seed
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.cloture_fiscale import soldes
+from axelcompta.closing.impot_societes import arrondir_euros
 from axelcompta.closing.models import ParametresCloture
 from axelcompta.core.ids import DossierId, EcritureId
 from axelcompta.core.money import Money
@@ -178,3 +179,26 @@ def test_sous_le_seuil_la_franchise_continue() -> None:
     passage = demo.passer(demo.dossier(YANIS))
     assert demo.dossier(YANIS).regime_tva == "franchise"
     assert passage.changements == ()
+
+
+def test_le_bilan_2026_s_equilibre_avec_le_resultat_2025_en_report_a_nouveau() -> None:
+    demo = Demo()
+    # Résultat exact au centime : la 2033-B, elle, somme des rubriques
+    # arrondies à l'euro et peut s'en écarter d'un euro.
+    resultat_2025 = demo.liasse_2025(demo.dossier(KARIM)).cases["RESULTAT"]
+    demo.passer(demo.dossier(KARIM))
+    ouvert = demo.dossier(KARIM)
+    parametres = ParametresCloture(
+        exercice_debut=ouvert.exercice_debut,
+        exercice_fin=ouvert.fin_exercice(),
+        forme_juridique=ouvert.forme_juridique,
+        identite=ouvert.identite,
+    )
+
+    liasse_2026 = ClotureSimplifieeService(demo.ledger).cloturer(KARIM, "2026", parametres)
+
+    # Pas encore affecté : en report à nouveau, arrondi à l'euro.
+    assert liasse_2026.cases["2033A.134"] == arrondir_euros(resultat_2025) * 100
+    assert liasse_2026.cases["2033A.136"] == 0  # aucune opération en 2026
+    net = liasse_2026.cases["2033A.110"] - liasse_2026.cases["2033A.112"]
+    assert net == liasse_2026.cases["2033A.180"]

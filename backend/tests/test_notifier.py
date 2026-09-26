@@ -12,7 +12,7 @@ from axelcompta.notifier import notifier_portefeuille
 from axelcompta.tenants.models import Dossier
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
-from axelcompta.workflow.notifications import InMemoryNotificationRepository
+from axelcompta.workflow.notifications import TYPE_A_TRANCHER, InMemoryNotificationRepository
 
 T0 = datetime(2026, 9, 22, 9, 0)
 
@@ -70,6 +70,6 @@ def test_chaque_dossier_en_attente_est_notifie_et_un_echec_ne_bloque_pas_les_aut
         T0,
     )
 
-    statuts = {r.dossier_id: r.statut for r in resultats}
+    statuts = {r.dossier_id: r.statut for r in resultats if r.type == TYPE_A_TRANCHER}
     assert statuts == {"a": "creee", "b": "echec", "c": "creee", "d": "rien_a_faire"}
     assert sorted(n.dossier_id for n in notifications.historique) == ["a", "c"]

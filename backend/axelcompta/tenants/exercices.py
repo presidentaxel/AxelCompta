@@ -23,6 +23,8 @@ class ExerciceClos:
     clos_le: datetime
     clos_par: str
     changements: tuple[str, ...] = ()
+    # Ce que le chauffeur a accepté mot pour mot en validant (doc 06 §5).
+    attestation: str | None = None
 
 
 class ExerciceRepository(ABC):

@@ -38,6 +38,7 @@ from axelcompta.demo_api import (
     get_comptes,
     get_decisions,
     get_dossiers,
+    get_exercices,
     get_justificatifs,
     get_ledger,
     get_notifications,
@@ -54,6 +55,7 @@ from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.tenants.avenants import InMemoryAvenantRegimeRepository, programmer_bascules
+from axelcompta.tenants.exercices import InMemoryExerciceRepository
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
@@ -168,6 +170,8 @@ def _client_et_stubs(
     app.dependency_overrides[get_notifications] = lambda: notifications_stub
     avenants_stub = InMemoryAvenantRegimeRepository()
     app.dependency_overrides[get_avenants] = lambda: avenants_stub
+    exercices_stub = InMemoryExerciceRepository()
+    app.dependency_overrides[get_exercices] = lambda: exercices_stub
     # `droits_membre` est en Postgres : le rôle est fixé ici.
     app.dependency_overrides[get_role_membre] = lambda: role
     return TestClient(app), decisions_stub, justificatifs_stub, signatures_stub
@@ -1339,3 +1343,51 @@ def test_un_dossier_en_franchise_au_dela_du_seuil_est_alerte() -> None:
     alertes = {d["dossier_id"]: d["alerte_tva"] for d in portefeuille}
     assert alertes["DEMO_franchise"] == fiche["alerte_tva"]
     assert alertes["DEMO_karim"] is None
+
+
+def test_la_cloture_se_prepare_puis_se_valide_par_le_chauffeur_lui_meme() -> None:
+    client = _client()
+    url = "/dossiers/DEMO_karim/cloture-exercice"
+    en_tete = _en_tete("DEMO_karim")
+
+    apercu = client.get(url, headers=en_tete).json()
+    assert apercu["possible"] is True
+    assert apercu["nouvel_exercice_debut"] == "2026-01-01"
+    assert "Karim AMRANI" in apercu["attestation"]
+    assert "je reste seul(e) responsable" in apercu["attestation"]
+
+    refus = client.post(url, headers=en_tete, json={"attestation": "j'accepte"})
+    assert refus.status_code == 422
+
+    valide = client.post(url, headers=en_tete, json={"attestation": apercu["attestation"]})
+    assert valide.status_code == 200
+    fiche = client.get("/dossiers/DEMO_karim", headers=en_tete).json()
+    assert fiche["exercice_debut"] == "2026-01-01"
+    exercices = client.app.dependency_overrides[get_exercices]()  # type: ignore[attr-defined]
+    (clos,) = exercices.lister(DossierId("DEMO_karim"))
+    assert (clos.clos_par, clos.attestation) == ("user-123", apercu["attestation"])
+
+
+def test_la_cloture_attend_les_decisions_du_chauffeur() -> None:
+    client = _client()
+    url = "/dossiers/DEMO_sophie/cloture-exercice"
+
+    apercu = client.get(url, headers=_en_tete("DEMO_sophie")).json()
+
+    assert apercu["possible"] is False
+    assert "3 opération" in apercu["raison"]
+    assert apercu["attestation"] is None
+    refus = client.post(url, headers=_en_tete("DEMO_sophie"), json={"attestation": "x"})
+    assert refus.status_code == 422
+
+
+def test_le_gestionnaire_ne_peut_ni_voir_ni_valider_une_cloture() -> None:
+    client = _client()
+    url = "/dossiers/DEMO_karim/cloture-exercice"
+    gestionnaire = _en_tete_gestionnaire()
+
+    assert client.get(url, headers=gestionnaire).status_code in (401, 403)
+    assert client.post(url, headers=gestionnaire, json={"attestation": "x"}).status_code in (
+        401,
+        403,
+    )

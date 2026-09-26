@@ -124,3 +124,16 @@ export type TransactionVue = {
   statut: StatutTransaction;
   a_justificatif: boolean; // doc 17 §9 Semaine 3 : photo jointe (contenu non lu)
 };
+
+/** Clôture de l'exercice, préparée par l'API et validée par le chauffeur
+ * seul (doc 06 §5). `attestation` se renvoie mot pour mot pour valider. */
+export type ClotureExerciceVue = {
+  possible: boolean;
+  raison: string | null;
+  exercice_debut: string;
+  exercice_fin: string;
+  nouvel_exercice_debut: string | null;
+  ecritures: string[];
+  changements: string[];
+  attestation: string | null;
+};

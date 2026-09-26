@@ -106,10 +106,27 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   append-only, dossier ouvert sur l'exercice suivant avec le régime de
   l'avenant en vigueur (fin d'option IR) et la sortie de franchise de TVA
   si le seuil de base a été dépassé. Rejouable sans doublon. Rien ne le
-  déclenche seul : la décision de clore reste humaine. Restent à décider
-  avec Louis : qui déclenche (chauffeur après sa signature de validation,
-  gestionnaire, ou automatique après un délai, doc 06 §5bis), et
-  l'affectation du résultat (écriture à part, décision de l'associé).
+  déclenche seul : la décision de clore reste humaine.
+- **Clôture par le chauffeur, et par lui seul** (décision de Louis du
+  2026-09-26) : légalement responsable de sa comptabilité, il doit pouvoir
+  prouver qu'il en reste maître de A à Z ; le gestionnaire n'a aucun droit
+  sur les comptes, seulement une vue. L'automatisation prépare (aperçu de
+  ce que la clôture fera) et relance : notification « exercice terminé,
+  à valider » dans la cloche, puis rappel hebdomadaire, par le cron. Le
+  chauffeur relit et accepte une attestation, gardée mot pour mot avec son
+  identité (`exercices_clos.attestation`, journal d'audit dans la même
+  transaction). Sans sa décision, rien ne se passe. Routes
+  `GET/POST /dossiers/{id}/cloture-exercice`, écran Exercice, migration
+  `c5f2a8d3e914` (droits d'écriture minimaux de l'API, sous les policies
+  par dossier). La ligne de commande ne fait plus que simuler.
+- Report à nouveau : un résultat d'exercice antérieur repris en
+  à-nouveaux et pas encore affecté figure en 2033-A ligne 134, la ligne
+  136 ne portant que le résultat de l'exercice.
+- À venir, décidés le même jour : la **rémunération du dirigeant**
+  catégorisée par le chauffeur (compte selon la forme), et un **écran
+  d'affectation du résultat** (réserves, dividendes) où l'on propose des
+  scénarios chiffrés, du plus au moins de dividendes, et où le chauffeur
+  choisit seul.
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :

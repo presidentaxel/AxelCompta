@@ -15,7 +15,12 @@
  */
 
 import { ApiError } from "./api";
-import type { NotificationVue, SignatureGreffeVue, TransactionVue } from "./types";
+import type {
+  ClotureExerciceVue,
+  NotificationVue,
+  SignatureGreffeVue,
+  TransactionVue,
+} from "./types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -391,4 +396,29 @@ export async function marquerNotificationsLuesChauffeur(dossierId: string): Prom
   if (!reponse.ok) {
     throw new ApiError(`HTTP ${reponse.status}`, reponse.status);
   }
+}
+
+/** La validation de clôture : le texte d'attestation présenté, renvoyé tel
+ * quel, prouve ce que le chauffeur a accepté. */
+export async function validerClotureChauffeur(
+  dossierId: string,
+  attestation: string,
+): Promise<ClotureExerciceVue> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/cloture-exercice`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.accessToken}`,
+    },
+    body: JSON.stringify({ attestation }),
+  });
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as ClotureExerciceVue;
 }

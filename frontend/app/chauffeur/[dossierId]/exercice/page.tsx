@@ -2,6 +2,7 @@
 
 import { use } from "react";
 
+import { ClotureExerciceSection } from "@/components/ClotureExerciceSection";
 import { ClotureSection } from "@/components/ClotureSection";
 import { GreffeInpiSection } from "@/components/GreffeInpiSection";
 import { useDossierChauffeur } from "@/app/chauffeur/use-dossier";
@@ -56,6 +57,7 @@ export default function ExerciceChauffeurPage({
       <div className="mt-8">
         <ClotureSection dossier={dossier} />
         {dossier.depot_greffe && <GreffeInpiSection dossier={dossier} />}
+        <ClotureExerciceSection dossierId={dossierId} onClos={() => window.location.reload()} />
       </div>
     </div>
   );
