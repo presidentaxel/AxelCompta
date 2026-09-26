@@ -89,6 +89,9 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   (`tenants/matrice_statuts.toml`), validée à chaque écriture ; le moteur
   lit la matrice pour l'usage personnel, l'IS, la 2065 et le dépôt au
   greffe (PR #22, migration `f1b6d3e82a47`, §1.1 ci-dessous).
+- Liasse 2031 + 2031-bis sur le formulaire officiel pour les sociétés à
+  l'IR ; l'écran Exercice propose la 2065 ou la 2031 et masque le dépôt au
+  greffe selon la matrice (PR #24, liasse pivot au §3).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
