@@ -16,6 +16,15 @@ from .decisions import DecisionHumaine
 
 COMPTE_ATTENTE = "471"
 CATEGORIE_USAGE_PERSONNEL = "usage_personnel"
+CATEGORIE_REMUNERATION = "remuneration_dirigeant"
+# Pourquoi une catégorie de statut n'a pas de compte (doc 06 §7).
+_SANS_COMPTE = {
+    CATEGORIE_USAGE_PERSONNEL: "pour ce statut, l'usage personnel est signalé sans écriture",
+    CATEGORIE_REMUNERATION: (
+        "pour ce statut, le compte de la rémunération dépend de la situation du gérant "
+        "(majoritaire ou non) : à préciser"
+    ),
+}
 
 
 class CategorieInconnueError(ValueError):
@@ -26,7 +35,7 @@ class CategorieInconnueError(ValueError):
 def resoudre_ecriture_a_trancher(
     ecriture: Ecriture,
     categorie_choisie: str,
-    compte_usage_personnel: str | None,
+    comptes_statut: dict[str, str | None],
     comptes_par_categorie: dict[str, str],
 ) -> Ecriture:
     """Remplace le compte d'attente par le compte réel correspondant à la
@@ -34,10 +43,11 @@ def resoudre_ecriture_a_trancher(
     compte — une décision qu'on ne sait pas traduire est un bug à corriger,
     pas un cas à masquer.
 
-    `compte_usage_personnel` vient de la colonne du dossier dans la matrice
-    (doc 06 §3.6, §7 : 455 pour une société, 108 pour une EI, aucun pour une
-    micro-entreprise, où l'usage personnel est signalé sans écriture)."""
-    compte_cible = _compte_cible(categorie_choisie, compte_usage_personnel, comptes_par_categorie)
+    `comptes_statut` : les catégories dont le compte vient de la matrice des
+    statuts et non du pack (`ConfigurationDossier.comptes_categories_statut`,
+    doc 06 §3.6, §7) : usage personnel (455, 108, ou signalé sans écriture)
+    et rémunération du dirigeant (641, 644, 108, ou à préciser)."""
+    compte_cible = _compte_cible(categorie_choisie, comptes_statut, comptes_par_categorie)
     lignes = tuple(
         dataclasses.replace(ligne, compte=compte_cible) if ligne.compte == COMPTE_ATTENTE else ligne
         for ligne in ecriture.lignes
@@ -47,15 +57,14 @@ def resoudre_ecriture_a_trancher(
 
 def _compte_cible(
     categorie_choisie: str,
-    compte_usage_personnel: str | None,
+    comptes_statut: dict[str, str | None],
     comptes_par_categorie: dict[str, str],
 ) -> str:
-    if categorie_choisie == CATEGORIE_USAGE_PERSONNEL:
-        if compte_usage_personnel is None:
-            raise CategorieInconnueError(
-                "pour ce statut, l'usage personnel est signalé sans écriture (doc 06 §7)"
-            )
-        return compte_usage_personnel
+    if categorie_choisie in comptes_statut:
+        compte_statut = comptes_statut[categorie_choisie]
+        if compte_statut is None:
+            raise CategorieInconnueError(f"{_SANS_COMPTE[categorie_choisie]} (doc 06 §7)")
+        return compte_statut
     compte = comptes_par_categorie.get(categorie_choisie)
     if compte is None:
         raise CategorieInconnueError(f"catégorie inconnue du pack : {categorie_choisie!r}")
@@ -65,7 +74,7 @@ def _compte_cible(
 def appliquer_decisions(
     ecritures: tuple[Ecriture, ...],
     decisions: tuple[DecisionHumaine, ...],
-    compte_usage_personnel: str | None,
+    comptes_statut: dict[str, str | None],
     comptes_par_categorie: dict[str, str],
 ) -> tuple[Ecriture, ...]:
     """Le grand livre tel que les décisions humaines le disent : chaque
@@ -80,7 +89,7 @@ def appliquer_decisions(
         decision = dernieres.get(origine(ecriture.id) or ecriture.id)
         if decision is not None:
             ecriture = resoudre_ecriture_a_trancher(
-                ecriture, decision.categorie, compte_usage_personnel, comptes_par_categorie
+                ecriture, decision.categorie, comptes_statut, comptes_par_categorie
             )
         resultat.append(ecriture)
     return tuple(resultat)

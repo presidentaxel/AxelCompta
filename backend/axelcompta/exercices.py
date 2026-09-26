@@ -85,11 +85,12 @@ def preparer_passage(
     en_attente = ecritures_a_trancher(ledger, decisions, dossier.id)
     if en_attente:
         raise PassageRefuse(f"{len(en_attente)} opération(s) attendent encore une décision")
-    colonne = configuration_de(dossier).colonne
+    configuration = configuration_de(dossier)
+    colonne = configuration.colonne
     tranchees = appliquer_decisions(
         ledger.grand_livre(dossier.id),
         decisions.lister_decisions(dossier.id),
-        colonne.compte_usage_personnel,
+        configuration.comptes_categories_statut(),
         charger_compte_par_categorie(),
     )
     parametres = ParametresCloture(

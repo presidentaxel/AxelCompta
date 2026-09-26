@@ -82,6 +82,7 @@ class Matrice:
     version: str
     colonnes: dict[str, ColonneMatrice]
     combinaisons: dict[tuple[FormeJuridique, RegimeImposition], str]
+    remuneration_dirigeant: dict[FormeJuridique, str]
 
     def colonne(self, forme: FormeJuridique, regime: RegimeImposition) -> ColonneMatrice | None:
         cle = self.combinaisons.get((forme, regime))
@@ -113,7 +114,16 @@ def charger_matrice(chemin: Path = CHEMIN_MATRICE) -> Matrice:
         if cle in combinaisons or c["colonne"] not in colonnes:
             raise ValueError(f"matrice incohérente sur {cle} ({chemin.name})")
         combinaisons[cle] = c["colonne"]
-    return Matrice(version=brut["version"], colonnes=colonnes, combinaisons=combinaisons)
+    remuneration = {
+        FormeJuridique(forme): compte
+        for forme, compte in brut.get("remuneration_dirigeant", {}).items()
+    }
+    return Matrice(
+        version=brut["version"],
+        colonnes=colonnes,
+        combinaisons=combinaisons,
+        remuneration_dirigeant=remuneration,
+    )
 
 
 class ConfigurationInvalide(ValueError):
@@ -134,6 +144,15 @@ class ConfigurationDossier:
     pack: PackMetier
     option_ir_debut: int | None
     colonne: ColonneMatrice
+    compte_remuneration_dirigeant: str | None = None
+
+    def comptes_categories_statut(self) -> dict[str, str | None]:
+        """Catégories dont le compte dépend du statut et non du pack. `None`
+        : sans écriture pour ce statut, ou à préciser."""
+        return {
+            "usage_personnel": self.colonne.compte_usage_personnel,
+            "remuneration_dirigeant": self.compte_remuneration_dirigeant,
+        }
 
 
 def _en_enum[E: StrEnum](type_: type[E], valeur: str, champ: str, erreurs: list[str]) -> E | None:
@@ -198,6 +217,7 @@ def _analyser(dossier: Dossier, matrice: Matrice) -> tuple[ConfigurationDossier 
         pack=pack,
         option_ir_debut=dossier.option_ir_debut,
         colonne=colonne,
+        compte_remuneration_dirigeant=matrice.remuneration_dirigeant.get(forme),
     )
     return configuration, []
 
