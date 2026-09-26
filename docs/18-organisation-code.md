@@ -2,7 +2,7 @@
 
 > Carte du code : où vit chaque module et quelles dépendances il a le droit
 > d'avoir. L'état d'avancement n'est pas ici, il est dans le
-> [doc 12](12-roadmap-todo.md). Dernière mise à jour : 2026-09-25.
+> [doc 12](12-roadmap-todo.md). Dernière mise à jour : 2026-09-26.
 
 Ce doc fait le lien entre l'arborescence réelle du repo (`backend/`,
 `frontend/`) et le découpage en modules défini en [doc 03 §3](03-architecture.md#3--découpage-en-modules-monolithe-modulaire).
@@ -24,7 +24,7 @@ position ni ses règles de dépendance.
 AxeLCompta/
 ├── backend/axelcompta/
 │   ├── core/          # Money, ids, erreurs, identité légale, accès DB
-│   ├── tenants/       # portefeuilles et dossiers en Postgres, RLS par tenant et par dossier
+│   ├── tenants/       # portefeuilles, dossiers, RLS ; matrice statut × régime (matrice_statuts.toml)
 │   ├── packs/         # pack VTC réduit (V1 : taxonomie complète)
 │   ├── ingestion/
 │   │   └── providers/ # DataProvider ; démo sur fixtures, synchro Digifactory codée
@@ -32,9 +32,9 @@ AxeLCompta/
 │   ├── categorize/    # règles + ML, pas de LLM
 │   ├── anomaly/       # V1 seulement
 │   ├── ledger/        # moteur pur, Postgres, écritures validées immuables
-│   ├── closing/       # clôture fiscale IS : TVA, IS, liasse 2033
+│   ├── closing/       # clôture fiscale : TVA, IS (si la colonne est à l'IS), liasse 2033
 │   ├── filings/       # CERFA 2065 + 2033 officiels, FEC légal, PDF (V1 : EDI/INPI)
-│   ├── workflow/      # décisions humaines, signatures démo, journal d'audit, notifications
+│   ├── workflow/      # décisions humaines, signatures démo, journal d'audit, notifications internes
 │   ├── api/           # V1 ; la démo passe par demo_api.py (Supabase Auth, exception ADR-003)
 │   └── ml/            # modèle déjà entraîné, réutilisé tel quel
 ├── frontend/          # Next.js : écrans gestionnaire (web) et chauffeur (mobile), auth Supabase
@@ -108,7 +108,10 @@ convergent dans le même `ledger` (Postgres, amorcé par `demo_seed`).
 `backend/axelcompta/demo.py` est la composition root qui câble tout ça —
 absent du découpage doc 03 §3 exprès : c'est un point d'entrée (comme `api/`),
 pas un module d'architecture, donc pas soumis aux mêmes contraintes de
-dépendance.
+dépendance. Même statut pour les autres points d'entrée à la racine du
+paquet : `demo_api.py` (l'API), `synchro_digifactory.py`, `notifier.py` et
+`taches.py` (les tâches planifiées, lancées par
+`scripts/taches_planifiees.sh` depuis un cron).
 
 ## État
 
