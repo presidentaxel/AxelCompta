@@ -25,6 +25,9 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 ## Fichiers
 
 - `models.py` — domaine pur (`Tenant`, `Dossier`).
+- `affectations.py` / `affectations_postgres.py` (**fait, 2026-09-26**) :
+  décisions d'affectation du résultat, une par exercice clos, append-only
+  (table `affectations_resultat`, verrou en base, journal d'audit).
 - `exercices.py` / `exercices_postgres.py` (**fait, 2026-09-26**) :
   historique append-only des exercices clos (table `exercices_clos`, verrou
   en base), avec ce qui a changé à l'ouverture du suivant.

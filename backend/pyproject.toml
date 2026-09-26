@@ -45,6 +45,7 @@ include = ["axelcompta*"]
 # Matrice statut × régime (doc 06 §7), lue au runtime.
 [tool.setuptools.package-data]
 "axelcompta.tenants" = ["*.toml"]
+"axelcompta.closing" = ["*.toml"]
 
 # --- Typage : mypy strict sur tout le code, sans exception par module (doc 08 §3) ---
 [tool.mypy]

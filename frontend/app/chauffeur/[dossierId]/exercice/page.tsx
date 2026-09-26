@@ -1,12 +1,15 @@
 "use client";
 
-import { use } from "react";
+import Link from "next/link";
+import { use, useEffect, useState } from "react";
 
 import { ClotureExerciceSection } from "@/components/ClotureExerciceSection";
 import { ClotureSection } from "@/components/ClotureSection";
 import { GreffeInpiSection } from "@/components/GreffeInpiSection";
 import { useDossierChauffeur } from "@/app/chauffeur/use-dossier";
+import { fetchAvecAuthChauffeur } from "@/lib/auth-chauffeur";
 import { formatDate } from "@/lib/format";
+import type { AffectationVue } from "@/lib/types";
 
 /** Exercice : le résultat, les documents, le dépôt et la signature.
  * Séparé de l'activité pour que le téléphone s'ouvre sur les opérations. */
@@ -58,7 +61,33 @@ export default function ExerciceChauffeurPage({
         <ClotureSection dossier={dossier} />
         {dossier.depot_greffe && <GreffeInpiSection dossier={dossier} />}
         <ClotureExerciceSection dossierId={dossierId} onClos={() => window.location.reload()} />
+        <LienAffectation dossierId={dossierId} />
       </div>
     </div>
+  );
+}
+
+/** Après la clôture : l'affectation du résultat se décide sur son propre
+ * écran (Louis, 2026-09-26). Rien ne s'affiche tant qu'il n'y a rien à
+ * décider. */
+function LienAffectation({ dossierId }: { dossierId: string }) {
+  const [vue, setVue] = useState<AffectationVue | null>(null);
+
+  useEffect(() => {
+    fetchAvecAuthChauffeur<AffectationVue>(`/dossiers/${dossierId}/affectation`)
+      .then(setVue)
+      .catch(() => setVue(null));
+  }, [dossierId]);
+
+  if (!vue?.applicable) {
+    return null;
+  }
+  return (
+    <Link
+      href={`/chauffeur/${dossierId}/resultat`}
+      className="mt-8 block rounded-md border border-border bg-canvas p-3 text-sm text-ink"
+    >
+      Décider de l&apos;affectation de mon résultat {vue.annee_exercice} →
+    </Link>
   );
 }

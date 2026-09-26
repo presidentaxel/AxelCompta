@@ -129,9 +129,25 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   une SARL, le compte dépend de la situation du gérant (majoritaire ou
   non) : demandé plutôt que deviné. Les charges sociales et le bulletin de
   paie du président de SASU ne sont pas produits.
-- À venir, décidé le même jour : un **écran d'affectation du résultat**
-  (réserves, dividendes) où l'on propose des scénarios chiffrés, du plus
-  au moins de dividendes, et où le chauffeur choisit seul.
+- **Affectation du résultat par le chauffeur, sur son propre écran**
+  (`/chauffeur/{id}/resultat`, sociétés à l'IS) : après la clôture, on
+  chiffre la réserve légale (5 % jusqu'à 10 % du capital), le
+  distribuable (pertes antérieures, report à nouveau) et la trésorerie
+  disponible (après IS, TVA et dividendes déjà dus), puis quatre
+  scénarios du moins au plus de dividendes (tout garder, prudent avec
+  trois mois de charges de côté, la moitié, le maximum), chacun avec son
+  impôt, ses prélèvements sociaux, le net perçu et ce qui reste en
+  société. Le chauffeur retient un scénario ou son propre montant ; sa
+  décision est tracée (table `affectations_resultat`, journal d'audit,
+  migration `d6a9c4e17b83`) et l'écriture solde le résultat (119, 1061,
+  457, 110). Taux par année de versement
+  (`closing/fiscalite_dividendes.toml`) : PFU 12,8 % + prélèvements
+  sociaux 18,6 % en 2026 (LFSS 2026, art. 12), 17,2 % en 2025. Pas chiffré,
+  et dit comme tel : les cotisations du gérant non salarié sur la part au-
+  delà de 10 % du capital, et l'option pour le barème progressif (dépend
+  du foyer). Restent : le paiement des dividendes (457 vers banque, PFU
+  prélevé à la source, déclaration 2777), et les écritures de paie du
+  président de SASU.
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :

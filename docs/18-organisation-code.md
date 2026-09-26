@@ -111,8 +111,9 @@ pas un module d'architecture, donc pas soumis aux mêmes contraintes de
 dépendance. Même statut pour les autres points d'entrée à la racine du
 paquet : `demo_api.py` (l'API), `synchro_digifactory.py`, `notifier.py`,
 `taches.py` (les tâches planifiées, lancées par
-`scripts/taches_planifiees.sh` depuis un cron) et `exercices.py` (le
-passage d'un dossier à l'exercice suivant, en ligne de commande).
+`scripts/taches_planifiees.sh` depuis un cron), `exercices.py` (le
+passage d'un dossier à l'exercice suivant) et `affectations.py`
+(l'affectation du résultat décidée par le chauffeur).
 
 ## État
 

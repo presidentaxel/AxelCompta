@@ -181,6 +181,10 @@ Checklist automatisée, chaque étape produisant des écritures OD traçables :
     seul valide la clôture** (attestation gardée mot pour mot, journal
     d'audit) ; l'automatisation prépare et relance, le gestionnaire ne
     peut rien. Le délai de battement du §5bis reste à fixer.
+12. **Affectation du résultat** (fait le 2026-09-26, `closing/affectation.py`,
+    `axelcompta/affectations.py`) : décidée par le chauffeur seul sur son
+    écran, parmi des scénarios chiffrés ou à son propre montant ; réserve
+    légale, dividendes (457) et report à nouveau.
 
 ### 5bis. Complétude bancaire à la clôture — pas une simple case à cocher
 

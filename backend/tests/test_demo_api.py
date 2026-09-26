@@ -34,6 +34,7 @@ from axelcompta.demo_api import (
     GuideGreffeVue,
     _frises,
     create_app,
+    get_affectations,
     get_avenants,
     get_comptes,
     get_decisions,
@@ -54,6 +55,7 @@ from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
+from axelcompta.tenants.affectations import InMemoryAffectationRepository
 from axelcompta.tenants.avenants import InMemoryAvenantRegimeRepository, programmer_bascules
 from axelcompta.tenants.exercices import InMemoryExerciceRepository
 from axelcompta.tenants.memory import InMemoryDossierRepository
@@ -172,6 +174,8 @@ def _client_et_stubs(
     app.dependency_overrides[get_avenants] = lambda: avenants_stub
     exercices_stub = InMemoryExerciceRepository()
     app.dependency_overrides[get_exercices] = lambda: exercices_stub
+    affectations_stub = InMemoryAffectationRepository()
+    app.dependency_overrides[get_affectations] = lambda: affectations_stub
     # `droits_membre` est en Postgres : le rôle est fixé ici.
     app.dependency_overrides[get_role_membre] = lambda: role
     return TestClient(app), decisions_stub, justificatifs_stub, signatures_stub
@@ -1407,3 +1411,50 @@ def test_le_chauffeur_categorise_sa_propre_remuneration() -> None:
 
     assert reponse.status_code == 200
     assert (reponse.json()["statut"], reponse.json()["compte"]) == ("validé", "644")
+
+
+def _clore_karim(client: TestClient) -> None:
+    url = "/dossiers/DEMO_karim/cloture-exercice"
+    en_tete = _en_tete("DEMO_karim")
+    attestation = client.get(url, headers=en_tete).json()["attestation"]
+    assert client.post(url, headers=en_tete, json={"attestation": attestation}).status_code == 200
+
+
+def test_le_chauffeur_choisit_seul_l_affectation_de_son_resultat() -> None:
+    client = _client()
+    url = "/dossiers/DEMO_karim/affectation"
+    en_tete = _en_tete("DEMO_karim")
+    assert client.get(url, headers=en_tete).json()["applicable"] is False  # pas encore clos
+    _clore_karim(client)
+
+    vue = client.get(url, headers=en_tete).json()
+    assert vue["applicable"] is True and vue["annee_exercice"] == 2025
+    assert [sc["cle"] for sc in vue["scenarios"]] == ["garder", "prudent", "moitie", "maximum"]
+    assert any("prélèvement forfaitaire unique" in a for a in vue["avertissements"])
+    maximum = vue["scenarios"][-1]
+
+    faux = client.post(url, headers=en_tete, json={"scenario": "maximum", "dividendes_cts": 1})
+    assert faux.status_code == 422
+    trop = client.post(
+        url,
+        headers=en_tete,
+        json={"scenario": "libre", "dividendes_cts": vue["distribuable_cts"] + 1},
+    )
+    assert trop.status_code == 422
+    decide = client.post(
+        url,
+        headers=en_tete,
+        json={"scenario": "maximum", "dividendes_cts": maximum["dividendes_cts"]},
+    )
+    assert decide.status_code == 200
+    assert "déjà affecté" in client.get(url, headers=en_tete).json()["raison"]
+
+
+def test_le_gestionnaire_ne_decide_pas_de_l_affectation() -> None:
+    client = _client()
+    reponse = client.post(
+        "/dossiers/DEMO_karim/affectation",
+        headers=_en_tete_gestionnaire(),
+        json={"scenario": "garder", "dividendes_cts": 0},
+    )
+    assert reponse.status_code in (401, 403)

@@ -45,6 +45,18 @@ from sqlalchemy import insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine, Row
 
+from axelcompta.affectations import (
+    AffectationImpossible,
+    PropositionAffectation,
+    decider,
+    proposer,
+)
+from axelcompta.closing.affectation import (
+    MillesimeDividendesInconnu,
+    disponible,
+    distribuable,
+    fiscalite,
+)
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
 from axelcompta.closing.cloture_fiscale import chiffre_affaires_ht
 from axelcompta.closing.models import LiassePivot, ParametresCloture
@@ -92,6 +104,8 @@ from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
 from axelcompta.packs.vtc_demo import charger_compte_par_categorie
+from axelcompta.tenants.affectations import AffectationRepository
+from axelcompta.tenants.affectations_postgres import PostgresAffectationRepository
 from axelcompta.tenants.avenants import (
     AvenantRegime,
     AvenantRegimeRepository,
@@ -777,6 +791,15 @@ def get_exercices() -> ExerciceRepository:
 
 
 ExercicesDep = Annotated[ExerciceRepository, Depends(get_exercices)]
+
+
+def get_affectations() -> AffectationRepository:
+    """Dépendance FastAPI — décisions d'affectation du résultat. Surchargée
+    en mémoire dans les tests."""
+    return PostgresAffectationRepository(_engine())
+
+
+AffectationsDep = Annotated[AffectationRepository, Depends(get_affectations)]
 
 
 def _trancher(
@@ -1779,6 +1802,149 @@ def _enregistrer_routes_cloture_exercice(app: FastAPI) -> None:
         )
 
 
+class ScenarioAffectationVue(BaseModel):
+    cle: str
+    libelle: str
+    dividendes_cts: int
+    impot_revenu_cts: int
+    prelevements_sociaux_cts: int
+    part_soumise_cotisations_cts: int
+    net_percu_cts: int
+    laisse_en_societe_cts: int
+    tresorerie_apres_cts: int
+
+
+class AffectationVue(BaseModel):
+    """Ce que le chauffeur peut faire de son résultat, avant qu'il choisisse."""
+
+    applicable: bool
+    raison: str | None = None
+    annee_exercice: int | None = None
+    resultat_cts: int = 0
+    reserve_legale_cts: int = 0
+    distribuable_cts: int = 0
+    disponible_cts: int = 0
+    scenarios: list[ScenarioAffectationVue] = []
+    avertissements: list[str] = []
+
+
+class DecisionAffectationEntree(BaseModel):
+    scenario: str  # une des clés proposées, ou "libre"
+    dividendes_cts: int
+
+
+def _avertissements(proposition: PropositionAffectation) -> list[str]:
+    situation = proposition.situation
+    taux = fiscalite(situation.annee_versement)
+    textes = [
+        f"Dividendes chiffrés au prélèvement forfaitaire unique de {situation.annee_versement} : "
+        f"{taux.pfu_impot_revenu * 100:.1f} % d'impôt et "
+        f"{taux.prelevements_sociaux * 100:.1f} % de prélèvements sociaux. L'option pour le "
+        "barème progressif dépend de votre foyer : à comparer avant de décider.",
+        "Décision de l'associé unique, à prendre dans les six mois de la clôture.",
+    ]
+    if situation.gerant_non_salarie:
+        textes.append(
+            "Gérant non salarié : la part des dividendes au-delà de 10 % du capital supporte des "
+            "cotisations sociales, qui ne sont pas chiffrées ici."
+        )
+    return textes
+
+
+def _proposer_affectation(
+    dossier: Dossier,
+    ledger: LedgerService,
+    exercices: ExerciceRepository,
+    affectations: AffectationRepository,
+) -> PropositionAffectation:
+    try:
+        return proposer(dossier, ledger, exercices, affectations, datetime.now(UTC).date())
+    except (AffectationImpossible, MillesimeDividendesInconnu) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+def _vue_affectation(proposition: PropositionAffectation) -> AffectationVue:
+    situation = proposition.situation
+    return AffectationVue(
+        applicable=True,
+        annee_exercice=proposition.annee_exercice,
+        resultat_cts=situation.resultat,
+        reserve_legale_cts=proposition.reserve_legale,
+        distribuable_cts=distribuable(situation),
+        disponible_cts=disponible(situation),
+        scenarios=[
+            ScenarioAffectationVue(
+                cle=sc.cle,
+                libelle=sc.libelle,
+                dividendes_cts=sc.dividendes,
+                impot_revenu_cts=sc.impot_revenu,
+                prelevements_sociaux_cts=sc.prelevements_sociaux,
+                part_soumise_cotisations_cts=sc.part_soumise_cotisations,
+                net_percu_cts=sc.net_percu,
+                laisse_en_societe_cts=sc.laisse_en_societe,
+                tresorerie_apres_cts=sc.tresorerie_apres,
+            )
+            for sc in proposition.scenarios
+        ],
+        avertissements=_avertissements(proposition),
+    )
+
+
+def _enregistrer_routes_affectation(app: FastAPI) -> None:
+    """Louis, 2026-09-26 : ce que le chauffeur fait de son résultat, c'est
+    lui qui le choisit, sur un écran à lui. On chiffre des scénarios, du
+    moins au plus de dividendes ; il retient l'un d'eux ou son propre
+    montant, dans les limites du distribuable et de la trésorerie."""
+
+    @app.get("/dossiers/{dossier_id}/affectation", response_model=AffectationVue)
+    def apercu_affectation(
+        dossier: DossierDep,
+        ledger: LedgerBaseDep,
+        exercices: ExercicesDep,
+        affectations: AffectationsDep,
+        identite: IdentiteDep,
+    ) -> AffectationVue:
+        _verifier_acces_dossier(dossier.id, identite)
+        try:
+            proposition = _proposer_affectation(dossier, ledger, exercices, affectations)
+        except HTTPException as refus:
+            return AffectationVue(applicable=False, raison=str(refus.detail))
+        return _vue_affectation(proposition)
+
+    @app.post("/dossiers/{dossier_id}/affectation", response_model=AffectationVue)
+    def decider_affectation(
+        corps: DecisionAffectationEntree,
+        dossier: DossierDep,
+        ledger: LedgerBaseDep,
+        exercices: ExercicesDep,
+        affectations: AffectationsDep,
+        identite: IdentiteDep,
+    ) -> AffectationVue:
+        identite = _verifier_acces_dossier(dossier.id, identite)
+        proposition = _proposer_affectation(dossier, ledger, exercices, affectations)
+        proposes = {sc.cle: sc.dividendes for sc in proposition.scenarios}
+        if corps.scenario != "libre" and proposes.get(corps.scenario) != corps.dividendes_cts:
+            raise HTTPException(status_code=422, detail="Scénario ou montant inconnu.")
+        try:
+            decider(
+                proposition,
+                dossier,
+                corps.scenario,
+                corps.dividendes_cts,
+                ledger,
+                affectations,
+                datetime.now(UTC).replace(tzinfo=None),
+                identite.user_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return AffectationVue(
+            applicable=False,
+            raison=f"Résultat {proposition.annee_exercice} affecté.",
+            annee_exercice=proposition.annee_exercice,
+        )
+
+
 class PartieVue(BaseModel):
     cle: str
     libelle: str
@@ -1872,6 +2038,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_greffe_inpi(app)
     _enregistrer_routes_notifications(app)
     _enregistrer_routes_cloture_exercice(app)
+    _enregistrer_routes_affectation(app)
     _enregistrer_routes_demo(app)
     return app
 

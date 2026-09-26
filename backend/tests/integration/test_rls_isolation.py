@@ -32,6 +32,8 @@ from axelcompta.core.money import Money
 from axelcompta.core.rls import appliquer_rls, contexte_identite
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
+from axelcompta.tenants.affectations import AffectationDejaDecidee, DecisionAffectation
+from axelcompta.tenants.affectations_postgres import PostgresAffectationRepository
 from axelcompta.tenants.avenants import AvenantRegime, MotifAvenant
 from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
 from axelcompta.tenants.exercices import ExerciceClos, ExerciceDejaClos
@@ -355,6 +357,39 @@ def test_la_cloture_par_l_api_n_ecrit_que_dans_le_dossier_du_chauffeur(
         with engine_web.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
             appliquer_rls(connexion)
             connexion.execute(text("UPDATE dossiers SET nom = 'x' WHERE id = 'karim'"))
+
+
+def test_affectation_decidee_par_le_chauffeur_seulement_dans_son_dossier(
+    engine: Engine, engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """Migration `d6a9c4e17b83` : décision append-only, isolée par dossier,
+    tracée au journal d'audit dans la même transaction."""
+    decision = DecisionAffectation(
+        dossier_id=DossierId("karim"),
+        annee_exercice=2025,
+        scenario="prudent",
+        dividendes_cts=500_00,
+        reserve_legale_cts=10_00,
+        decide_le=datetime(2026, 3, 1, 9, 0),
+        decide_par="user-karim",
+    )
+    with contexte_identite(dossier_id="sophie", tenant_id=None):
+        with pytest.raises((ProgrammingError, DBAPIError)):
+            PostgresAffectationRepository(engine_web).enregistrer(decision)
+    with contexte_identite(dossier_id="karim", tenant_id=None):
+        PostgresAffectationRepository(engine_web).enregistrer(decision)
+        with pytest.raises(AffectationDejaDecidee):
+            PostgresAffectationRepository(engine_web).enregistrer(decision)
+        assert PostgresAffectationRepository(engine_web).obtenir(DossierId("karim"), 2025) == (
+            decision
+        )
+    with engine.begin() as connexion:
+        actes = connexion.execute(
+            text("SELECT count(*) FROM journal_audit WHERE type_acte = 'affectation_resultat'")
+        ).scalar_one()
+        assert actes == 1
+    with engine.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
+        connexion.execute(text("UPDATE affectations_resultat SET dividendes_cts = 0"))
 
 
 def test_le_role_administrateur_nest_jamais_soumis_aux_policies(
