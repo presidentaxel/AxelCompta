@@ -15,8 +15,9 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 - Modèles tenant + dossier, RLS (Row-Level Security Postgres) + middleware
   d'isolation, suite de tests d'isolation dédiée.
 - Matrice de configuration statut × régime (doc 06 §7), en données
-  versionnées : **faite le 2026-09-26** (`matrice_statuts.toml`). Reste à
-  rendre la colonne IR opérationnelle de bout en bout (liasse 2031).
+  versionnées : **faite le 2026-09-26** (`matrice_statuts.toml`), colonnes
+  société à l'IS et à l'IR opérationnelles (2065 ou 2031). Restent l'EI au
+  réel et la micro-entreprise.
 - Option IR bornée (**faite le 2026-09-26**, `avenants.py`) : date de
   début, décompte des 5 exercices, alertes N-1/N,
   bascule IS tracée, changement de régime par avenant daté.
