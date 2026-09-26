@@ -97,20 +97,23 @@ le tenant ne fournit que des valeurs de pré-remplissage à la création, jamais
 d'héritage implicite (doc 06 §7). Deux configurations orthogonales, lues par tout
 le système :
 
-1. **Profil juridique et fiscal** (`statut`) : forme (SASU, EURL, EI…), régime
-   d'imposition (IS, ou option IR — bornée à 5 exercices, avec date de fin et
-   bascule tracée), régime TVA (réel simplifié/normal en V1, franchise supportée),
+1. **Profil juridique et fiscal** (`statut`) : forme (SASU, SAS, EURL, SARL, EI),
+   régime d'imposition (IS, option IR bornée à 5 exercices, IR sans limite pour
+   l'EURL, la SARL de famille et l'EI, micro), régime TVA (réel normal, réel
+   simplifié en lecture avant 2027, franchise),
    obligations de dépôt. Détermine les formulaires de liasse, le traitement de la
    rémunération du dirigeant, le compte utilisé en cas d'usage personnel (455 vs
    108), le dépôt INPI ou non.
-   → Matrice complète et régimes opérationnels V1 : doc 06 §7.
+   → Matrice complète et régimes opérationnels V1 : doc 06 §7. Implémentée
+   depuis le 2026-09-26 dans `tenants/matrice_statuts.toml` (données) et
+   `tenants/statuts.py` (validation, lecture).
 2. **Pack métier** (`secteur`) : taxonomie de catégories, règles système, templates
    d'écritures sectoriels, paramètres de détection d'anomalies, adaptation ML.
    Le pack **VTC** est le premier ; un pack est un ensemble de données versionnées
    (+ ses tests), pas du code.
 
 Exemple : deux chauffeurs du même client → même pack `vtc`, mais l'un en
-`EURL option IR` et l'autre en `SASU IS` produisent des liasses différentes.
+`EURL à l'IR` et l'autre en `SASU IS` produisent des liasses différentes.
 Inversement, une SASU de boulangerie partagerait le statut du second avec un autre
 pack. **Aucun `if secteur == "vtc"` ni `if forme == "SASU"` hors de ces deux
 modules de configuration.**
