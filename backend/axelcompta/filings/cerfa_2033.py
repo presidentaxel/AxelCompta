@@ -264,7 +264,7 @@ def _capital_2033f(
     overlay: OverlayCerfa, liasse: LiassePivot, cellules: dict[str, Cellule], decalage: int
 ) -> None:
     identite = liasse.identite
-    if identite is None:
+    if identite is None or not liasse.associes:
         return
     page = PAGES["2033F"] + decalage
     titres = sum(a.nb_titres for a in identite.associes)

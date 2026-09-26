@@ -117,7 +117,7 @@ def _dessiner_associes(overlay: OverlayCerfa, liasse: LiassePivot) -> None:
     """Quote-part au prorata des titres, arrondie à l'euro ; le dernier
     associé prend l'écart d'arrondi pour que la somme retombe juste."""
     identite = liasse.identite
-    if identite is None or liasse.forme_juridique == "EI" or not identite.associes:
+    if identite is None or not liasse.associes or not identite.associes:
         return
     resultat = _euros(liasse, "2031.BENEFICE") - _euros(liasse, "2031.DEFICIT")
     total_titres = sum(a.nb_titres for a in identite.associes) or 1

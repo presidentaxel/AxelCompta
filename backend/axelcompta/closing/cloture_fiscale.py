@@ -136,4 +136,5 @@ def cloturer_fiscalement(
         identite=parametres.identite,
         forme_juridique=parametres.forme_juridique,
         soumis_is=parametres.soumis_is,
+        associes=parametres.associes,
     )
