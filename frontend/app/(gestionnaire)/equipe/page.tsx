@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
   lireEquipeSession,
   listerMembres,
   obtenirSessionGestionnaire,
+  publierEquipeSession,
   type MembrePortefeuille,
   type RoleMembre,
 } from "@/lib/auth-gestionnaire";
@@ -31,6 +32,14 @@ export default function EquipePage() {
   const [emailInvite, setEmailInvite] = useState("");
   const [roleInvite, setRoleInvite] = useState<RoleMembre>("membre");
   const [enCours, setEnCours] = useState(false);
+  // Un chargement lancé avant une invitation ou un changement de rôle ne
+  // réécrit pas la liste avec la réponse plus ancienne.
+  const requeteCourante = useRef(0);
+
+  function retenir(membre: MembrePortefeuille) {
+    requeteCourante.current += 1;
+    setMembres((actuels) => integrerMembreSession(actuels ?? [], membre));
+  }
 
   useEffect(() => {
     const session = obtenirSessionGestionnaire();
@@ -46,12 +55,15 @@ export default function EquipePage() {
 
     let ignore = false;
     const charger = () => {
+      const id = ++requeteCourante.current;
       listerMembres()
         .then((liste) => {
-          if (!ignore) setMembres(liste);
+          if (ignore || id !== requeteCourante.current) return;
+          publierEquipeSession(liste);
+          setMembres(liste);
         })
         .catch((exception) => {
-          if (ignore) return;
+          if (ignore || id !== requeteCourante.current) return;
           if (exception instanceof ErreurAuthGestionnaire) router.replace("/connexion");
           else if (!lireEquipeSession()) setErreur("Impossible de charger l'équipe.");
         });
@@ -85,7 +97,7 @@ export default function EquipePage() {
           try {
             const membre = await inviterMembre(emailInvite.trim(), roleInvite);
             setEmailInvite("");
-            setMembres((actuels) => integrerMembreSession(actuels ?? [], membre));
+            retenir(membre);
           } catch (exception) {
             setErreur(exception instanceof Error ? exception.message : "Échec de l'invitation.");
           } finally {
@@ -121,7 +133,7 @@ export default function EquipePage() {
                   if (role === membre.role) return;
                   try {
                     const misAJour = await changerRole(membre.email, role);
-                    setMembres((actuels) => integrerMembreSession(actuels ?? [], misAJour));
+                    retenir(misAJour);
                   } catch (exception) {
                     setErreur(exception instanceof Error ? exception.message : "Échec du changement.");
                   }

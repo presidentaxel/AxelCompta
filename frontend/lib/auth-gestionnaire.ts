@@ -239,8 +239,12 @@ export async function listerMembres(): Promise<MembrePortefeuille[]> {
     throw new ApiError(`API (/portefeuille/membres) : HTTP ${reponse.status}`, reponse.status);
   }
   const membres = (await reponse.json()) as MembrePortefeuille[];
-  memoriserEquipe(membres);
   return membres;
+}
+
+/** Mémorise une liste acceptée. Un chargement déjà dépassé ne doit pas écrire. */
+export function publierEquipeSession(membres: MembrePortefeuille[]): void {
+  memoriserEquipe(membres);
 }
 
 export async function inviterMembre(email: string, role: RoleMembre): Promise<MembrePortefeuille> {
