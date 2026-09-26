@@ -75,6 +75,21 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   le temps d'une seule transaction, portefeuille de démo et admin seulement
   (`demo_admin.py`, doc 17 §6).
 
+**Fait le 2026-09-26 (PR #19 à #22) :**
+- État des invitations d'équipe (envoyée ou acceptée) et bon écran au
+  premier clic d'un lien d'invitation (PR #19).
+- Jalons recalés : J2 annulé (tous les formats seront codés), J6 reporté à
+  la toute fin, SMTP de Supabase Auth configuré (PR #20).
+- Notifications internes : la cloche de l'espace chauffeur remplace
+  l'e-mail. Pas de SMTP chez AxeLCompta : e-mail et SMS sont des
+  intégrations du gestionnaire. Cron horaire `axelcompta.taches` (synchro
+  Digifactory puis notifications) installé sur le poste de démo, même
+  script prévu pour le serveur (PR #21, migration `e8c4f1a93b27`).
+- Configuration de dossier sur une matrice statut × régime versionnée
+  (`tenants/matrice_statuts.toml`), validée à chaque écriture ; le moteur
+  lit la matrice pour l'usage personnel, l'IS, la 2065 et le dépôt au
+  greffe (PR #22, migration `f1b6d3e82a47`, §1.1 ci-dessous).
+
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
 
