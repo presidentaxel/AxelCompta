@@ -21,5 +21,5 @@ vérifiée par import-linter en CI, doc 03 §3).
 ## Doc de référence
 
 [doc 03 §7](../../../docs/03-architecture.md#7-auth-rôles-multi-tenant),
-[doc 17 §9](../../../docs/17-plan-demo-backend.md#9-semaines-et-jalons) (API de démo : `demo_api.py`, pas ce module),
+[doc 17 §9](../../../docs/archive/17-plan-demo-journal-2026-09.md#9-semaines-et-jalons) (API de démo : `demo_api.py`, pas ce module),
 [doc 19](../../../docs/19-parcours-utilisateur.md).

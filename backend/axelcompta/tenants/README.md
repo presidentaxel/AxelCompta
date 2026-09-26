@@ -46,4 +46,4 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 
 [doc 03 §3bis](../../../docs/03-architecture.md#3bis-les-deux-axes-de-configuration--statut-du-dossier--pack-métier),
 [doc 06 §7](../../../docs/06-moteur-comptable.md#7-multi-statuts--matrice-de-paramétrage-le-cœur-de-la-versatilité),
-[doc 17 §3](../../../docs/17-plan-demo-backend.md#3-coupes-de-scope-assumées).
+[doc 17 §3](../../../docs/archive/17-plan-demo-journal-2026-09.md#3-coupes-de-scope-assumées).
