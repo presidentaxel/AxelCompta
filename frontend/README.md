@@ -15,12 +15,12 @@ démarré (persistance réelle des décisions humaines, doc 17 §9 bloc A) —
 avant, elle tournait entièrement en mémoire.
 
 ```bash
-# 0. La base (une fois) : depuis backend/
-docker compose up -d db
-source .venv/bin/activate && alembic upgrade head
+# 0. La base : sur Supabase depuis le 2026-09-24, déjà migrée et amorcée.
+#    Détail et variables d'env : backend/README.md, « Lancer l'API de démo ».
 
 # 1. L'API démo (backend/)
-uvicorn axelcompta.demo_api:app --reload --port 8000
+set -a && . ../.env && set +a
+.venv/bin/uvicorn axelcompta.demo_api:app --reload --port 8000
 
 # 2. Le frontend (frontend/)
 cd frontend && npm install && npm run dev
@@ -86,4 +86,4 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
 [doc 11](../docs/11-ux-ui.md) (UX/UI complet),
 [doc 19](../docs/19-parcours-utilisateur.md) (parcours gestionnaire/chauffeur),
 [DESIGN.md](../DESIGN.md) (design system : tokens, composants, Do's & Don'ts),
-[doc 17 §9](../docs/17-plan-demo-backend.md#9-semaines-et-jalons).
+[doc 17 §9](../docs/archive/17-plan-demo-journal-2026-09.md#9-semaines-et-jalons).

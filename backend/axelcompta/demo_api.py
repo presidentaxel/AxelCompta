@@ -33,6 +33,7 @@ from __future__ import annotations
 import re
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -49,6 +50,7 @@ from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.core.rls import appliquer_rls, contexte_identite
+from axelcompta.demo_admin import CLES_PARTIES, PARTIES, reinitialiser_demo
 from axelcompta.demo_auth import (
     IdentiteAuthentifiee,
     identite_chauffeur_optionnelle,
@@ -66,6 +68,7 @@ from axelcompta.demo_justificatifs import (
     FichierJustificatifRepository,
     JustificatifRepository,
 )
+from axelcompta.demo_seed import TENANT_DEMO
 from axelcompta.filings.cerfa_2033 import extraire_page_2033
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
@@ -1454,6 +1457,80 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         )
 
 
+class PartieVue(BaseModel):
+    cle: str
+    libelle: str
+    detail: str
+
+
+class RemiseANeufEntree(BaseModel):
+    parties: list[str]
+
+
+class RemiseANeufVue(BaseModel):
+    parties: list[str]
+    dossiers: list[str]
+
+
+Reinitialiseur = Callable[[TenantId, frozenset[str]], list[str]]
+
+_ENGINE_PROPRIETAIRE: Engine | None = None
+
+
+def get_reinitialiseur() -> Reinitialiseur:
+    """Menu Démo (`demo_admin`). Seule route de l'API sur la connexion
+    propriétaire `DATABASE_URL`, construite à la première remise à neuf
+    seulement : les verrous des décisions et des preuves ne cèdent pas au
+    rôle web. Autorisé explicitement par Louis le 2026-09-25, démo seulement."""
+
+    def reinitialiser(tenant_id: TenantId, parties: frozenset[str]) -> list[str]:
+        global _ENGINE_PROPRIETAIRE
+        if _ENGINE_PROPRIETAIRE is None:
+            _ENGINE_PROPRIETAIRE = engine_depuis_env("DATABASE_URL")
+        return reinitialiser_demo(
+            _ENGINE_PROPRIETAIRE, tenant_id, parties, RACINE_JUSTIFICATIFS_DEMO
+        )
+
+    return reinitialiser
+
+
+ReinitialiseurDep = Annotated[Reinitialiseur, Depends(get_reinitialiseur)]
+
+
+def _exiger_admin_demo(identite: IdentiteAuthentifiee | None, role: str) -> TenantId:
+    tenant_id, _identite = _verifier_acces_gestionnaire(identite)
+    if tenant_id != TENANT_DEMO:
+        raise HTTPException(status_code=403, detail="Réservé au portefeuille de démo.")
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
+    return tenant_id
+
+
+def _enregistrer_routes_demo(app: FastAPI) -> None:
+    @app.get("/demo/parties", response_model=list[PartieVue])
+    def lister_parties(identite: IdentiteDep, role: RoleMembreDep) -> list[PartieVue]:
+        _exiger_admin_demo(identite, role)
+        return [PartieVue(cle=p.cle, libelle=p.libelle, detail=p.detail) for p in PARTIES]
+
+    @app.post("/demo/reinitialiser", response_model=RemiseANeufVue)
+    def reinitialiser(
+        request: Request,
+        entree: RemiseANeufEntree,
+        identite: IdentiteDep,
+        role: RoleMembreDep,
+        reinitialiseur: ReinitialiseurDep,
+    ) -> RemiseANeufVue:
+        """Remet à neuf les parties cochées du portefeuille de démo. Le
+        grand livre n'en fait jamais partie."""
+        tenant_id = _exiger_admin_demo(identite, role)
+        parties = frozenset(entree.parties)
+        if not parties or not parties <= CLES_PARTIES:
+            raise HTTPException(status_code=400, detail="Choisis au moins une partie connue.")
+        dossiers = reinitialiseur(tenant_id, parties)
+        _vider_cache_agregats(request.app, str(tenant_id))
+        return RemiseANeufVue(parties=sorted(parties), dossiers=dossiers)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
     app.state.digifactory_branche = True
@@ -1470,6 +1547,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_cloture(app)
     _enregistrer_routes_pieces_greffe(app)
     _enregistrer_routes_greffe_inpi(app)
+    _enregistrer_routes_demo(app)
     return app
 
 

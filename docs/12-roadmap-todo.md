@@ -1,6 +1,10 @@
 # 12 — Roadmap et TODO maître
 
-> Statut : brouillon à valider — Dernière mise à jour : 2026-09-24
+> Statut : brouillon à valider. Dernière mise à jour : 2026-09-25.
+> **Seule source de l'état du projet** (fait, en cours, jalons). Les docs 17
+> et 18 n'en tiennent plus de copie. Les sections « Statuts » des READMEs de
+> modules en gardent une, en partie périmée, à retirer.
+>
 > Hypothèse de capacité : **1 dev (Louis, seul sur le produit)** — l'associé
 > initialement pressenti n'est plus sur ce produit (segmentation actée le
 > week-end du 2026-09-05/06, voir §0.1). Les durées de ce doc supposaient
@@ -50,6 +54,24 @@ local. Migrations et seed de démo appliqués sur le projet `AxelCompta-demo`,
 API vérifiée de bout en bout. Le docker local ne sert plus qu'aux tests
 d'intégration, verrouillés sur une base locale. Droits par défaut de `anon`
 et `authenticated` retirés (migration `e4c7a9d25b13`).
+
+**Fait le 2026-09-25 : écran gestionnaire** (PR #13 à #15). Liste des
+entreprises sur `/portefeuille`, deux frises réglementaires par entreprise,
+rappels (règles enregistrées, envoi non branché), équipe avec rôles Admin,
+Membre et Lecture, nom d'organisation, retrait d'une entreprise, liens
+Supabase ouverts dans l'application, premier chargement Digifactory découpé.
+La frise de l'année d'avant montre l'exercice terminé en cours de
+traitement, jamais cochée d'office (doc 19 §2.1).
+
+**En cours le 2026-09-25 :**
+- Frise par jalons : chaque étape après le compte (clôture, signature de
+  validation, greffe, impôts, signature légale) est une preuve dans
+  `documents_signes`, et la frise s'arrête au premier jalon absent
+  (`demo_jalons.py`, `demo_seed.poser_jalons_demo`).
+- Refonte UX du parcours chauffeur (retour du 22/09).
+- Menu Démo du gestionnaire pour remettre la démo à neuf : la méthode
+  d'effacement des décisions et signatures verrouillées reste à décider
+  (doc 17 §6).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :

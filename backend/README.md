@@ -218,7 +218,7 @@ Ce découpage est celui du **produit final V1** (doc 03/12), pas seulement de
 la démo. Chaque README de module précise donc deux statuts distincts :
 
 - **Démo (doc 17)** : ce que ce module doit faire pour la démo interne d'un
-  mois, scope volontairement réduit (voir [doc 17 §3](../docs/17-plan-demo-backend.md#3-coupes-de-scope-assumées)).
+  mois, scope volontairement réduit (voir [doc 17 §3](../docs/archive/17-plan-demo-journal-2026-09.md#3-coupes-de-scope-assumées)).
 - **V1 cible (doc 12)** : ce que ce module doit faire pour le produit réel,
   à capacité normale (1-2 devs, phases pluri-mensuelles).
 
@@ -259,4 +259,4 @@ Détail complet de la correspondance arbre ↔ docs : [docs/18-organisation-code
 
 Le travail d'audit dans [`_AUDIT_DONNEES/`](../_AUDIT_DONNEES/README.md) n'est
 pas dupliqué ici : `packs/` et `categorize/` s'y réfèrent directement (pack
-VTC, modèle TF-IDF entraîné, CSV FEC labellisé). Voir [doc 17 §4bis](../docs/17-plan-demo-backend.md#4bis-ce-quon-réutilise-déjà-accélérateurs-issus-de-laudit).
+VTC, modèle TF-IDF entraîné, CSV FEC labellisé). Voir [doc 17 §4bis](../docs/archive/17-plan-demo-journal-2026-09.md#4bis-ce-quon-réutilise-déjà-accélérateurs-issus-de-laudit).

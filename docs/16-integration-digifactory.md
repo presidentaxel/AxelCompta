@@ -338,7 +338,7 @@ préfixe `Bearer`) et sur `/categories`. Mêmes constats côté client
 qu'au 01/09 (token correct, TLS/routage OK, échec au niveau
 authentification serveur) — rien n'a changé en un mois. Document de
 relance envoyé à Pierre BERTOLA avec tags de trace :
-[2026-09-07-relance-digifactory.md](2026-09-07-relance-digifactory.md).
+[archive/2026-09-07-relance-digifactory.md](archive/2026-09-07-relance-digifactory.md).
 
 **Statut au 2026-09-08 : mail envoyé, en attente de réponse.** Pierre
 BERTOLA est basé au Japon — décalage horaire important, délai de réponse
