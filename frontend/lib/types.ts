@@ -17,7 +17,29 @@ export type DossierResume = {
   nb_a_trancher: number;
   statut_invitation: "invité" | "actif" | null; // null = "non_invité" (doc 19 §3.2)
   mode_acces_bancaire: "gestionnaire" | "chauffeur_direct"; // doc 19 §4
+  peut_connecter_sa_banque: boolean; // faux tant que le faux Digifactory de la démo est branché
+  cloture_faite: boolean; // preuve de clôture : la validation de liasse se fait au téléchargement
   greffe_inpi_signe: boolean; // doc 20 : dossier de dépôt signé (démo, jamais qualifié RGS)
+  guide_greffe: GuideGreffe;
+};
+
+export type LignePortail = {
+  question: string;
+  reponse: string;
+  detail: string;
+};
+
+export type PieceGreffe = {
+  nom: string;
+  detail: string;
+  document: string | null;
+};
+
+export type GuideGreffe = {
+  depose: boolean;
+  lien: string;
+  lignes: LignePortail[];
+  pieces: PieceGreffe[];
 };
 
 // Vue gestionnaire (doc 19 §2.1/§2.4) : agrégats et onboarding seulement.

@@ -20,6 +20,7 @@ donc simulé. Marqué FICTIF sans ambiguïté (doc 08 §5).
 from __future__ import annotations
 
 import io
+from dataclasses import dataclass
 from typing import Any
 
 from reportlab.lib.pagesizes import A4
@@ -29,7 +30,142 @@ from axelcompta.closing.models import LiassePivot
 
 from .renderer import FilingRenderer
 
+# Art. D.123-200, exercices ouverts à compter du 1er janvier 2024
+# (décret n° 2024-152). On reste dans la catégorie si au plus un des trois
+# seuils est dépassé. Les anciens seuils 350 000 / 700 000 € ne s'appliquent
+# plus à l'exercice 2025.
+_SEUIL_MICRO = (450_000, 900_000, 10)
+_SEUIL_PETITE = (7_500_000, 15_000_000, 50)
+_SEUIL_MOYENNE = (25_000_000, 50_000_000, 250)
+
+# Formes qui déposent des comptes sociaux (doc 02 §6). EI et micro-entreprise
+# n'y figurent pas : pas de dépôt au greffe. La valeur dit qui signe l'acte
+# quand le dossier n'a pas la liste de ses associés.
+_ACTE_PAR_FORME = {
+    "SASU": "associe_unique",
+    "EURL": "associe_unique",
+    "SAS": "assemblee",
+    "SARL": "assemblee",
+    "SA": "assemblee",
+}
+
+LIEN_PORTAIL_INPI = "https://procedures.inpi.fr/"
+
 MENTION_FICTIVE = "DOCUMENT FICTIF — DÉMO AXELCOMPTA, NE PAS DÉPOSER"
+
+
+@dataclass(frozen=True, slots=True)
+class LignePortail:
+    question: str
+    reponse: str
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
+class PieceGreffe:
+    nom: str
+    detail: str
+    document: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class GuideGreffe:
+    depose: bool
+    lien: str
+    lignes: tuple[LignePortail, ...]
+    pieces: tuple[PieceGreffe, ...]
+
+
+def _entier(cases: dict[str, int], cle: str) -> int:
+    return cases.get(cle, 0) // 100
+
+
+def _seuils_depasses(bilan: int, ca: int, effectif: int, seuils: tuple[int, int, int]) -> int:
+    plafond_bilan, plafond_ca, plafond_effectif = seuils
+    return (bilan > plafond_bilan) + (ca > plafond_ca) + (effectif > plafond_effectif)
+
+
+def _categorie(bilan: int, ca: int, effectif: int) -> str:
+    """micro, petite, moyenne ou grande. Un seul exercice connu : les seuils
+    se jugent normalement sur deux exercices consécutifs."""
+    if _seuils_depasses(bilan, ca, effectif, _SEUIL_MICRO) < 2:
+        return "micro"
+    if _seuils_depasses(bilan, ca, effectif, _SEUIL_PETITE) < 2:
+        return "petite"
+    if _seuils_depasses(bilan, ca, effectif, _SEUIL_MOYENNE) < 2:
+        return "moyenne"
+    return "grande"
+
+
+def _acte(liasse: LiassePivot) -> tuple[str, str] | None:
+    forme = liasse.forme_juridique
+    if forme not in _ACTE_PAR_FORME:
+        return None
+    nb = len(liasse.identite.associes) if liasse.identite is not None else None
+    associe_unique = nb == 1 or (nb is None and _ACTE_PAR_FORME[forme] == "associe_unique")
+    if associe_unique:
+        return (
+            "Décision de l'associé unique",
+            "À joindre une fois signée. Elle n'est pas produite ici.",
+        )
+    return (
+        "Extrait du procès-verbal d'assemblée générale",
+        "À joindre une fois signé. Il n'est pas produit ici.",
+    )
+
+
+def guide_greffe(liasse: LiassePivot) -> GuideGreffe:
+    """Ce que le chauffeur reporte sur le portail INPI, et les pièces au nom
+    demandé par le guichet. Rien n'est déposé depuis ici."""
+    vide = GuideGreffe(depose=False, lien=LIEN_PORTAIL_INPI, lignes=(), pieces=())
+    acte = _acte(liasse)
+    if acte is None:
+        return vide
+
+    bilan = _entier(liasse.cases, "2033A.180")
+    ca = _entier(liasse.cases, "CA_HT")
+    effectif = _entier(liasse.cases, "2033E.376")
+    categorie = _categorie(bilan, ca, effectif)
+    dispense_annexe = categorie == "micro"
+    debut = liasse.exercice_debut.strftime("%d/%m/%Y") if liasse.exercice_debut else ""
+    fin = liasse.exercice_fin.strftime("%d/%m/%Y") if liasse.exercice_fin else ""
+
+    lignes = (
+        LignePortail("Type de dépôt", "Comptes sociaux", "Une seule société"),
+        LignePortail("Dépôt rectificatif", "Non", "Premier dépôt de cet exercice"),
+        LignePortail("Début de l'exercice", debut, ""),
+        LignePortail("Clôture de l'exercice", fin, ""),
+        LignePortail(
+            "Dispensée de déposer les annexes",
+            "Oui" if dispense_annexe else "Non",
+            "Micro-entreprise" if dispense_annexe else "L'annexe est demandée",
+        ),
+        LignePortail(
+            "Confidentialité des comptes",
+            "Oui" if categorie == "micro" else "Non",
+            "Réservée aux micro-entreprises",
+        ),
+        LignePortail(
+            "Confidentialité du compte de résultat",
+            "Oui" if categorie == "petite" else "Non",
+            "Réservée aux petites entreprises",
+        ),
+        LignePortail(
+            "Présentation simplifiée",
+            "Oui" if categorie == "moyenne" else "Non",
+            "Réservée aux moyennes entreprises",
+        ),
+    )
+    pieces = [
+        PieceGreffe("Bilan actif / passif", "", "bilan.pdf"),
+        PieceGreffe("Compte de résultat", "", "compte-resultat.pdf"),
+        PieceGreffe(acte[0], acte[1], None),
+    ]
+    if not dispense_annexe:
+        pieces.append(
+            PieceGreffe("Annexe comptable", "À joindre. Elle n'est pas encore produite ici.", None)
+        )
+    return GuideGreffe(depose=True, lien=LIEN_PORTAIL_INPI, lignes=lignes, pieces=tuple(pieces))
 
 
 def construire_payload_comptes_annuels(liasse: LiassePivot) -> dict[str, Any]:

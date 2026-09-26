@@ -180,8 +180,12 @@ distinguer de vrais comptes pilote plus tard).
 comptes de test supprimés après vérification comme jusqu'ici : deux comptes
 gestionnaire (`louis.vedovato@axelproject.fr` et `demo@axelcompta.fr`, ce
 dernier pour la personne à qui la démo sera montrée) et les 3 comptes
-chauffeur (`demo-{karim,sophie,yanis}@axelcompta.fr`). Mots de passe donnés
-à Louis en dehors du repo, jamais committés.
+chauffeur (`demo-{karim,sophie,yanis}@axelcompta.fr`). Mot de passe
+commun des trois chauffeurs, depuis le 2026-09-25 : `DemoChauffeur2026!`
+(voir `frontend/README.md`). Les mots de passe gestionnaire restent hors
+du repo. Pour en poser un autre :
+`python scripts/reinitialiser_mot_de_passe.py <email>` (demandé au
+clavier, jamais en argument).
 
 **Mise à jour 2026-09-09** : `pytest`, `mypy axelcompta tests migrations`,
 `ruff check .`, `ruff format --check .` et `lint-imports` passent tous à

@@ -740,7 +740,9 @@ se connecter.
 > montrée) et les 3 comptes chauffeur (`demo-{karim,sophie,yanis}@axelcompta.fr`,
 > `app_metadata.env: "demo"`, aucun `tenant_id` — accès indiv seulement, pas
 > de portefeuille). Nouveau script `scripts/creer_comptes_demo_chauffeurs.py`
-> (doc 18, backend/README). Mots de passe donnés à Louis hors du repo.
+> (doc 18, backend/README). Mot de passe commun des trois chauffeurs,
+> depuis le 2026-09-25 : `DemoChauffeur2026!` (`frontend/README.md`).
+> Les mots de passe gestionnaire restent hors du repo.
 >
 > **Pas fait ici, donc pas prouvé** : le rendu écran (dashboard, file de
 > revue, clôture, bouton signature) côté navigateur. `node`/`npm` sont

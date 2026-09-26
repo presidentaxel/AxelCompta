@@ -1,54 +1,70 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { FileText, List, UserRound } from "lucide-react";
 
-import { deconnecter, obtenirSession } from "@/lib/auth-chauffeur";
+import { Marque } from "@/components/Marque";
+import { obtenirSession, type SessionChauffeur } from "@/lib/auth-chauffeur";
 
-/** Habillage chauffeur (mobile/webapp) — doc 19 §7 : même socle Next.js/
- * Tailwind que le gestionnaire, habillage différent, pas de Sidebar/TopBar
- * portefeuille (DESIGN.md « Comportement responsive » : la démo mobile est
- * une page publique autonome, comme la signature). Vocabulaire simple
- * (doc 19 §5.5), un seul niveau de navigation (déconnexion).
- */
+/** Pages d'entrée : pas de navigation, même si une session traîne encore
+ * dans le navigateur. */
+const PAGES_PUBLIQUES = new Set(["/chauffeur/login", "/chauffeur/accepter-invitation"]);
+
+/** Habillage chauffeur — webapp téléphone, lisible aussi sur un grand
+ * écran (colonne centrée). Même calme que le portefeuille gestionnaire :
+ * marque, liste, une barre du bas. Pas de Sidebar. */
 export default function ChauffeurLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [connecte, setConnecte] = useState(false);
+  const chemin = usePathname();
+  const [session, setSession] = useState<SessionChauffeur | null>(null);
 
   useEffect(() => {
-    // `obtenirSession()` lit `localStorage`, indisponible côté serveur —
-    // l'effet (jamais exécuté en SSR) est le pont correct vers l'état
-    // React, pas un `useState(() => ...)` qui planterait au rendu serveur.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setConnecte(obtenirSession() !== null);
-  }, []);
+    setSession(obtenirSession());
+  }, [chemin]);
 
-  function seDeconnecter() {
-    deconnecter();
-    router.push("/chauffeur/login");
-  }
+  const espace = session !== null && !PAGES_PUBLIQUES.has(chemin);
 
   return (
     <div className="min-h-screen bg-canvas-app">
-      <header className="flex items-center justify-between border-b border-border bg-canvas px-4 py-3">
-        <span className="text-base font-semibold text-ink">AxeLCompta</span>
-        {connecte && (
-          <div className="flex items-center gap-3">
-            <Link href="/chauffeur/compte" className="text-xs font-medium text-subtle hover:text-ink">
-              Compte
-            </Link>
-            <button
-              type="button"
-              onClick={seDeconnecter}
-              className="text-xs font-medium text-subtle hover:text-ink"
-            >
-              Déconnexion
-            </button>
-          </div>
-        )}
+      <header className="sticky top-0 z-10 border-b border-border bg-canvas">
+        <div className="mx-auto flex h-14 max-w-md items-center px-4">
+          <Marque />
+        </div>
       </header>
-      <main className="mx-auto max-w-md px-4 py-6">{children}</main>
+      <main className={`mx-auto max-w-md px-4 py-6 ${espace ? "pb-24" : ""}`}>{children}</main>
+      {espace && session && <Barre dossierId={session.dossierId} chemin={chemin} />}
     </div>
+  );
+}
+
+function Barre({ dossierId, chemin }: { dossierId: string; chemin: string }) {
+  const activite = `/chauffeur/${dossierId}`;
+  const exercice = `/chauffeur/${dossierId}/exercice`;
+  const compte = "/chauffeur/compte";
+  const liens = [
+    { href: activite, libelle: "Activité", Icone: List, actif: chemin === activite },
+    { href: exercice, libelle: "Exercice", Icone: FileText, actif: chemin === exercice },
+    { href: compte, libelle: "Compte", Icone: UserRound, actif: chemin === compte },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-1/2 z-10 w-full max-w-md -translate-x-1/2 border-t border-border bg-canvas">
+      <div className="grid grid-cols-3 pb-[env(safe-area-inset-bottom)]">
+        {liens.map(({ href, libelle, Icone, actif }) => (
+          <Link
+            key={href}
+            href={href}
+            className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] ${
+              actif ? "font-semibold text-ink" : "text-subtle"
+            }`}
+          >
+            <Icone className="h-5 w-5" aria-hidden />
+            {libelle}
+          </Link>
+        ))}
+      </div>
+    </nav>
   );
 }

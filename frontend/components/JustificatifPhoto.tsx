@@ -2,15 +2,14 @@
 
 import { useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { joindreJustificatifChauffeur } from "@/lib/auth-chauffeur";
 import type { TransactionVue } from "@/lib/types";
 
 /** doc 17 §9 Semaine 3, doc 19 §5.7 : « photo de justificatif au fil de
- * l'eau » — `capture="environment"` ouvre directement l'appareil photo sur
- * mobile plutôt que la galerie (comportement standard des navigateurs
- * mobiles sur ce type d'input, pas de lib dédiée nécessaire). Le contenu
+ * l'eau ». Pas d'attribut `capture` : sur ordinateur il n'ouvre que la
+ * caméra, et sans caméra on ne peut pas choisir un fichier. `accept="image/*"`
+ * laisse le téléphone proposer l'appareil photo ou la pellicule. Le contenu
  * n'est jamais lu côté serveur (pas d'OCR, doc 17 §8) — seule la présence
  * compte ici. */
 export function JustificatifPhoto({
@@ -47,7 +46,6 @@ export function JustificatifPhoto({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={(evenement) => {
           const fichier = evenement.target.files?.[0];
@@ -55,18 +53,14 @@ export function JustificatifPhoto({
           evenement.target.value = ""; // permet de reprendre une photo si l'envoi échoue
         }}
       />
-      <Button
+      <button
         type="button"
-        variant="secondary"
-        size="sm"
         disabled={enCours}
         onClick={() => inputRef.current?.click()}
-        className={
-          aJustificatif ? "border-success-border bg-validated-subtle text-validated hover:bg-validated-subtle" : undefined
-        }
+        className={`py-1 text-sm font-medium ${aJustificatif ? "text-validated" : "text-primary"} disabled:opacity-50`}
       >
-        {aJustificatif ? "Photo jointe ✓" : enCours ? "Envoi…" : "Ajouter une photo"}
-      </Button>
+        {aJustificatif ? "Photo jointe" : enCours ? "Envoi…" : "Ajouter une photo"}
+      </button>
       {erreur && <p className="mt-1 text-xs text-danger">{erreur}</p>}
     </div>
   );

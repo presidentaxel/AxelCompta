@@ -17,9 +17,12 @@ liasse est dématérialisé (EDI-TDFC ou EFI), jamais un PDF (doc 02).
 
 from __future__ import annotations
 
+import io
 import json
 from datetime import date
 from pathlib import Path
+
+from pypdf import PdfReader, PdfWriter
 
 from axelcompta.closing.models import LiassePivot
 from axelcompta.core.identite import IdentiteEntreprise
@@ -84,6 +87,18 @@ def _euros(liasse: LiassePivot, tableau: str) -> dict[str, int]:
         for cle, centimes in liasse.cases.items()
         if cle.startswith(prefixe) and "." not in cle[len(prefixe) :]
     }
+
+
+def extraire_page_2033(liasse: LiassePivot, tableau: str) -> bytes:
+    """Une page du 2033, pour la joindre seule au greffe (bilan, compte de
+    résultat). `tableau` est une clé de `PAGES` (`2033A`, `2033B`…)."""
+    rendu = PdfLiasse2033Renderer().rendre(liasse)
+    lu = PdfReader(io.BytesIO(rendu))
+    ecrit = PdfWriter()
+    ecrit.add_page(lu.pages[PAGES[tableau] - 1])
+    tampon = io.BytesIO()
+    ecrit.write(tampon)
+    return tampon.getvalue()
 
 
 class PdfLiasse2033Renderer(FilingRenderer):

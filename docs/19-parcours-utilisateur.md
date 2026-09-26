@@ -91,8 +91,10 @@ gestionnaire :
   - **Équipe** (`/equipe`) : Admin (nom, équipe, retraits, règles),
     Membre (invitations et rappels), Lecture. Un compte déjà là sans
     ligne de droit est admin.
-  - **Intégrations** (`/integrations`) : Bridge, Volubile, SMS, e-mail,
-    annoncés comme prévus, rien n'est connecté depuis l'écran.
+  - **Intégrations** (`/integrations`) : un faux Digifactory, branché par
+    défaut. Branché, l'app chauffeur ne propose pas « Connecter ma banque ».
+    Le débrancher depuis cet écran réaffiche l'option. Bridge, Volubile, SMS
+    et e-mail restent annoncés comme prévus.
   - Retirer une entreprise la masque de la liste (`dossiers.retire_le`).
     Les écritures restent.
 
@@ -207,7 +209,7 @@ champ de configuration, au même niveau que `regime_imposition` ou
 
 | `mode_acces_bancaire` | Qui connecte | Cas d'usage |
 |---|---|---|
-| `gestionnaire` | Le gestionnaire, via Digifactory (doc 16) | Cas pilote actuel — l'indiv n'a rien à connecter : soit les transactions arrivent directement dans son app (déjà remontées côté Digifactory), soit un écran « ça arrive bientôt » tant qu'elles n'y sont pas encore — jamais de bouton Bridge affiché dans ce mode. |
+| `gestionnaire` | Le gestionnaire, via Digifactory (doc 16) | Cas pilote actuel — l'indiv n'a rien à connecter : soit les transactions arrivent directement dans son app (déjà remontées côté Digifactory), soit un écran « ça arrive bientôt » tant qu'elles n'y sont pas encore — jamais de bouton Bridge affiché dans ce mode. Un `contact_nr` posé (Digifactory branché) a le même effet, même si le mode du dossier était encore `chauffeur_direct` : pas de seconde connexion. En démo, le faux Digifactory d'Intégrations est branché par défaut et masque l'option pour tous les dossiers ; le débrancher la réaffiche. |
 | `chauffeur_direct` | L'indiv lui-même, depuis son app, **via Bridge en direct** (précisé 2026-09-11, doc 16 §8) | Indiv autonome sans agrégateur côté gestionnaire — le bouton de connexion bancaire dans l'app **est** Bridge Connect, pas un choix parmi d'autres. |
 
 Les deux passent par la même interface `DataProvider` (doc 13 §2) — aucun
@@ -276,14 +278,34 @@ tout concentrer sur la période de clôture — risque déjà identifié doc 09
 
 5. **Vue de ses transactions** : ce qui a été catégorisé, ce qui reste à
    trancher — version simplifiée, langage clair, pas le vocabulaire
-   comptable pro.
+   comptable pro.    **Écran au 2026-09-25** : l'app s'ouvre sur l'arriéré (« À traiter »),
+   qui se termine. « Mouvements » est un relevé d'un mois, jour par jour,
+   ouvert sur les sorties : les entrées sont un second filtre, on leur
+   demande moins de justificatifs. Pas la liste de toutes les écritures.
+   L'exercice porte le résultat, puis « Pour les impôts » : la liasse et
+   les pièces à conserver (2065, FEC, grand livre, balance). Le
+   téléchargement de la liasse demande de cocher que les comptes ne sont
+   pas clôturés et qu'AxeLCompta n'en est pas responsable. Si la clôture
+   est faite, la même fenêtre demande aussi d'avoir lu et validé la liasse
+   (la signature électronique n'est pas encore dans l'application). Rien
+   de tout ça ne s'ouvre au chargement. La télédéclaration n'est pas faite
+   ici. « Greffe » donne ensuite les réponses à reporter sur le portail
+   INPI et les pièces au nom du guichet, selon la forme et la taille.
+   C'est
+   un second écran. Barre du bas : Activité,
+   Exercice, Compte. Colonne étroite, faite pour le téléphone et centrée
+   sur un grand écran.
 6. **Notification + petite question de catégorisation** quand le système
    hésite (« repas ou autre ? », « personnelle ou pro ? ») — dès que la
    transaction arrive, pas en lot différé. Même logique que l'ancienne
    « file de revue » (doc 11 §3.1) — **cet écran est maintenant ici, plus
    côté gestionnaire** (§2.1).
-7. **Photo de justificatif** au fil de l'eau, associée automatiquement à la
-   transaction correspondante quand c'est possible.
+7. **Photo de justificatif** au fil de l'eau. **Écran au 2026-09-25** : pas
+   un bouton sur chaque ligne, même s'il n'y a encore aucune photo. Une
+   carte pour les dépenses du dernier mois : « Photographier un ticket ».
+   La lecture est simulée (l'OCR viendra plus tard, le fichier décide de
+   façon stable) : si enseigne et montant collent, on confirme ; sinon
+   l'écran dit pourquoi (montant ou enseigne) et propose un autre mouvement.
 
 **Système de notification : e-mail fait le 2026-09-22** (regroupé par
 dossier, anti-harcèlement, sans donnée comptable dans le message ; doc 18).

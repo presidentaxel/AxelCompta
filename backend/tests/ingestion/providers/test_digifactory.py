@@ -12,6 +12,7 @@ from axelcompta.ingestion.providers.digifactory import (
     DigifactoryAuthError,
     DigifactoryHttpClient,
     DigifactoryProvider,
+    chauffeur_peut_connecter_sa_banque,
     fenetres_mensuelles,
     parser_lot,
     parser_transactions,
@@ -241,6 +242,25 @@ def _dossier() -> Dossier:
         exercice_debut=date(2026, 1, 15),
         contact_nr="9",
     )
+
+
+def test_contact_digifactory_empeche_de_connecter_sa_banque() -> None:
+    """Un dossier branché (contact_nr) ne propose pas une connexion chauffeur,
+    même si son mode était encore chauffeur_direct."""
+    direct = _dossier()
+    assert chauffeur_peut_connecter_sa_banque(direct) is False
+    sans_contact = Dossier(
+        id=DOSSIER,
+        tenant_id=TenantId("t"),
+        forme_juridique="SASU",
+        regime_imposition="IS",
+        regime_tva="reel_normal",
+        nom="D",
+        tva_recettes_regime="franchise",
+        exercice_debut=date(2026, 1, 15),
+        mode_acces_bancaire="chauffeur_direct",
+    )
+    assert chauffeur_peut_connecter_sa_banque(sans_contact) is True
 
 
 def test_premier_chargement_decoupe_par_mois_puis_le_suivant_utilise_since() -> None:

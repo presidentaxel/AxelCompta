@@ -12,25 +12,44 @@
 // l'enregistrement.
 import { useState } from "react";
 
-import { Card } from "@/components/ui/card";
+import { Dialogue } from "@/components/Dialogue";
+import { Button } from "@/components/ui/button";
 import { cheminTelechargementCloture } from "@/lib/api";
 import { ErreurAuthChauffeur, telechargerAvecAuthChauffeur } from "@/lib/auth-chauffeur";
 import { formatMontant } from "@/lib/format";
 import type { DocumentCloture, DossierResume } from "@/lib/types";
 
-const DOCUMENTS: Array<{ document: DocumentCloture; label: string }> = [
-  { document: "liasse-fiscale.pdf", label: "Liasse fiscale 2065 + 2033 (PDF)" },
-  { document: "cerfa-2065.pdf", label: "CERFA 2065 seul (PDF)" },
-  { document: "liasse.pdf", label: "Synthèse simplifiée (PDF)" },
-  { document: "grand-livre.pdf", label: "Grand livre (PDF)" },
-  { document: "balance.pdf", label: "Balance (PDF)" },
-  { document: "fec.txt", label: "FEC" },
-  { document: "grand-livre.csv", label: "Grand livre (CSV)" },
-  { document: "balance.csv", label: "Balance (CSV)" },
+const LIASSE: DocumentCloture = "liasse-fiscale.pdf";
+
+/** Pièces à emporter pour les impôts. Pas une télédéclaration : rien n'est
+ * envoyé à l'administration depuis cet écran. */
+const PIECES: Array<{ document: DocumentCloture; label: string; detail: string }> = [
+  { document: "cerfa-2065.pdf", label: "Formulaire 2065", detail: "Page de garde de la liasse" },
+  { document: "fec.txt", label: "FEC", detail: "Fichier des écritures comptables" },
+  { document: "grand-livre.pdf", label: "Grand livre", detail: "PDF" },
+  { document: "balance.pdf", label: "Balance", detail: "PDF" },
+  { document: "liasse.pdf", label: "Synthèse", detail: "Lecture courte du résultat" },
+  { document: "grand-livre.csv", label: "Grand livre", detail: "Tableur" },
+  { document: "balance.csv", label: "Balance", detail: "Tableur" },
 ];
 
 export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   const [erreur, setErreur] = useState<string | null>(null);
+  const [avertissementLiasse, setAvertissementLiasse] = useState(false);
+  const [avertissementLu, setAvertissementLu] = useState(false);
+  const [liasseLue, setLiasseLue] = useState(false);
+
+  function ouvrirAvertissement() {
+    setAvertissementLu(false);
+    setLiasseLue(false);
+    setAvertissementLiasse(true);
+  }
+
+  function fermerAvertissement() {
+    setAvertissementLiasse(false);
+  }
+
+  const telechargementPret = avertissementLu && (!dossier.cloture_faite || liasseLue);
 
   async function telecharger(document: DocumentCloture) {
     setErreur(null);
@@ -54,50 +73,88 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   }
 
   return (
-    <Card className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-      <div>
-        <SousTitre>Compte de résultat (après IS)</SousTitre>
-        <dl className="space-y-1.5 text-sm">
-          <Ligne label="CA HT" cents={dossier.ca_ht_cts} />
-          <Ligne label="Charges" cents={dossier.charges_cts} />
-          <Ligne label="Résultat" cents={dossier.resultat_cts} emphasise />
-        </dl>
-        <div className="mt-5">
-          <SousTitre>Bilan (simplifié)</SousTitre>
-          <dl className="space-y-1.5 text-sm">
-            <Ligne label="Trésorerie" cents={dossier.tresorerie_cts} />
-            <Ligne label="TVA à payer" cents={dossier.tva_a_payer_cts} />
-          </dl>
-        </div>
-      </div>
-      <div>
-        <SousTitre>Documents de clôture</SousTitre>
-        <ul className="space-y-2 text-sm">
-          {DOCUMENTS.map(({ document, label }) => (
-            <li key={document}>
-              <button
-                type="button"
-                onClick={() => void telecharger(document)}
-                className="text-primary hover:underline"
-              >
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
-        {erreur && <p className="mt-2 text-xs text-danger">{erreur}</p>}
-        <p className="mt-3 text-xs text-subtle">
-          Formulaires officiels 2026 remplis pour relecture et signature. Le
-          dépôt légal reste dématérialisé (EDI ou EFI), jamais ce PDF.
-        </p>
-      </div>
-    </Card>
-  );
-}
-
-function SousTitre({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-subtle">{children}</h2>
+    <section>
+      <h2 className="text-sm font-medium text-ink">Résultat</h2>
+      <dl className="mt-3 space-y-2 text-sm">
+        <Ligne label="CA HT" cents={dossier.ca_ht_cts} />
+        <Ligne label="Charges" cents={dossier.charges_cts} />
+        <Ligne label="Résultat" cents={dossier.resultat_cts} emphasise />
+        <Ligne label="Trésorerie" cents={dossier.tresorerie_cts} />
+        <Ligne label="TVA à payer" cents={dossier.tva_a_payer_cts} />
+      </dl>
+      <h2 className="mt-8 text-base font-semibold text-ink">Pour les impôts</h2>
+      <p className="mt-1 text-sm text-subtle">
+        Les comptes ne sont pas clôturés. À télécharger et à conserver. La déclaration
+        n&apos;est pas envoyée d&apos;ici.
+      </p>
+      <Button type="button" variant="secondary" className="mt-4 w-full" onClick={ouvrirAvertissement}>
+        Récupérer la liasse
+      </Button>
+      {avertissementLiasse && (
+        <Dialogue titre="Comptes non clôturés" titreId="titre-liasse" onFermer={fermerAvertissement}>
+          <label className="mt-4 flex items-start gap-3 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0"
+              checked={avertissementLu}
+              onChange={(event) => setAvertissementLu(event.target.checked)}
+            />
+            <span>
+              On ne sait pas si vous garderez cette version pour les impôts. AxeLCompta
+              n&apos;est pas responsable de cette liasse.
+            </span>
+          </label>
+          {dossier.cloture_faite && (
+            <>
+              <p className="mt-4 text-sm text-subtle">
+                La signature électronique arrivera plus tard. En attendant, cette
+                validation engage sur la liasse telle qu&apos;elle est.
+              </p>
+              <label className="mt-4 flex items-start gap-3 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0"
+                  checked={liasseLue}
+                  onChange={(event) => setLiasseLue(event.target.checked)}
+                />
+                <span>Je reconnais avoir lu et validé la liasse.</span>
+              </label>
+            </>
+          )}
+          <div className="mt-5 flex gap-2">
+            <Button type="button" variant="ghost" className="h-11 flex-1" onClick={fermerAvertissement}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="h-11 flex-1"
+              disabled={!telechargementPret}
+              onClick={() => {
+                fermerAvertissement();
+                void telecharger(LIASSE);
+              }}
+            >
+              Télécharger
+            </Button>
+          </div>
+        </Dialogue>
+      )}
+      <ul className="mt-2">
+        {PIECES.map(({ document, label, detail }) => (
+          <li key={document} className="border-b border-hairline">
+            <button
+              type="button"
+              onClick={() => void telecharger(document)}
+              className="flex w-full items-baseline justify-between gap-4 py-3 text-left"
+            >
+              <span className="text-sm font-medium text-ink">{label}</span>
+              <span className="shrink-0 text-sm text-subtle">{detail}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {erreur && <p className="mt-2 text-sm text-danger">{erreur}</p>}
+    </section>
   );
 }
 

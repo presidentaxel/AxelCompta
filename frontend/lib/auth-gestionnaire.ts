@@ -171,6 +171,31 @@ export function lirePortefeuilleSession(): DossierAgregat[] | null {
   }
 }
 
+export type ParametresDemo = {
+  digifactory_branche: boolean;
+};
+
+/** Faux Digifactory. Branché, l'app chauffeur n'a pas « Connecter ma banque ». */
+export async function lireParametresDemo(): Promise<ParametresDemo> {
+  const reponse = await requeteGestionnaire("/demo/parametres");
+  if (!reponse.ok) {
+    throw new ApiError(`API démo (/demo/parametres) : HTTP ${reponse.status}`, reponse.status);
+  }
+  return (await reponse.json()) as ParametresDemo;
+}
+
+export async function reglerDigifactoryDemo(branche: boolean): Promise<ParametresDemo> {
+  const reponse = await requeteGestionnaire("/demo/parametres", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ digifactory_branche: branche }),
+  });
+  if (!reponse.ok) {
+    throw new ApiError(`API démo (/demo/parametres) : HTTP ${reponse.status}`, reponse.status);
+  }
+  return (await reponse.json()) as ParametresDemo;
+}
+
 /** doc 19 §2.1 : la liste agrégée, tout ce que voit le gestionnaire. */
 export async function listerDossiers(): Promise<DossierAgregat[]> {
   const reponse = await requeteGestionnaire("/dossiers");

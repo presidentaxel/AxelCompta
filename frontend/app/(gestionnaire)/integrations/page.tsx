@@ -1,3 +1,16 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  ErreurAuthGestionnaire,
+  lireParametresDemo,
+  obtenirSessionGestionnaire,
+  reglerDigifactoryDemo,
+} from "@/lib/auth-gestionnaire";
+
 const PREVUES = [
   {
     nom: "Bridge",
@@ -17,17 +30,81 @@ const PREVUES = [
   },
 ];
 
-/** Présente ce que la V1 branchera. Aucun connecteur n'est activé ici. */
+/** Digifactory est un faux canal : branché par défaut, l'app chauffeur ne
+ * propose pas de connecter sa banque. Le réglage se change ici. */
 export default function IntegrationsPage() {
+  const router = useRouter();
+  const [branche, setBranche] = useState<boolean | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+
+  useEffect(() => {
+    if (obtenirSessionGestionnaire() === null) {
+      router.replace("/connexion");
+      return;
+    }
+    lireParametresDemo()
+      .then((parametres) => setBranche(parametres.digifactory_branche))
+      .catch((exception: unknown) => {
+        if (exception instanceof ErreurAuthGestionnaire) {
+          router.replace("/connexion");
+          return;
+        }
+        setErreur("Impossible de lire les paramètres.");
+      });
+  }, [router]);
+
+  async function basculer() {
+    if (branche === null) return;
+    setEnCours(true);
+    setErreur(null);
+    try {
+      const parametres = await reglerDigifactoryDemo(!branche);
+      setBranche(parametres.digifactory_branche);
+    } catch (exception) {
+      if (exception instanceof ErreurAuthGestionnaire) {
+        router.replace("/connexion");
+        return;
+      }
+      setErreur("Impossible d'enregistrer le réglage.");
+    } finally {
+      setEnCours(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="text-[28px] font-bold tracking-tight text-ink">Intégrations</h1>
       <p className="mt-2 text-sm text-subtle">
-        Ce que l&apos;application pourra brancher. Rien n&apos;est connecté depuis cet écran.
+        Digifactory est un canal de démonstration. Le reste n&apos;est pas connecté.
       </p>
+      {erreur && <p className="mt-4 text-sm text-danger">{erreur}</p>}
       <ul className="mt-8">
+        <li className="flex items-center justify-between gap-6 border-b border-hairline py-4">
+          <span>
+            <span className="block text-sm font-medium text-ink">Digifactory</span>
+            <span className="mt-1 block text-sm text-subtle">
+              {branche === null
+                ? "Lecture du canal…"
+                : branche
+                  ? "Branché. Les entreprises ne voient pas « Connecter ma banque »."
+                  : "Débranché. L'app propose « Connecter ma banque »."}
+            </span>
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={branche === null || enCours}
+            onClick={basculer}
+          >
+            {branche === null ? "…" : branche ? "Débrancher" : "Brancher"}
+          </Button>
+        </li>
         {PREVUES.map((integration) => (
-          <li key={integration.nom} className="flex items-start justify-between gap-6 border-b border-hairline py-4">
+          <li
+            key={integration.nom}
+            className="flex items-start justify-between gap-6 border-b border-hairline py-4"
+          >
             <span>
               <span className="block text-sm font-medium text-ink">{integration.nom}</span>
               <span className="mt-1 block text-sm text-subtle">{integration.detail}</span>
