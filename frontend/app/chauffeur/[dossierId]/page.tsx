@@ -62,7 +62,7 @@ export default function DossierChauffeurPage({
       />
       <div className="mt-8 flex gap-2">
         <Onglet actif={vue === "traiter"} onClick={() => setVue("traiter")}>
-          À traiter{aVerifier.length > 0 ? ` · ${aVerifier.length}` : ""}
+          {aVerifier.length > 0 ? `À traiter · ${aVerifier.length}` : "À traiter"}
         </Onglet>
         <Onglet actif={vue === "mouvements"} onClick={() => setVue("mouvements")}>
           Mouvements

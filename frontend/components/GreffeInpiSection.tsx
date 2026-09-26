@@ -79,28 +79,31 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
           </ul>
           <h3 className="mt-8 text-sm font-medium text-ink">Pièces à joindre</h3>
           <ul>
-            {guide.pieces.map((piece) => (
-              <li key={piece.nom} className="border-b border-hairline py-3">
-                <div className="flex items-baseline justify-between gap-4">
-                  <span className="text-sm font-medium text-ink">{piece.nom}</span>
-                  {piece.document && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void telecharger(
-                          `/dossiers/${dossier.dossier_id}/${piece.document}`,
-                          `${piece.document.replace(".pdf", "")}-${dossier.dossier_id}.pdf`,
-                        )
-                      }
-                      className="shrink-0 text-sm text-primary"
-                    >
-                      Télécharger
-                    </button>
-                  )}
-                </div>
-                {piece.detail && <p className="mt-1 text-sm text-subtle">{piece.detail}</p>}
-              </li>
-            ))}
+            {guide.pieces.map((piece) => {
+              const document = piece.document;
+              return (
+                <li key={piece.nom} className="border-b border-hairline py-3">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span className="text-sm font-medium text-ink">{piece.nom}</span>
+                    {document && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void telecharger(
+                            `/dossiers/${dossier.dossier_id}/${document}`,
+                            `${document.replace(".pdf", "")}-${dossier.dossier_id}.pdf`,
+                          )
+                        }
+                        className="shrink-0 text-sm text-primary"
+                      >
+                        Télécharger
+                      </button>
+                    )}
+                  </div>
+                  {piece.detail && <p className="mt-1 text-sm text-subtle">{piece.detail}</p>}
+                </li>
+              );
+            })}
           </ul>
         </>
       ) : (

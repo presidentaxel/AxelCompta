@@ -926,9 +926,9 @@ def test_cloture_faite_suit_la_preuve_de_cloture() -> None:
 
 
 def test_guide_greffe_d_une_sasu_micro_nomme_la_decision_de_l_associe() -> None:
-    guide = _client().get("/dossiers/DEMO_karim", headers=_en_tete("DEMO_karim")).json()[
-        "guide_greffe"
-    ]
+    guide = (
+        _client().get("/dossiers/DEMO_karim", headers=_en_tete("DEMO_karim")).json()["guide_greffe"]
+    )
     assert guide["depose"] is True
     assert guide["lien"] == "https://procedures.inpi.fr/"
     reponses = {ligne["question"]: ligne["reponse"] for ligne in guide["lignes"]}

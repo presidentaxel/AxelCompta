@@ -869,9 +869,7 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         comptes: ComptesDep,
         signatures: SignaturesInpiDep,
     ) -> DossierResume:
-        return _resume(
-            dossier, ledger, comptes, signatures, _digifactory_branche(request.app)
-        )
+        return _resume(dossier, ledger, comptes, signatures, _digifactory_branche(request.app))
 
 
 def _enregistrer_routes_transactions(app: FastAPI) -> None:
