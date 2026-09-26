@@ -10,6 +10,7 @@ from axelcompta.core.ids import DossierId, TenantId
 
 from .models import Dossier, Tenant
 from .repository import DossierRepository
+from .statuts import configuration_de
 
 
 class InMemoryDossierRepository(DossierRepository):
@@ -23,6 +24,7 @@ class InMemoryDossierRepository(DossierRepository):
     def enregistrer(self, dossier: Dossier) -> None:
         if dossier.tenant_id not in self._tenants:
             raise ValueError(f"tenant inconnu : {dossier.tenant_id}")
+        configuration_de(dossier)
         self._dossiers.setdefault(dossier.id, dossier)
 
     def obtenir(self, dossier_id: DossierId) -> Dossier | None:

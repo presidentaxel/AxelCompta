@@ -87,6 +87,7 @@ from axelcompta.tenants.models import Dossier
 from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
+from axelcompta.tenants.statuts import ColonneMatrice, configuration_de
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
 from axelcompta.workflow.notifications import NotificationRepository
@@ -288,7 +289,7 @@ def _ledger_avec_decisions(
         decision = dernieres_decisions.get(origine(ecriture.id) or ecriture.id)
         if decision is not None:
             ecriture = resoudre_ecriture_a_trancher(
-                ecriture, decision.categorie, dossier.forme_juridique, comptes
+                ecriture, decision.categorie, _colonne(dossier).compte_usage_personnel, comptes
             )
         resultat.enregistrer(ecriture)
     return resultat
@@ -317,7 +318,22 @@ def _parametres(dossier: Dossier) -> ParametresCloture:
         exercice_fin=dossier.fin_exercice(),
         forme_juridique=dossier.forme_juridique,
         identite=dossier.identite,
+        soumis_is=_colonne(dossier).soumis_is,
     )
+
+
+def _colonne(dossier: Dossier) -> ColonneMatrice:
+    """Colonne du dossier dans la matrice statut × régime (doc 06 §7). Un
+    dossier en base est déjà validé à l'écriture (`DossierRepository`)."""
+    return configuration_de(dossier).colonne
+
+
+def _exiger_depot_greffe(dossier: Dossier) -> None:
+    if not _colonne(dossier).depot_comptes_inpi:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{_colonne(dossier).libelle} : pas de dépôt des comptes au greffe.",
+        )
 
 
 def _ecritures_avec_cloture(
@@ -694,7 +710,9 @@ def _trancher(
         )
     comptes = charger_compte_par_categorie()
     try:
-        resoudre_ecriture_a_trancher(ecriture, categorie, dossier.forme_juridique, comptes)
+        resoudre_ecriture_a_trancher(
+            ecriture, categorie, _colonne(dossier).compte_usage_personnel, comptes
+        )
     except CategorieInconnueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -1397,6 +1415,12 @@ def _enregistrer_routes_cloture(app: FastAPI) -> None:
 
     @app.get("/dossiers/{dossier_id}/cerfa-2065.pdf")
     def telecharger_cerfa(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        if not _colonne(dossier).soumis_is:
+            # La 2031 de l'IR n'est pas encore produite (doc 12 §3).
+            raise HTTPException(
+                status_code=409,
+                detail=f"{_colonne(dossier).libelle} : la 2065 ne concerne que l'IS.",
+            )
         pdf = PdfCerfa2065Renderer().rendre(_construire_liasse(dossier, ledger))
         return _fichier(pdf, "application/pdf", f"cerfa-2065-{dossier.id}.pdf")
 
@@ -1454,6 +1478,7 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
     def telecharger_greffe_inpi(
         dossier: DossierDep, ledger: LedgerDossierDep, signatures: SignaturesInpiDep
     ) -> Response:
+        _exiger_depot_greffe(dossier)
         document_signe = signatures.dernier(dossier.id, TYPE_DOCUMENT_GREFFE_INPI)
         pdf = (
             document_signe.contenu_pdf
@@ -1471,6 +1496,7 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         identite: IdentiteDep,
     ) -> SignatureGreffeVue:
         identite = _verifier_acces_dossier(dossier.id, identite)
+        _exiger_depot_greffe(dossier)
         pdf_non_signe = _document_greffe_inpi(dossier, ledger)
         document = SignatureDemoProvider().signer(pdf_non_signe, identite.user_id)
         signatures.enregistrer(dossier.id, TYPE_DOCUMENT_GREFFE_INPI, document)

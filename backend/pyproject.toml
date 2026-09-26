@@ -42,6 +42,10 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["axelcompta*"]
 
+# Matrice statut × régime (doc 06 §7), lue au runtime.
+[tool.setuptools.package-data]
+"axelcompta.tenants" = ["*.toml"]
+
 # --- Typage : mypy strict sur tout le code, sans exception par module (doc 08 §3) ---
 [tool.mypy]
 python_version = "3.12"

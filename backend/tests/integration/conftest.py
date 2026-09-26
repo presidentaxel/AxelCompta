@@ -77,7 +77,7 @@ def creer_dossier(engine: Engine) -> Callable[[str], None]:
                 tenant_id=TenantId("t-test"),
                 forme_juridique="SASU",
                 regime_imposition="IS",
-                regime_tva="reel_normal",
+                regime_tva="franchise",
                 nom="Test",
                 tva_recettes_regime="franchise",
                 exercice_debut=date(2026, 1, 1),

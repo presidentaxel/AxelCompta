@@ -88,7 +88,7 @@ def deux_tenants_trois_dossiers(engine: Engine, migrations_appliquees: None) -> 
                 tenant_id=TenantId(tenant_id),
                 forme_juridique="SASU",
                 regime_imposition="IS",
-                regime_tva="reel_normal",
+                regime_tva="franchise",
                 nom=dossier_id,
                 tva_recettes_regime="franchise",
                 exercice_debut=date(2026, 1, 1),

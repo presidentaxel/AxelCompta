@@ -1,0 +1,113 @@
+# Matrice statut × régime (doc 06 §7) : la configuration fiscale d'un dossier
+# se lit ici, jamais dans des `if forme == "SASU"` éparpillés dans le code.
+# Ajouter un statut, c'est ajouter des données ici (et ses formulaires), pas
+# une migration. Toute modification change `version`.
+
+version = "2026-09-26"
+
+# Une colonne de la matrice = un traitement comptable et fiscal.
+# - disponible : le moteur sait produire ses comptes et sa liasse de bout en bout.
+# - impot : "IS" (la société paie), "IR" (le résultat remonte chez l'exploitant
+#   ou les associés), "micro" (pas de résultat comptable, abattement forfaitaire).
+# - compte_usage_personnel : où va une dépense personnelle détectée ; absent =
+#   signalée sans écriture.
+
+[colonnes.societe_is]
+libelle = "Société à l'IS"
+disponible = true
+entite = "la société"
+comptabilite = "engagement"
+impot = "IS"
+formulaires_resultat = ["2065", "2033"]
+depot_comptes_inpi = true
+compte_usage_personnel = "455"
+
+[colonnes.societe_ir]
+libelle = "Société à l'IR"
+# Liasse 2031 pas encore produite (doc 12 §3).
+disponible = false
+entite = "la société"
+comptabilite = "engagement"
+impot = "IR"
+formulaires_resultat = ["2031", "2033"]
+depot_comptes_inpi = true
+compte_usage_personnel = "455"
+
+[colonnes.ei_reel]
+libelle = "Entreprise individuelle au réel"
+disponible = false
+entite = "l'exploitant"
+comptabilite = "engagement"
+impot = "IR"
+formulaires_resultat = ["2031", "2033"]
+depot_comptes_inpi = false
+compte_usage_personnel = "108"
+
+[colonnes.micro]
+libelle = "Micro-entreprise"
+disponible = false
+entite = "l'exploitant"
+comptabilite = "livre_recettes"
+impot = "micro"
+formulaires_resultat = ["2042-C-PRO"]
+depot_comptes_inpi = false
+
+# Combinaisons (forme juridique, régime d'imposition) admises, et leur colonne.
+# - option_IR : option temporaire (art. 239 bis AB CGI), bornée à 5 exercices,
+#   exige `option_ir_debut`.
+# - IR : IR sans limite de durée (EURL dont l'associé unique est une personne
+#   physique, SARL de famille, entreprise individuelle).
+[[combinaisons]]
+forme = "SASU"
+regime = "IS"
+colonne = "societe_is"
+
+[[combinaisons]]
+forme = "SAS"
+regime = "IS"
+colonne = "societe_is"
+
+[[combinaisons]]
+forme = "EURL"
+regime = "IS"
+colonne = "societe_is"
+
+[[combinaisons]]
+forme = "SARL"
+regime = "IS"
+colonne = "societe_is"
+
+[[combinaisons]]
+forme = "SASU"
+regime = "option_IR"
+colonne = "societe_ir"
+
+[[combinaisons]]
+forme = "SAS"
+regime = "option_IR"
+colonne = "societe_ir"
+
+[[combinaisons]]
+forme = "SARL"
+regime = "option_IR"
+colonne = "societe_ir"
+
+[[combinaisons]]
+forme = "EURL"
+regime = "IR"
+colonne = "societe_ir"
+
+[[combinaisons]]
+forme = "SARL"
+regime = "IR"
+colonne = "societe_ir"
+
+[[combinaisons]]
+forme = "EI"
+regime = "IR"
+colonne = "ei_reel"
+
+[[combinaisons]]
+forme = "EI"
+regime = "micro"
+colonne = "micro"

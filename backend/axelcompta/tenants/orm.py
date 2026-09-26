@@ -38,6 +38,8 @@ dossiers = Table(
     # Identité légale (liasse fiscale, FEC) : un bloc lu et écrit d'un seul
     # tenant, jamais requêté champ par champ — JSON plutôt que 15 colonnes.
     Column("identite", JSON, nullable=True),
+    Column("pack_metier", String, nullable=False, server_default="vtc"),
+    Column("option_ir_debut", Integer, nullable=True),
 )
 
 regles_rappel = Table(

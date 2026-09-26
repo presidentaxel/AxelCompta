@@ -25,7 +25,7 @@ def _depot(*dossiers: tuple[str, str, str | None]) -> InMemoryDossierRepository:
                 tenant_id=TenantId(tenant),
                 forme_juridique="SASU",
                 regime_imposition="IS",
-                regime_tva="reel_normal",
+                regime_tva="franchise",
                 nom=id_,
                 tva_recettes_regime="franchise",
                 exercice_debut=date(2026, 1, 1),

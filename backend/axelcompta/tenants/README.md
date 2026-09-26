@@ -22,6 +22,15 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 ## Fichiers
 
 - `models.py` — domaine pur (`Tenant`, `Dossier`).
+- `matrice_statuts.toml` + `statuts.py` (**fait, 2026-09-26**) : matrice
+  statut × régime (doc 06 §7) en données versionnées. Chaque couple (forme,
+  régime) mène à une colonne (`societe_is`, `societe_ir`, `ei_reel`,
+  `micro`) qui dit l'impôt, les formulaires, le dépôt au greffe et le compte
+  d'usage personnel. `configuration_de(dossier)` valide et type la
+  configuration (erreurs toutes ensemble) ; les repositories l'appellent
+  avant chaque écriture. Seule `societe_is` est opérationnelle de bout en
+  bout ; les autres se créent et se lisent, leurs formulaires restent à
+  faire. Ajouter un statut = ajouter des données, pas une migration.
 - `orm.py` — mapping SQLAlchemy Core (**étendu le 2026-09-21**) : tables
   `tenants` et `dossiers` (nom, régime TVA recettes, début d'exercice,
   plateformes, mode d'accès bancaire, `contact_nr` Digifactory unique). Un

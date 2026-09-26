@@ -20,7 +20,9 @@ class DossierRepository(ABC):
     @abstractmethod
     def enregistrer(self, dossier: Dossier) -> None:
         """Idempotent sur `dossier.id` : un dossier déjà présent est laissé
-        tel quel (pas de mise à jour silencieuse d'une config comptable)."""
+        tel quel (pas de mise à jour silencieuse d'une config comptable).
+        Lève `ConfigurationInvalide` (statuts.py) avant toute écriture si la
+        configuration fiscale n'a pas de sens."""
 
     @abstractmethod
     def obtenir(self, dossier_id: DossierId) -> Dossier | None:

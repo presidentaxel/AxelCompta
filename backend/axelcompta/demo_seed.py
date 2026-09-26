@@ -81,7 +81,8 @@ def _dossier_depuis_profil(profil: ProfilChauffeurType) -> Dossier:
         tenant_id=TENANT_DEMO,
         forme_juridique=profil.forme_juridique,
         regime_imposition="IS",
-        regime_tva="reel_normal",
+        # La franchise vaut pour la déclaration comme pour les recettes.
+        regime_tva=("franchise" if profil.tva_recettes_regime == "franchise" else "reel_normal"),
         nom=profil.nom,
         tva_recettes_regime=profil.tva_recettes_regime,
         exercice_debut=profil.date_debut,

@@ -93,3 +93,22 @@ def test_exports_limites_a_l_exercice_comme_la_liasse() -> None:
     )
     assert all(e.date <= date(2025, 12, 31) for e in ecritures)
     assert ecritures[-1].reference_piece == "CLOTURE-IS-2025"
+
+
+def test_a_l_ir_ni_ecriture_d_is_ni_cases_2065() -> None:
+    """Même Karim, mais imposé à l'IR (colonne `societe_ir` de la matrice) :
+    le résultat remonte chez l'associé, la société ne paie rien."""
+    ledger, _ = construire_ledger(PROFIL_KARIM)
+    service = ClotureSimplifieeService(ledger)
+    parametres = dataclasses.replace(parametres_cloture(PROFIL_KARIM), soumis_is=False)
+
+    cloture = service.ecritures_de_cloture(PROFIL_KARIM.dossier_id, parametres)
+    liasse = service.cloturer(PROFIL_KARIM.dossier_id, "2025", parametres)
+
+    assert [e.reference_piece for e in cloture] == ["CLOTURE-TVA-2025"]
+    # 310 = 14 191 - 12 957 - 68 (amendes), sans IS : 1 166. Le résultat
+    # fiscal (370) reste 1 234, comme à l'IS : l'IS était réintégré.
+    assert _euros(liasse, "2033B.310") == 1_166
+    assert _euros(liasse, "2033B.370") == 1_234
+    assert liasse.cases["2065"] == 1_234_00
+    assert not any(cle.startswith(("2065.", "2065J.")) for cle in liasse.cases)

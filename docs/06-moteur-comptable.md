@@ -252,6 +252,11 @@ jamais les autres.
 | Usage personnel détecté | 455 CCA | 455 CCA | 108 prélèvements | Signalé (pas d'écriture) | Refacturation interne |
 | TVA | Régime TVA configuré par dossier — **réel normal opérationnel V1 et seule trajectoire pour les nouveaux dossiers** (les chauffeurs du pilote sont normalement tous au réel), franchise supportée aussi ; réel simplifié en lecture d'historique seulement (doc 02 §7bis, supprimé au 01/01/2027) | idem | idem | Franchise par défaut, bascule si seuils | Portée par la coop |
 
+Implémentée le 2026-09-26 dans `backend/axelcompta/tenants/matrice_statuts.toml`
+(données versionnées) et `statuts.py` (validation, lecture par le moteur). La
+colonne CAE n'y est pas encore : elle attend de savoir comment une
+coopérative se représente en dossiers.
+
 Principes d'implémentation :
 
 - **V1 opérationnelle** = colonnes SASU/EURL IS et option IR, testées de bout en

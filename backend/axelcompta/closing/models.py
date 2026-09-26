@@ -51,3 +51,6 @@ class ParametresCloture:
     identite: IdentiteEntreprise | None = None
     deficits_anterieurs: int = 0
     effectif_moyen: int = 0
+    # Colonne de la matrice doc 06 §7 : faux quand le résultat est imposé à
+    # l'IR chez l'exploitant ou les associés (ni écriture d'IS, ni 2065).
+    soumis_is: bool = True

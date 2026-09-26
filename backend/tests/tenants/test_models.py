@@ -32,7 +32,7 @@ def test_fin_exercice_par_defaut_douze_mois_apres_le_debut() -> None:
             tenant_id=TenantId("t"),
             forme_juridique="SASU",
             regime_imposition="IS",
-            regime_tva="reel_normal",
+            regime_tva="franchise",
             nom="n",
             tva_recettes_regime="franchise",
             exercice_debut=debut,
