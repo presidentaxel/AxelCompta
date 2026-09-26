@@ -15,6 +15,7 @@ un partout où c'était avant un appel anonyme (ancien comportement
 from __future__ import annotations
 
 import functools
+import io
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
@@ -22,12 +23,14 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
+from pypdf import PdfReader
 
 import axelcompta.demo_auth as demo_auth
 import axelcompta.demo_seed as demo_seed
-from axelcompta.core.ids import DossierId, EcritureId, TenantId
+from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.demo_api import (
     DossierResume,
+    GuideGreffeVue,
     _frises,
     create_app,
     get_comptes,
@@ -50,6 +53,7 @@ from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
 from axelcompta.workflow.propositions import InMemoryPropositionRepository
+from axelcompta.workflow.signature import DocumentSigne
 from axelcompta.workflow.signature_memory import InMemorySignatureRepository
 
 # ES256 (JWT Signing Keys), pas HS256 : ce qu'émet le vrai projet Supabase
@@ -124,7 +128,12 @@ def _jwks_factice(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _client_et_stubs(
     role: str = "admin",
-) -> tuple[TestClient, InMemoryDecisionRepository, InMemoryJustificatifRepository]:
+) -> tuple[
+    TestClient,
+    InMemoryDecisionRepository,
+    InMemoryJustificatifRepository,
+    InMemorySignatureRepository,
+]:
     app = create_app()
     # Même instance à chaque requête (pas juste la classe : une nouvelle
     # instance par requête serait vide à chaque fois) — une décision ou une
@@ -151,7 +160,7 @@ def _client_et_stubs(
     app.dependency_overrides[get_signatures_inpi] = lambda: signatures_stub
     # `droits_membre` est en Postgres : le rôle est fixé ici.
     app.dependency_overrides[get_role_membre] = lambda: role
-    return TestClient(app), decisions_stub, justificatifs_stub
+    return TestClient(app), decisions_stub, justificatifs_stub, signatures_stub
 
 
 def _client() -> TestClient:
@@ -183,7 +192,12 @@ def _resume_actif(greffe_signe: bool) -> DossierResume:
         nb_a_trancher=0,
         statut_invitation="actif",
         mode_acces_bancaire="gestionnaire",
+        peut_connecter_sa_banque=False,
+        cloture_faite=False,
         greffe_inpi_signe=greffe_signe,
+        guide_greffe=GuideGreffeVue(
+            depose=False, lien="https://procedures.inpi.fr/", lignes=[], pieces=[]
+        ),
     )
 
 
@@ -304,6 +318,8 @@ def test_liste_gestionnaire_ne_contient_que_des_agregats() -> None:
         "tresorerie_cts",
         "tva_a_payer_cts",
         "greffe_inpi_signe",
+        "cloture_faite",
+        "guide_greffe",
     }
     for dossier in corps:
         assert interdits.isdisjoint(dossier)
@@ -556,6 +572,30 @@ def test_inviter_dossier_inconnu_est_404_pour_un_gestionnaire() -> None:
     assert reponse.status_code == 404
 
 
+def test_faux_digifactory_masque_connecter_sa_banque_jusqua_au_reglage() -> None:
+    """Démo : Digifactory est branché d'office, le bouton n'est chez personne.
+    Le couper dans les paramètres le fait réapparaître."""
+    client = _client()
+    karim = client.get("/dossiers/DEMO_karim", headers=_en_tete("DEMO_karim")).json()
+    sophie = client.get("/dossiers/DEMO_sophie", headers=_en_tete("DEMO_sophie")).json()
+    assert karim["peut_connecter_sa_banque"] is False
+    assert sophie["peut_connecter_sa_banque"] is False
+    lecture = client.get("/demo/parametres", headers=_en_tete_gestionnaire())
+    assert lecture.status_code == 200
+    assert lecture.json() == {"digifactory_branche": True}
+    assert client.patch("/demo/parametres", json={"digifactory_branche": False}).status_code == 401
+    reglage = client.patch(
+        "/demo/parametres",
+        json={"digifactory_branche": False},
+        headers=_en_tete_gestionnaire(),
+    )
+    assert reglage.status_code == 200
+    karim = client.get("/dossiers/DEMO_karim", headers=_en_tete("DEMO_karim")).json()
+    sophie = client.get("/dossiers/DEMO_sophie", headers=_en_tete("DEMO_sophie")).json()
+    assert karim["peut_connecter_sa_banque"] is True
+    assert sophie["peut_connecter_sa_banque"] is True
+
+
 def test_karim_est_en_mode_chauffeur_direct_les_autres_en_gestionnaire() -> None:
     """doc 19 §4 : les deux modes doivent être représentés dans la démo."""
     corps = {
@@ -589,7 +629,7 @@ def test_chauffeur_authentifie_ne_voit_pas_un_autre_dossier() -> None:
 
 
 def test_chauffeur_authentifie_peut_trancher_sa_propre_ecriture() -> None:
-    client, _decisions, _justificatifs = _client_et_stubs()
+    client, _decisions, _justificatifs, _signatures = _client_et_stubs()
     ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
     jeton = _jeton_chauffeur("DEMO_sophie")
 
@@ -604,7 +644,7 @@ def test_chauffeur_authentifie_peut_trancher_sa_propre_ecriture() -> None:
 
 
 def test_chauffeur_authentifie_ne_peut_pas_trancher_un_autre_dossier() -> None:
-    client, _decisions, _justificatifs = _client_et_stubs()
+    client, _decisions, _justificatifs, _signatures = _client_et_stubs()
     ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
     jeton = _jeton_chauffeur("DEMO_karim")  # un autre dossier que Sophie
 
@@ -621,7 +661,7 @@ def test_decision_chauffeur_est_attribuee_a_sa_vraie_identite() -> None:
     """`decide_par` doit refléter le compte qui a vraiment répondu (doc 05
     §5 : traçabilité) — plus de stub possible depuis le 2026-09-11, un
     jeton est désormais obligatoire (doc 19 §8bis)."""
-    client, decisions, _justificatifs = _client_et_stubs()
+    client, decisions, _justificatifs, _signatures = _client_et_stubs()
     ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
     jeton = _jeton_chauffeur("DEMO_sophie")
 
@@ -688,6 +728,22 @@ def test_autres_transactions_restent_sans_justificatif() -> None:
     autres = [t for t in apres if t["ecriture_id"] != ecriture_id]
     assert autres  # sinon le test ne prouve rien
     assert all(t["a_justificatif"] is False for t in autres)
+
+
+def test_joindre_justificatif_sans_type_mime_accepte_une_image() -> None:
+    """Un fichier choisi sur ordinateur arrive souvent sans type MIME utile."""
+    client = _client()
+    en_tete = _en_tete("DEMO_karim")
+    ecriture_id = client.get("/dossiers/DEMO_karim/transactions", headers=en_tete).json()[0][
+        "ecriture_id"
+    ]
+    reponse = client.post(
+        f"/dossiers/DEMO_karim/transactions/{ecriture_id}/justificatif",
+        files={"fichier": ("ticket.jpg", b"contenu-photo-factice", "application/octet-stream")},
+        headers=en_tete,
+    )
+    assert reponse.status_code == 200
+    assert reponse.json()["a_justificatif"] is True
 
 
 def test_joindre_justificatif_type_invalide_est_refuse() -> None:
@@ -845,6 +901,53 @@ def test_telecharger_la_liasse_fiscale_complete() -> None:
 
 
 # --- Greffe/INPI (doc 20, Louis 2026-09-11) --------------------------------
+
+
+def test_cloture_faite_suit_la_preuve_de_cloture() -> None:
+    """Sans jalon, la validation de liasse n'a pas lieu. La preuve `cloture`
+    suffit : les jalons suivants ne sont pas exigés."""
+    client, _decisions, _justificatifs, signatures = _client_et_stubs()
+    en_tete = _en_tete("DEMO_karim")
+    assert client.get("/dossiers/DEMO_karim", headers=en_tete).json()["cloture_faite"] is False
+
+    signatures.enregistrer(
+        DossierId("DEMO_karim"),
+        "cloture",
+        DocumentSigne(
+            contenu_pdf=b"%PDF",
+            signataire=UserId("demo"),
+            signe_le=datetime.now(UTC),
+            provider="demo",
+            qualifie=False,
+        ),
+    )
+
+    assert client.get("/dossiers/DEMO_karim", headers=en_tete).json()["cloture_faite"] is True
+
+
+def test_guide_greffe_d_une_sasu_micro_nomme_la_decision_de_l_associe() -> None:
+    guide = (
+        _client().get("/dossiers/DEMO_karim", headers=_en_tete("DEMO_karim")).json()["guide_greffe"]
+    )
+    assert guide["depose"] is True
+    assert guide["lien"] == "https://procedures.inpi.fr/"
+    reponses = {ligne["question"]: ligne["reponse"] for ligne in guide["lignes"]}
+    assert reponses["Dispensée de déposer les annexes"] == "Oui"
+    assert reponses["Confidentialité des comptes"] == "Oui"
+    assert [piece["nom"] for piece in guide["pieces"]] == [
+        "Bilan actif / passif",
+        "Compte de résultat",
+        "Décision de l'associé unique",
+    ]
+
+
+def test_bilan_et_compte_de_resultat_sont_une_seule_page() -> None:
+    client = _client()
+    en_tete = _en_tete("DEMO_karim")
+    for chemin in ("bilan.pdf", "compte-resultat.pdf"):
+        reponse = client.get(f"/dossiers/DEMO_karim/{chemin}", headers=en_tete)
+        assert reponse.status_code == 200
+        assert len(PdfReader(io.BytesIO(reponse.content)).pages) == 1
 
 
 def test_dossier_resume_greffe_inpi_signe_est_faux_par_defaut() -> None:

@@ -1,27 +1,11 @@
 "use client";
 
-// doc 20, doc 19 §5.3 : dossier de dépôt greffe/INPI — démo pensée pour la
-// prod (pas un système à refaire) : `signerGreffeInpiChauffeur` appelle le
-// même contrat d'API qu'un vrai prestataire de signature qualifiée
-// brancherait plus tard (ADR-004, doc 20 §7), seule l'implémentation
-// serveur (`SignatureDemoProvider`, tampon rouge « FICTIF ») est un
-// bouchon. Zone de signature réelle qui finit le document — pas juste un
-// badge côté React : le PDF renvoyé par `/greffe-inpi.pdf` change vraiment
-// après le clic.
-//
-// **Déplacé le 2026-09-11** (doc 19 §2.1/§2.4, doc 17 §9 note) : cet écran
-// vivait sur la fiche dossier gestionnaire, il n'a plus rien à y faire —
-// c'est l'indiv, propriétaire de son dossier, qui signe. Appel authentifié
-// (`lib/auth-chauffeur.ts`) pour que `demo_api.py` attribue vraiment
-// `signataire` à l'indiv connecté, pas au stub `UTILISATEUR_DEMO`.
-//
-// **Bouton plutôt que `<a href>` pour le PDF, même jour** (doc 19 §8bis) :
-// cette route exige aussi un jeton désormais — un lien direct échouerait
-// en 401.
+// doc 20, doc 19 §5.3 : le chauffeur dépose lui-même sur le guichet INPI.
+// Cet écran lui donne les réponses de son dossier et les pièces au nom
+// demandé par le portail. La signature qualifiée reste un bouchon (ADR-004).
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ApiError, cheminGreffeInpi } from "@/lib/api";
 import {
   ErreurAuthChauffeur,
@@ -32,9 +16,6 @@ import type { DossierResume } from "@/lib/types";
 
 import { Badge } from "./Badge";
 
-// `signerGreffeInpiChauffeur` lève `ErreurAuthChauffeur` (pas de session)
-// ou `ApiError` (réponse HTTP non-ok) ; `telechargerAvecAuthChauffeur` ne
-// lève que `ErreurAuthChauffeur` dans les deux cas (lib/auth-chauffeur.ts).
 function messageErreur(exception: unknown, repli: string): string {
   return exception instanceof ErreurAuthChauffeur || exception instanceof ApiError
     ? exception.message
@@ -42,9 +23,7 @@ function messageErreur(exception: unknown, repli: string): string {
 }
 
 export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
-  // État local plutôt que remonté au parent (doc 19 §5 : la page chauffeur
-  // gère déjà son propre état pour les transactions de la même façon) —
-  // ce composant n'a besoin de rien d'autre que son propre statut signé.
+  const guide = dossier.guide_greffe;
   const [signe, setSigne] = useState(dossier.greffe_inpi_signe);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -62,49 +41,95 @@ export function GreffeInpiSection({ dossier }: { dossier: DossierResume }) {
     }
   }
 
-  async function telecharger() {
+  async function telecharger(chemin: string, nomFichier: string) {
     setErreur(null);
     try {
-      await telechargerAvecAuthChauffeur(
-        cheminGreffeInpi(dossier.dossier_id),
-        `greffe-inpi-${dossier.dossier_id}.pdf`,
-      );
+      await telechargerAvecAuthChauffeur(chemin, nomFichier);
     } catch (exception) {
       setErreur(messageErreur(exception, "Échec du téléchargement."));
     }
   }
 
   return (
-    <Card className="mb-6">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-subtle">
-          Dépôt greffe/INPI — comptes annuels
-        </h2>
-        {signe ? (
-          <Badge variant="validated">signé</Badge>
-        ) : (
-          <Badge variant="pending">non signé</Badge>
-        )}
+    <section className="mt-10">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="text-base font-semibold text-ink">Greffe</h2>
+        {signe ? <Badge variant="validated">Signé</Badge> : <Badge variant="pending">À signer</Badge>}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => void telecharger()}
-          className="text-sm text-primary hover:underline"
-        >
-          Dossier de dépôt (PDF)
-        </button>
-        {!signe && (
-          <Button type="button" variant="secondary" size="sm" disabled={enCours} onClick={() => void signer()}>
-            Signer (démo)
+      {guide.depose ? (
+        <>
+          <p className="mt-1 text-sm text-subtle">
+            À reporter sur le portail. Rien n&apos;est envoyé d&apos;ici.
+          </p>
+          <Button asChild className="mt-4 w-full">
+            <a href={guide.lien} target="_blank" rel="noopener noreferrer">
+              Ouvrir le portail INPI
+            </a>
           </Button>
-        )}
-      </div>
-      {erreur && <p className="mt-2 text-xs text-danger">{erreur}</p>}
-      <p className="mt-3 text-xs text-subtle">
-        Démo — signature fictive, jamais une vraie signature qualifiée RGS (doc 20 §4). Le vrai
-        dépôt reste bloqué sur le choix d&apos;un prestataire (ADR-004).
-      </p>
-    </Card>
+          <ul className="mt-4">
+            {guide.lignes.map((ligne) => (
+              <li key={ligne.question} className="border-b border-hairline py-3">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-sm text-subtle">{ligne.question}</span>
+                  <span className="shrink-0 text-sm font-medium text-ink">{ligne.reponse}</span>
+                </div>
+                {ligne.detail && <p className="mt-1 text-sm text-subtle">{ligne.detail}</p>}
+              </li>
+            ))}
+          </ul>
+          <h3 className="mt-8 text-sm font-medium text-ink">Pièces à joindre</h3>
+          <ul>
+            {guide.pieces.map((piece) => {
+              const document = piece.document;
+              return (
+                <li key={piece.nom} className="border-b border-hairline py-3">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span className="text-sm font-medium text-ink">{piece.nom}</span>
+                    {document && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void telecharger(
+                            `/dossiers/${dossier.dossier_id}/${document}`,
+                            `${document.replace(".pdf", "")}-${dossier.dossier_id}.pdf`,
+                          )
+                        }
+                        className="shrink-0 text-sm text-primary"
+                      >
+                        Télécharger
+                      </button>
+                    )}
+                  </div>
+                  {piece.detail && <p className="mt-1 text-sm text-subtle">{piece.detail}</p>}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-subtle">Pas de dépôt de comptes au greffe pour cette forme.</p>
+      )}
+      <button
+        type="button"
+        onClick={() =>
+          void telecharger(cheminGreffeInpi(dossier.dossier_id), `greffe-inpi-${dossier.dossier_id}.pdf`)
+        }
+        className="mt-4 py-2 text-left text-sm text-primary"
+      >
+        Télécharger le dossier de synthèse
+      </button>
+      {!signe && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-2 w-full"
+          disabled={enCours}
+          onClick={() => void signer()}
+        >
+          {enCours ? "Signature…" : "Signer"}
+        </Button>
+      )}
+      {erreur && <p className="mt-2 text-sm text-danger">{erreur}</p>}
+    </section>
   );
 }

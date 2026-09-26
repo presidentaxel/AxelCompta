@@ -36,6 +36,15 @@ bloc B) : `.env.local` a aussi besoin de `NEXT_PUBLIC_SUPABASE_URL` et
 anon est faite pour être publique). Sans ça, le dashboard gestionnaire
 fonctionne normalement — seule la partie chauffeur en a besoin.
 
+Les trois comptes de démo partagent le mot de passe `DemoChauffeur2026!`
+(posé le 2026-09-25, comptes synthétiques) :
+
+| E-mail | Dossier |
+|---|---|
+| `demo-karim@axelcompta.fr` | Karim |
+| `demo-sophie@axelcompta.fr` | Sophie |
+| `demo-yanis@axelcompta.fr` | Yanis |
+
 ## Les trois écrans clés (V1, doc 11 §3)
 
 Détail complet dans [doc 11](../docs/11-ux-ui.md) — l'UI s'adapte de 1 à 200
@@ -57,8 +66,8 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
   catégorisées, question de catégorisation (`QuestionCategorisation.tsx`,
   démontrée sur Sophie plutôt que Karim — lui n'a par construction aucune
   écriture à trancher, doc 17 §4.1/§9), photo de justificatif
-  (`JustificatifPhoto.tsx`, upload réel, pas d'OCR), signature mockée
-  (`SignatureMock.tsx`, « vrai faux »), badge de connexion bancaire selon
+  (`JustificatifPhoto.tsx`, upload réel, pas d'OCR), validation de la liasse
+  au téléchargement (case à cocher, sans signature électronique), badge de connexion bancaire selon
   `mode_acces_bancaire`. **Pas fait** : la connexion bancaire directe
   `chauffeur_direct` elle-même (bouton désactivé, stub visuel — toujours
   conditionnée à un canal bancaire réel, Digifactory ou Bridge, doc 16).

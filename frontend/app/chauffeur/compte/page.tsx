@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { FormulaireCompte } from "@/components/FormulaireCompte";
 import {
   changerEmailAvecJeton,
+  deconnecter,
   definirMotDePasse,
   obtenirSession,
 } from "@/lib/auth-chauffeur";
@@ -32,10 +33,22 @@ export default function CompteChauffeurPage() {
   }
 
   return (
-    <FormulaireCompte
-      email={email}
-      onMotDePasse={definirMotDePasse}
-      onEmail={(adresse) => changerEmailAvecJeton(jeton, adresse)}
-    />
+    <div>
+      <FormulaireCompte
+        email={email}
+        onMotDePasse={definirMotDePasse}
+        onEmail={(adresse) => changerEmailAvecJeton(jeton, adresse)}
+      />
+      <button
+        type="button"
+        className="mt-10 text-sm font-medium text-danger"
+        onClick={() => {
+          deconnecter();
+          router.push("/chauffeur/login");
+        }}
+      >
+        Se déconnecter
+      </button>
+    </div>
   );
 }

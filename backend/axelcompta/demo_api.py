@@ -69,10 +69,11 @@ from axelcompta.demo_justificatifs import (
     JustificatifRepository,
 )
 from axelcompta.demo_seed import TENANT_DEMO
+from axelcompta.filings.cerfa_2033 import extraire_page_2033
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
 from axelcompta.filings.fec import exporter_fec, nom_fichier_fec
-from axelcompta.filings.inpi_depot import PdfDepotInpiRenderer
+from axelcompta.filings.inpi_depot import GuideGreffe, PdfDepotInpiRenderer, guide_greffe
 from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
@@ -102,8 +103,10 @@ RACINE_JUSTIFICATIFS_DEMO = (
     Path(__file__).resolve().parent.parent / "_demo_output" / "justificatifs"
 )
 _TYPES_IMAGE_ACCEPTES = ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif")
+_EXTENSIONS_IMAGE = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 
 COMPTE_ATTENTE = "471"  # doc 06 §2 : compte d'attente par défaut, "à trancher"
+TYPE_DOCUMENT_CLOTURE = "cloture"  # jalon d'exercice : la validation chauffeur n'apparaît qu'après
 TYPE_DOCUMENT_GREFFE_INPI = "greffe_inpi"  # doc 20 : dépôt des comptes annuels
 ORIGINE_FRONTEND_DEV = "http://localhost:3000"
 # **Retiré le 2026-09-11 (doc 19 §8bis)** : `UTILISATEUR_DEMO` (stub pour
@@ -111,6 +114,42 @@ ORIGINE_FRONTEND_DEV = "http://localhost:3000"
 # n'a plus de raison d'être — ces routes exigent désormais un vrai jeton
 # indiv (`_verifier_acces_dossier`), la révision structurante du même jour
 # ayant retiré au gestionnaire tout accès à ces actions (doc 19 §2.1/§2.4).
+
+
+class LignePortailVue(BaseModel):
+    question: str
+    reponse: str
+    detail: str
+
+
+class PieceGreffeVue(BaseModel):
+    nom: str
+    detail: str
+    document: str | None
+
+
+class GuideGreffeVue(BaseModel):
+    """Réponses à reporter sur le portail INPI, et pièces au nom du guichet."""
+
+    depose: bool
+    lien: str
+    lignes: list[LignePortailVue]
+    pieces: list[PieceGreffeVue]
+
+
+def _guide_vue(guide: GuideGreffe) -> GuideGreffeVue:
+    return GuideGreffeVue(
+        depose=guide.depose,
+        lien=guide.lien,
+        lignes=[
+            LignePortailVue(question=ligne.question, reponse=ligne.reponse, detail=ligne.detail)
+            for ligne in guide.lignes
+        ],
+        pieces=[
+            PieceGreffeVue(nom=piece.nom, detail=piece.detail, document=piece.document)
+            for piece in guide.pieces
+        ],
+    )
 
 
 class DossierResume(BaseModel):
@@ -129,9 +168,14 @@ class DossierResume(BaseModel):
     nb_a_trancher: int
     statut_invitation: str | None  # None = "non_invité" (doc 19 §3.2) ; sinon "invité" | "actif"
     mode_acces_bancaire: str  # "gestionnaire" | "chauffeur_direct" (doc 19 §4)
+    # Faux dès qu'un contact Digifactory est posé, même en chauffeur_direct.
+    peut_connecter_sa_banque: bool
+    # Preuve `cloture` enregistrée. Tant qu'elle manque, pas de validation de liasse.
+    cloture_faite: bool
     greffe_inpi_signe: (
         bool  # doc 20 : dossier de dépôt des comptes annuels signé (démo, pas qualifié)
     )
+    guide_greffe: GuideGreffeVue
 
 
 class DossierAgregat(BaseModel):
@@ -211,6 +255,12 @@ class InvitationVue(BaseModel):
     statut: str  # "invité" | "actif" — jamais "non_invité" ici, ça n'existe qu'en absence
 
 
+class ParametresDemoVue(BaseModel):
+    """Faux Digifactory de la démo. Branché : pas de « Connecter ma banque »."""
+
+    digifactory_branche: bool
+
+
 class SignatureGreffeVue(BaseModel):
     dossier_id: str
     signe: bool
@@ -279,11 +329,24 @@ def _ecritures_avec_cloture(
     )
 
 
+def _digifactory_branche(app: FastAPI) -> bool:
+    """Faux canal Digifactory de la démo. Branché par défaut : personne ne
+    voit « Connecter ma banque ». Le réglage vit le temps du processus."""
+    return bool(getattr(app.state, "digifactory_branche", True))
+
+
+def _peut_connecter_sa_banque(digifactory_branche: bool) -> bool:
+    """Le faux branchement masque l'option pour toute la démo. Débranché,
+    « Connecter ma banque » réapparaît sur l'app chauffeur."""
+    return not digifactory_branche
+
+
 def _resume(
     dossier: Dossier,
     ledger: InMemoryLedgerService,
     comptes: CompteRepository,
     signatures: SignatureRepository,
+    digifactory_branche: bool = True,
 ) -> DossierResume:
     ecritures = ledger.grand_livre(dossier.id)
     liasse = _construire_liasse(dossier, ledger)
@@ -294,6 +357,7 @@ def _resume(
         if e.id not in exclues and any(ligne.compte == COMPTE_ATTENTE for ligne in e.lignes)
     )
     invitation = comptes.statut(dossier.id)
+    document_cloture = signatures.dernier(dossier.id, TYPE_DOCUMENT_CLOTURE)
     document_greffe = signatures.dernier(dossier.id, TYPE_DOCUMENT_GREFFE_INPI)
     return DossierResume(
         dossier_id=dossier.id,
@@ -311,7 +375,10 @@ def _resume(
         nb_a_trancher=nb_a_trancher,
         statut_invitation=_statut_invitation_vue(invitation.statut) if invitation else None,
         mode_acces_bancaire=dossier.mode_acces_bancaire,
+        peut_connecter_sa_banque=_peut_connecter_sa_banque(digifactory_branche),
+        cloture_faite=document_cloture is not None,
         greffe_inpi_signe=document_greffe is not None,
+        guide_greffe=_guide_vue(guide_greffe(liasse)),
     )
 
 
@@ -634,6 +701,16 @@ def _trancher(
     return next(e for e in ledger_a_jour.grand_livre(dossier.id) if e.id == ecriture_id)
 
 
+def _photo_acceptee(fichier: UploadFile) -> bool:
+    """Le type MIME d'un fichier choisi sur ordinateur est parfois vide ou
+    `application/octet-stream`. L'extension suffit alors. Un texte reste refusé."""
+    if fichier.content_type in _TYPES_IMAGE_ACCEPTES:
+        return True
+    if fichier.content_type not in (None, "", "application/octet-stream"):
+        return False
+    return Path(fichier.filename or "").suffix.lower() in _EXTENSIONS_IMAGE
+
+
 def _joindre_justificatif(
     dossier: Dossier,
     ecriture_id: str,
@@ -653,7 +730,7 @@ def _joindre_justificatif(
     ecriture = next((e for e in ledger.grand_livre(dossier.id) if e.id == ecriture_id), None)
     if ecriture is None:
         raise HTTPException(status_code=404, detail=f"Écriture inconnue : {ecriture_id}")
-    if fichier.content_type not in _TYPES_IMAGE_ACCEPTES:
+    if not _photo_acceptee(fichier):
         raise HTTPException(
             status_code=400, detail="Seules les photos sont acceptées (jpeg/png/webp/heic)."
         )
@@ -733,6 +810,21 @@ def _vider_cache_agregats(app: FastAPI, tenant_id: str) -> None:
         cache.pop(str(tenant_id), None)
 
 
+def _enregistrer_routes_parametres_demo(app: FastAPI) -> None:
+    @app.get("/demo/parametres", response_model=ParametresDemoVue)
+    def lire_parametres_demo(request: Request, identite: IdentiteDep) -> ParametresDemoVue:
+        _verifier_acces_gestionnaire(identite)
+        return ParametresDemoVue(digifactory_branche=_digifactory_branche(request.app))
+
+    @app.patch("/demo/parametres", response_model=ParametresDemoVue)
+    def regler_parametres_demo(
+        request: Request, corps: ParametresDemoVue, identite: IdentiteDep
+    ) -> ParametresDemoVue:
+        _verifier_acces_gestionnaire(identite)
+        request.app.state.digifactory_branche = corps.digifactory_branche
+        return corps
+
+
 def _enregistrer_routes_dossiers(app: FastAPI) -> None:
     @app.get("/dossiers", response_model=list[DossierAgregat])
     def lister_dossiers(
@@ -751,9 +843,16 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         en_cache = _lire_cache_agregats(request.app, str(tenant_id))
         if en_cache is not None:
             return en_cache
+        branche = _digifactory_branche(request.app)
         agregats = [
             _agregat(
-                _resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures),
+                _resume(
+                    d,
+                    _ledger_avec_decisions(d, base, decisions),
+                    comptes,
+                    signatures,
+                    branche,
+                ),
                 d,
                 _preuves_exercice(signatures, d.id),
             )
@@ -764,12 +863,13 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
 
     @app.get("/dossiers/{dossier_id}", response_model=DossierResume)
     def obtenir_dossier(
+        request: Request,
         dossier: DossierDep,
         ledger: LedgerDossierDep,
         comptes: ComptesDep,
         signatures: SignaturesInpiDep,
     ) -> DossierResume:
-        return _resume(dossier, ledger, comptes, signatures)
+        return _resume(dossier, ledger, comptes, signatures, _digifactory_branche(request.app))
 
 
 def _enregistrer_routes_transactions(app: FastAPI) -> None:
@@ -1236,6 +1336,20 @@ def _fichier(contenu: bytes | str, media_type: str, nom_fichier: str) -> Respons
     )
 
 
+def _enregistrer_routes_pieces_greffe(app: FastAPI) -> None:
+    """Bilan et compte de résultat, une page chacun, au nom demandé par l'INPI."""
+
+    @app.get("/dossiers/{dossier_id}/bilan.pdf")
+    def telecharger_bilan(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        pdf = extraire_page_2033(_construire_liasse(dossier, ledger), "2033A")
+        return _fichier(pdf, "application/pdf", f"bilan-actif-passif-{dossier.id}.pdf")
+
+    @app.get("/dossiers/{dossier_id}/compte-resultat.pdf")
+    def telecharger_compte_resultat(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        pdf = extraire_page_2033(_construire_liasse(dossier, ledger), "2033B")
+        return _fichier(pdf, "application/pdf", f"compte-de-resultat-{dossier.id}.pdf")
+
+
 def _enregistrer_routes_cloture(app: FastAPI) -> None:
     """Semaine 4 (doc 17 §9) : les renderers de clôture, exposés en
     téléchargement direct — sur le ledger avec décisions humaines appliquées
@@ -1417,8 +1531,10 @@ def _enregistrer_routes_demo(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="AxeLCompta — démo produit (API)", version="0.0.1")
+    app.state.digifactory_branche = True
     _configurer_cors(app)
     _configurer_contexte_rls(app)
+    _enregistrer_routes_parametres_demo(app)
     _enregistrer_routes_dossiers(app)
     _enregistrer_routes_transactions(app)
     _enregistrer_routes_portefeuille(app)
@@ -1427,6 +1543,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_membres(app)
     _enregistrer_routes_invitation(app)
     _enregistrer_routes_cloture(app)
+    _enregistrer_routes_pieces_greffe(app)
     _enregistrer_routes_greffe_inpi(app)
     _enregistrer_routes_demo(app)
     return app

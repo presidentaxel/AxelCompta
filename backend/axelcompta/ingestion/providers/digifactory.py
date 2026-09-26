@@ -275,6 +275,15 @@ class ContactNonMappeError(RuntimeError):
     Digifactory appeler (doc 16 §9 point 5)."""
 
 
+def chauffeur_peut_connecter_sa_banque(dossier: Dossier) -> bool:
+    """doc 19 §4. Le bouton n'existe que si l'indiv relie lui-même sa banque.
+    Un `contact_nr` posé veut dire que Digifactory est branché par le
+    gestionnaire : on ne propose pas une seconde connexion."""
+    if dossier.contact_nr:
+        return False
+    return dossier.mode_acces_bancaire == "chauffeur_direct"
+
+
 def _filtrer_depuis(lot: LotTransactions, depuis_maj: datetime) -> LotTransactions:
     """Stand-in du filtre `since` de l'API pour le mode fixture : ne garde que
     les transactions mises à jour depuis le curseur."""

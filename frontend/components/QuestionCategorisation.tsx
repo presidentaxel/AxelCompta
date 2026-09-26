@@ -50,10 +50,22 @@ export function QuestionCategorisation({
       <p className="mb-2 text-sm font-medium text-ink">Cette dépense est-elle personnelle ?</p>
       {!afficherAutre ? (
         <div className="flex gap-2">
-          <Button type="button" variant="secondary" size="sm" disabled={enCours} onClick={() => repondre("usage_personnel")}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-11 flex-1"
+            disabled={enCours}
+            onClick={() => repondre("usage_personnel")}
+          >
             Oui
           </Button>
-          <Button type="button" variant="secondary" size="sm" disabled={enCours} onClick={() => setAfficherAutre(true)}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-11 flex-1"
+            disabled={enCours}
+            onClick={() => setAfficherAutre(true)}
+          >
             Non
           </Button>
         </div>

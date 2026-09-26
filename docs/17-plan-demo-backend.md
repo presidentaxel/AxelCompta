@@ -86,7 +86,9 @@ Pièges connus :
 - `DATABASE_URL_WEB` doit être défini, sinon l'API refuse de démarrer
   (elle ne retombe jamais sur la connexion propriétaire).
 - Comptes : trois chauffeurs (`scripts/creer_comptes_demo_chauffeurs.py`)
-  et deux gestionnaires, persistants dans Supabase Auth.
+  et deux gestionnaires, persistants dans Supabase Auth. Mot de passe
+  commun des trois chauffeurs : `DemoChauffeur2026!` (`frontend/README.md`).
+  Les mots de passe gestionnaire restent hors du repo.
 
 ## 6. Remettre la démo à neuf
 
