@@ -25,6 +25,11 @@ pivot de liasse (`LiassePivot`) avant rendu par `filings/`.
   sont toujours recalculées depuis le grand livre privé d'elles-mêmes
   (`hors_inventaire`) : passées en base à la clôture, elles ne comptent
   pas double et la liasse de l'exercice clos ne bouge pas.
+- `affectation.py` + `fiscalite_dividendes.toml` (**2026-09-26**) :
+  affectation du résultat. Réserve légale, distribuable, trésorerie
+  disponible, scénarios de dividendes chiffrés au PFU de l'année de
+  versement, écriture qui solde le résultat. Appelée par
+  `axelcompta/affectations.py`.
 - `ouverture.py` (**2026-09-26**) : écriture d'à-nouveaux (journal AN) à
   l'ouverture de l'exercice suivant, comptes de bilan repris, résultat en
   120 ou 129. Appelée par `axelcompta/exercices.py`.

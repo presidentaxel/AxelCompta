@@ -137,3 +137,29 @@ export type ClotureExerciceVue = {
   changements: string[];
   attestation: string | null;
 };
+
+/** Affectation du résultat : scénarios chiffrés par l'API, choix du
+ * chauffeur seul (Louis, 2026-09-26). Montants en centimes. */
+export type ScenarioAffectation = {
+  cle: string;
+  libelle: string;
+  dividendes_cts: number;
+  impot_revenu_cts: number;
+  prelevements_sociaux_cts: number;
+  part_soumise_cotisations_cts: number;
+  net_percu_cts: number;
+  laisse_en_societe_cts: number;
+  tresorerie_apres_cts: number;
+};
+
+export type AffectationVue = {
+  applicable: boolean;
+  raison: string | null;
+  annee_exercice: number | null;
+  resultat_cts: number;
+  reserve_legale_cts: number;
+  distribuable_cts: number;
+  disponible_cts: number;
+  scenarios: ScenarioAffectation[];
+  avertissements: string[];
+};

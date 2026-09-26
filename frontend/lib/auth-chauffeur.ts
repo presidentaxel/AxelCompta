@@ -16,6 +16,7 @@
 
 import { ApiError } from "./api";
 import type {
+  AffectationVue,
   ClotureExerciceVue,
   NotificationVue,
   SignatureGreffeVue,
@@ -421,4 +422,30 @@ export async function validerClotureChauffeur(
     throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
   }
   return corps as ClotureExerciceVue;
+}
+
+/** La décision d'affectation : un scénario proposé ou « libre » avec son
+ * propre montant de dividendes, en centimes. */
+export async function deciderAffectationChauffeur(
+  dossierId: string,
+  scenario: string,
+  dividendesCts: number,
+): Promise<AffectationVue> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/affectation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.accessToken}`,
+    },
+    body: JSON.stringify({ scenario, dividendes_cts: dividendesCts }),
+  });
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as AffectationVue;
 }

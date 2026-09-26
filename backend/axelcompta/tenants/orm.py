@@ -56,6 +56,20 @@ exercices_clos = Table(
     Column("attestation", Text, nullable=True),
 )
 
+# Décisions d'affectation du résultat, append-only (migration `d6a9c4e17b83`) :
+# ce que le chauffeur a choisi, quand, et sous quelle identité.
+affectations_resultat = Table(
+    "affectations_resultat",
+    metadata,
+    Column("dossier_id", String, ForeignKey("dossiers.id"), primary_key=True),
+    Column("annee_exercice", Integer, primary_key=True),
+    Column("scenario", String, nullable=False),
+    Column("dividendes_cts", Integer, nullable=False),
+    Column("reserve_legale_cts", Integer, nullable=False),
+    Column("decide_le", DateTime, nullable=False),
+    Column("decide_par", String, nullable=False),
+)
+
 # Avenants de régime d'imposition (doc 06 §7), append-only : verrou en base
 # contre UPDATE et DELETE (migration `a4d7e2c9b518`).
 avenants_regime = Table(
