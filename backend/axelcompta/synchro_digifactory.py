@@ -20,6 +20,8 @@ import sys
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 
+from sqlalchemy.engine import Engine
+
 from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, charger_modele
 from axelcompta.categorize.pipeline import CategorizationPipeline
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
@@ -121,24 +123,12 @@ async def _relever_consentements(
     return releves
 
 
-def main() -> int:
-    parseur = argparse.ArgumentParser(description=__doc__)
-    groupe = parseur.add_mutually_exclusive_group(required=True)
-    groupe.add_argument("--tenant")
-    groupe.add_argument("--dossier")
-    args = parseur.parse_args()
-
-    engine = engine_depuis_env()
-    depot = PostgresDossierRepository(engine)
-    if args.dossier:
-        dossier = depot.obtenir(DossierId(args.dossier))
-        if dossier is None:
-            print(f"Dossier inconnu : {args.dossier}", file=sys.stderr)
-            return 1
-        dossiers: tuple[Dossier, ...] = (dossier,)
-    else:
-        dossiers = depot.lister_par_tenant(TenantId(args.tenant))
-
+def synchroniser_portefeuille(
+    engine: Engine, dossiers: tuple[Dossier, ...]
+) -> list[ResultatDossier]:
+    """Synchro + relevé des consentements, pour un lot de dossiers. Point
+    d'entrée partagé par la ligne de commande et les tâches planifiées
+    (`axelcompta.taches`)."""
     try:
         modele = charger_modele()
     except ModeleMlIndisponible:
@@ -167,7 +157,28 @@ def main() -> int:
         finally:
             await client.aclose()
 
-    resultats = asyncio.run(lancer())
+    return asyncio.run(lancer())
+
+
+def main() -> int:
+    parseur = argparse.ArgumentParser(description=__doc__)
+    groupe = parseur.add_mutually_exclusive_group(required=True)
+    groupe.add_argument("--tenant")
+    groupe.add_argument("--dossier")
+    args = parseur.parse_args()
+
+    engine = engine_depuis_env()
+    depot = PostgresDossierRepository(engine)
+    if args.dossier:
+        dossier = depot.obtenir(DossierId(args.dossier))
+        if dossier is None:
+            print(f"Dossier inconnu : {args.dossier}", file=sys.stderr)
+            return 1
+        dossiers: tuple[Dossier, ...] = (dossier,)
+    else:
+        dossiers = depot.lister_par_tenant(TenantId(args.tenant))
+
+    resultats = synchroniser_portefeuille(engine, dossiers)
     for resultat in resultats:
         _afficher(resultat)
     return 1 if any(r.erreur for r in resultats) else 0

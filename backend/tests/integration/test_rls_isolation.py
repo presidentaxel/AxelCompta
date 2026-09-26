@@ -35,6 +35,8 @@ from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.workflow.decisions import DecisionHumaine
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
+from axelcompta.workflow.notifications import NotificationEnvoyee
+from axelcompta.workflow.notifications_postgres import PostgresNotificationRepository
 from axelcompta.workflow.signature import DocumentSigne
 from axelcompta.workflow.signature_postgres import PostgresSignatureRepository
 
@@ -224,6 +226,35 @@ def test_signer_hors_de_son_dossier_est_refuse(
             PostgresSignatureRepository(engine_web).enregistrer(
                 DossierId("karim"), "greffe_inpi", document
             )
+
+
+def test_notifications_lues_seulement_dans_son_dossier_et_rien_dautre_modifiable(
+    engine: Engine, engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """La cloche de Sophie ne voit ni ne marque celles de Karim, et le rôle
+    web ne peut changer que `lue_le` (migration `e8c4f1a93b27`)."""
+    depot_admin = PostgresNotificationRepository(engine)
+    for id_, dossier_id in (("n-sophie", "sophie"), ("n-karim", "karim")):
+        depot_admin.enregistrer(
+            NotificationEnvoyee(
+                id=id_,
+                dossier_id=DossierId(dossier_id),
+                type="a_trancher",
+                envoye_le=datetime(2026, 9, 26, 9, 0),
+                ecriture_ids=(EcritureId(f"{dossier_id}-1"),),
+            )
+        )
+    depot_web = PostgresNotificationRepository(engine_web)
+    with contexte_identite(dossier_id="sophie", tenant_id=None):
+        assert [n.id for n in depot_web.lister(DossierId("karim"), limite=5)] == []
+        assert depot_web.marquer_lues(DossierId("karim"), datetime(2026, 9, 26, 10, 0)) == 0
+        assert depot_web.marquer_lues(DossierId("sophie"), datetime(2026, 9, 26, 10, 0)) == 1
+        with engine_web.begin() as connexion:
+            appliquer_rls(connexion)
+            with pytest.raises((ProgrammingError, DBAPIError)):
+                connexion.execute(text("UPDATE notifications_envoyees SET type = 'autre'"))
+
+    assert depot_admin.lister(DossierId("karim"), limite=5)[0].lue_le is None
 
 
 def test_le_role_administrateur_nest_jamais_soumis_aux_policies(

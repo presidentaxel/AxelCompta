@@ -75,11 +75,11 @@ propositions_categorisation = Table(
     Column("confiance", Float, nullable=False),
 )
 
-# Historique des e-mails envoyés à l'indiv. Sert à ne pas le harceler : on
-# retient quelles écritures étaient déjà signalées, pour ne renvoyer que s'il
-# y en a de nouvelles (ou en rappel après un délai). Ni contenu ni adresse ne
-# sont conservés ici (minimisation, doc 10) : l'adresse vit chez le
-# fournisseur d'authentification.
+# Notifications internes de l'indiv (cloche de l'espace chauffeur). On
+# retient quelles écritures étaient déjà signalées, pour ne notifier à
+# nouveau que s'il y en a de nouvelles (ou en rappel après un délai). Ni
+# montant ni libellé ici (minimisation, doc 10) : le message se recompose
+# depuis le nombre d'écritures. `lue_le` est la seule colonne modifiable.
 notifications_envoyees = Table(
     "notifications_envoyees",
     metadata,
@@ -88,6 +88,7 @@ notifications_envoyees = Table(
     Column("type", String, nullable=False),
     Column("envoye_le", DateTime, nullable=False),
     Column("ecriture_ids", JSON, nullable=False),
+    Column("lue_le", DateTime, nullable=True),
 )
 
 # Preuve de signature, append-only : un INSERT par signature, jamais de

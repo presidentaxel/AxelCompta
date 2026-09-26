@@ -136,3 +136,10 @@ def test_notifications_persistees_avec_les_ecritures_signalees(
     derniere = depot.derniere(DossierId("d-notif"), "a_trancher")
     assert derniere is not None
     assert (derniere.id, derniere.ecriture_ids) == ("n2", (EcritureId("e3"),))
+    assert [n.id for n in depot.lister(DossierId("d-notif"), limite=5)] == ["n2", "n1"]
+
+    assert depot.marquer_lues(DossierId("d-notif"), datetime(2026, 9, 24, 9, 0)) == 2
+    assert depot.marquer_lues(DossierId("d-notif"), datetime(2026, 9, 25, 9, 0)) == 0
+    assert {n.lue_le for n in depot.lister(DossierId("d-notif"), limite=5)} == {
+        datetime(2026, 9, 24, 9, 0)
+    }

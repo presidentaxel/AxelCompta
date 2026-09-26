@@ -43,6 +43,9 @@ class InMemoryDossierRepository(DossierRepository):
     def obtenir_tenant(self, tenant_id: TenantId) -> Tenant | None:
         return self._tenants.get(tenant_id)
 
+    def lister_tenants(self) -> tuple[Tenant, ...]:
+        return tuple(sorted(self._tenants.values(), key=lambda t: t.id))
+
     def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
         tenant = self._tenants.get(tenant_id)
         if tenant is None:

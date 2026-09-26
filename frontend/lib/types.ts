@@ -81,6 +81,14 @@ export type DocumentCloture =
 // doc 20 §4 : réponse de la signature greffe/INPI — déplacé ici le
 // 2026-09-11 (doc 19) car appelé depuis lib/api.ts (type) et
 // lib/auth-chauffeur.ts (l'appel authentifié réel, côté indiv).
+/** Cloche de l'espace chauffeur : posée par les tâches planifiées. */
+export type NotificationVue = {
+  id: string;
+  message: string;
+  cree_le: string;
+  lue: boolean;
+};
+
 export type SignatureGreffeVue = {
   dossier_id: string;
   signe: boolean;
