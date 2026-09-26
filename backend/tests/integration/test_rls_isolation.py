@@ -14,6 +14,7 @@ l'utilise sur la même base que l'`engine` (admin) de la fixture.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -33,6 +34,8 @@ from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.tenants.avenants import AvenantRegime, MotifAvenant
 from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
+from axelcompta.tenants.exercices import ExerciceClos, ExerciceDejaClos
+from axelcompta.tenants.exercices_postgres import PostgresExerciceRepository
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.statuts import RegimeImposition
@@ -284,6 +287,38 @@ def test_avenants_de_regime_lus_par_dossier_et_jamais_modifies(
     assert avenant.exercice_effet == 2027
     with engine.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
         connexion.execute(text("UPDATE avenants_regime SET exercice_effet = 2026"))
+
+
+def test_exercices_clos_append_only_isoles_et_ouverture_du_suivant(
+    engine: Engine, engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """Historique des exercices (migration `b8e3f5a1c762`) : verrou en
+    base, un seul exercice clos par début, isolé par dossier ; puis le
+    dossier s'ouvre sur l'exercice suivant."""
+    exercices = PostgresExerciceRepository(engine)
+    clos = ExerciceClos(
+        dossier_id=DossierId("karim"),
+        debut=date(2026, 1, 1),
+        fin=date(2026, 12, 31),
+        clos_le=datetime(2027, 3, 1, 9, 0),
+        clos_par="test",
+        changements=("régime d'imposition : option_IR → IS",),
+    )
+    exercices.enregistrer(clos)
+    with pytest.raises(ExerciceDejaClos):
+        exercices.enregistrer(clos)
+    assert exercices.lister(DossierId("karim")) == (clos,)
+    with contexte_identite(dossier_id="sophie", tenant_id=None):
+        assert PostgresExerciceRepository(engine_web).lister(DossierId("karim")) == ()
+    with engine.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
+        connexion.execute(text("DELETE FROM exercices_clos"))
+
+    depot = PostgresDossierRepository(engine)
+    karim = depot.obtenir(DossierId("karim"))
+    assert karim is not None
+    depot.ouvrir_exercice(dataclasses.replace(karim, exercice_debut=date(2027, 1, 1)))
+    rouvert = depot.obtenir(DossierId("karim"))
+    assert rouvert is not None and rouvert.exercice_debut == date(2027, 1, 1)
 
 
 def test_le_role_administrateur_nest_jamais_soumis_aux_policies(

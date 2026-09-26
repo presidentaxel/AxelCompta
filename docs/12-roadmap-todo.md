@@ -98,6 +98,18 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   l'exploitant, sans associés ni dépôt au greffe (§3, liasse pivot).
 - Seuils de la franchise en base de TVA surveillés, alerte au chauffeur et
   au gestionnaire (§1.3, paramétrage TVA).
+- Passage à l'exercice suivant (`python -m axelcompta.exercices`, simulation
+  par défaut, migration `b8e3f5a1c762`) : refusé tant que l'exercice n'est
+  pas terminé ou que des opérations attendent une décision ; écritures
+  d'inventaire (TVA, IS) passées en base, à-nouveaux (journal AN, résultat
+  en 120 ou 129 en attente d'affectation), exercice clos dans un historique
+  append-only, dossier ouvert sur l'exercice suivant avec le régime de
+  l'avenant en vigueur (fin d'option IR) et la sortie de franchise de TVA
+  si le seuil de base a été dépassé. Rejouable sans doublon. Rien ne le
+  déclenche seul : la décision de clore reste humaine. Restent à décider
+  avec Louis : qui déclenche (chauffeur après sa signature de validation,
+  gestionnaire, ou automatique après un délai, doc 06 §5bis), et
+  l'affectation du résultat (écriture à part, décision de l'associé).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :

@@ -42,6 +42,18 @@ dossiers = Table(
     Column("option_ir_debut", Integer, nullable=True),
 )
 
+# Exercices clos, append-only (verrou en base, migration `b8e3f5a1c762`).
+exercices_clos = Table(
+    "exercices_clos",
+    metadata,
+    Column("dossier_id", String, ForeignKey("dossiers.id"), primary_key=True),
+    Column("debut", Date, primary_key=True),
+    Column("fin", Date, nullable=False),
+    Column("clos_le", DateTime, nullable=False),
+    Column("clos_par", String, nullable=False),
+    Column("changements", JSON, nullable=False),
+)
+
 # Avenants de régime d'imposition (doc 06 §7), append-only : verrou en base
 # contre UPDATE et DELETE (migration `a4d7e2c9b518`).
 avenants_regime = Table(

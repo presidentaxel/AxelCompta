@@ -22,7 +22,12 @@ from axelcompta.core.pcg import nature_depuis_compte
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.service import LedgerService
 
-from .cloture_fiscale import cloturer_fiscalement, ecritures_de_cloture, ecritures_exercice
+from .cloture_fiscale import (
+    cloturer_fiscalement,
+    ecritures_de_cloture,
+    ecritures_exercice,
+    hors_inventaire,
+)
 from .models import LiassePivot, ParametresCloture
 from .service import ClosingService
 
@@ -70,7 +75,8 @@ class ClotureSimplifieeService(ClosingService):
         """Écritures de l'exercice (mêmes bornes que la liasse) suivies des
         écritures d'inventaire : ce que doivent contenir le FEC, le grand
         livre et la balance pour concorder avec la liasse au centime."""
-        ecritures = ecritures_exercice(self._ledger.grand_livre(dossier_id), parametres)
+        de_l_exercice = ecritures_exercice(self._ledger.grand_livre(dossier_id), parametres)
+        ecritures = hors_inventaire(dossier_id, de_l_exercice, parametres)
         return ecritures + ecritures_de_cloture(dossier_id, ecritures, parametres)
 
     def cloturer(

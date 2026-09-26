@@ -173,6 +173,12 @@ Checklist automatisée, chaque étape produisant des écritures OD traçables :
     pas la signature légale) avant production finale des documents (§6).
 11. Verrou de clôture (I4) + à-nouveaux sur l'exercice suivant — **pas
     immuable pour autant, voir §5bis** (régularisation possible).
+    **À-nouveaux faits le 2026-09-26** (`closing/ouverture.py`,
+    `axelcompta/exercices.py`) : écritures d'inventaire passées en base,
+    comptes de bilan repris au premier jour de l'exercice suivant, résultat
+    en 120 ou 129 jusqu'à son affectation, nouvel exercice ouvert avec le
+    régime en vigueur. Le déclencheur et le délai de battement du §5bis
+    restent à décider.
 
 ### 5bis. Complétude bancaire à la clôture — pas une simple case à cocher
 

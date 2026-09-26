@@ -33,6 +33,14 @@ def _contrepassation(compte: str, solde: int) -> LigneEcriture:
     return _ligne(compte, Sens.CREDIT if solde > 0 else Sens.DEBIT, abs(solde))
 
 
+def id_cloture_tva(dossier_id: DossierId, annee: int) -> EcritureId:
+    return EcritureId(f"{dossier_id}:cloture-tva-{annee}")
+
+
+def id_cloture_is(dossier_id: DossierId, annee: int) -> EcritureId:
+    return EcritureId(f"{dossier_id}:cloture-is-{annee}")
+
+
 def ecriture_liquidation_tva(
     dossier_id: DossierId, balance: dict[str, int], date_cloture: date
 ) -> Ecriture | None:
@@ -50,7 +58,7 @@ def ecriture_liquidation_tva(
     elif net > 0:
         lignes.append(_ligne(COMPTE_CREDIT_TVA, Sens.DEBIT, net))
     return Ecriture(
-        id=EcritureId(f"{dossier_id}:cloture-tva-{date_cloture.year}"),
+        id=id_cloture_tva(dossier_id, date_cloture.year),
         dossier_id=dossier_id,
         journal=Journal.OD,
         date=date_cloture,
@@ -67,7 +75,7 @@ def ecriture_impot_societes(
         return None
     centimes = impot_euros * 100
     return Ecriture(
-        id=EcritureId(f"{dossier_id}:cloture-is-{date_cloture.year}"),
+        id=id_cloture_is(dossier_id, date_cloture.year),
         dossier_id=dossier_id,
         journal=Journal.OD,
         date=date_cloture,

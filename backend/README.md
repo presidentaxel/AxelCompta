@@ -167,6 +167,20 @@ pas renotifié avant 6 h (sauf rappel à 7 jours).
 .venv/bin/python -m axelcompta.notifier --tenant <tenant_id>
 ```
 
+### Passer un dossier à l'exercice suivant
+
+```bash
+.venv/bin/python -m axelcompta.exercices --dossier <dossier_id>             # simulation
+.venv/bin/python -m axelcompta.exercices --dossier <dossier_id> --executer
+```
+
+Refusé tant que l'exercice n'est pas terminé ou qu'une opération attend une
+décision. Passe en base les écritures d'inventaire et les à-nouveaux, clôt
+l'exercice dans l'historique et ouvre le suivant (avenant de régime en
+vigueur, sortie de franchise de TVA le cas échéant). Rejouable sans
+doublon. Refusé sur le portefeuille de démo sans `--y-compris-demo` : le
+menu Démo ne sait pas effacer des à-nouveaux.
+
 ### Tâches planifiées (cron)
 
 `python -m axelcompta.taches` enchaîne, pour chaque portefeuille, la synchro
