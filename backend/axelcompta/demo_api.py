@@ -84,11 +84,24 @@ from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
 from axelcompta.packs.vtc_demo import charger_compte_par_categorie
+from axelcompta.tenants.avenants import (
+    AvenantRegime,
+    AvenantRegimeRepository,
+    MotifAvenant,
+    a_venir,
+    alerte_option_ir,
+)
+from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
 from axelcompta.tenants.models import Dossier
 from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
-from axelcompta.tenants.statuts import ColonneMatrice, configuration_de
+from axelcompta.tenants.statuts import (
+    ColonneMatrice,
+    FormeJuridique,
+    charger_matrice,
+    configuration_de,
+)
 from axelcompta.workflow.decisions import DecisionHumaine, DecisionRepository
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
 from axelcompta.workflow.notifications import NotificationRepository
@@ -156,6 +169,12 @@ def _guide_vue(guide: GuideGreffe) -> GuideGreffeVue:
     )
 
 
+class RegimeAVenirVue(BaseModel):
+    exercice: int
+    regime: str  # libellé de la colonne de la matrice
+    motif: str
+
+
 class DossierResume(BaseModel):
     dossier_id: str
     nom: str
@@ -184,6 +203,10 @@ class DossierResume(BaseModel):
     # déduire lui-même le formulaire ou le dépôt de la forme juridique.
     declaration_resultat: str  # "2065" (IS) ou "2031" (IR)
     depot_greffe: bool
+    # Approche du terme de l'option IR (N-1, N) et avenants de régime qui
+    # prendront effet après l'exercice en cours (doc 06 §7).
+    alerte_regime: str | None = None
+    regimes_a_venir: list[RegimeAVenirVue] = []
 
 
 class DossierAgregat(BaseModel):
@@ -212,6 +235,9 @@ class DossierAgregat(BaseModel):
     etape_courante: str
     annee_precedente: int
     etape_precedente: str
+    # Approche du terme de l'option IR (doc 06 §7) : une information de
+    # régime, pas un détail comptable (doc 19 §2.4).
+    alerte_regime: str | None = None
 
 
 class TransactionVue(BaseModel):
@@ -325,6 +351,30 @@ def _parametres(dossier: Dossier) -> ParametresCloture:
         identite=dossier.identite,
         soumis_is=_colonne(dossier).soumis_is,
     )
+
+
+def _regimes_a_venir(
+    dossier: Dossier, avenants: tuple[AvenantRegime, ...]
+) -> list[RegimeAVenirVue]:
+    vues = []
+    for avenant in a_venir(dossier, avenants):
+        colonne = charger_matrice().colonne(
+            FormeJuridique(dossier.forme_juridique), avenant.regime_imposition
+        )
+        vues.append(
+            RegimeAVenirVue(
+                exercice=avenant.exercice_effet,
+                regime=colonne.libelle if colonne else avenant.regime_imposition.value,
+                motif=_MOTIFS_AVENANT[avenant.motif],
+            )
+        )
+    return vues
+
+
+_MOTIFS_AVENANT = {
+    MotifAvenant.FIN_OPTION_IR: "Fin de l'option pour l'IR (5 exercices)",
+    MotifAvenant.RENONCIATION_OPTION_IR: "Renonciation à l'option pour l'IR",
+}
 
 
 def _colonne(dossier: Dossier) -> ColonneMatrice:
@@ -491,6 +541,7 @@ def _agregat(resume: DossierResume, dossier: Dossier, preuves: set[str]) -> Doss
         etape_courante=etape_courante,
         annee_precedente=annee_precedente,
         etape_precedente=etape_precedente,
+        alerte_regime=alerte_option_ir(dossier),
     )
 
 
@@ -680,6 +731,15 @@ def get_notifications() -> NotificationRepository:
 
 
 NotificationsDep = Annotated[NotificationRepository, Depends(get_notifications)]
+
+
+def get_avenants() -> AvenantRegimeRepository:
+    """Dépendance FastAPI — avenants de régime, en lecture seule côté API
+    (écrits par les tâches planifiées). Surchargée en mémoire dans les tests."""
+    return PostgresAvenantRegimeRepository(_engine())
+
+
+AvenantsDep = Annotated[AvenantRegimeRepository, Depends(get_avenants)]
 
 
 def _trancher(
@@ -905,8 +965,15 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         ledger: LedgerDossierDep,
         comptes: ComptesDep,
         signatures: SignaturesInpiDep,
+        avenants: AvenantsDep,
     ) -> DossierResume:
-        return _resume(dossier, ledger, comptes, signatures, _digifactory_branche(request.app))
+        resume = _resume(dossier, ledger, comptes, signatures, _digifactory_branche(request.app))
+        return resume.model_copy(
+            update={
+                "alerte_regime": alerte_option_ir(dossier),
+                "regimes_a_venir": _regimes_a_venir(dossier, avenants.lister(dossier.id)),
+            }
+        )
 
 
 def _enregistrer_routes_transactions(app: FastAPI) -> None:

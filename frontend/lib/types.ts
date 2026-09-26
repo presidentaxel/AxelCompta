@@ -1,6 +1,12 @@
 // Miroir des modèles Pydantic de axelcompta/demo_api.py — garder les deux
 // synchronisés à la main (pas de génération OpenAPI pour la démo, doc 17 §8).
 
+export type RegimeAVenir = {
+  exercice: number;
+  regime: string;
+  motif: string;
+};
+
 export type DossierResume = {
   dossier_id: string;
   nom: string;
@@ -24,6 +30,9 @@ export type DossierResume = {
   // Lus dans la matrice des statuts côté API : 2065 à l'IS, 2031 à l'IR.
   declaration_resultat: "2065" | "2031";
   depot_greffe: boolean;
+  // Approche du terme de l'option IR et changements de régime à venir.
+  alerte_regime: string | null;
+  regimes_a_venir: RegimeAVenir[];
 };
 
 export type LignePortail = {
@@ -67,6 +76,7 @@ export type DossierAgregat = {
   etape_courante: string;
   annee_precedente: number;
   etape_precedente: string;
+  alerte_regime: string | null;
 };
 
 // doc 17 §9 Semaine 4 + AXE-417/418 : exports de clôture (PDF + CSV),

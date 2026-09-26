@@ -33,6 +33,7 @@ from axelcompta.demo_api import (
     GuideGreffeVue,
     _frises,
     create_app,
+    get_avenants,
     get_comptes,
     get_decisions,
     get_dossiers,
@@ -50,6 +51,7 @@ from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
+from axelcompta.tenants.avenants import InMemoryAvenantRegimeRepository, programmer_bascules
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
@@ -162,6 +164,8 @@ def _client_et_stubs(
     app.dependency_overrides[get_signatures_inpi] = lambda: signatures_stub
     notifications_stub = InMemoryNotificationRepository()
     app.dependency_overrides[get_notifications] = lambda: notifications_stub
+    avenants_stub = InMemoryAvenantRegimeRepository()
+    app.dependency_overrides[get_avenants] = lambda: avenants_stub
     # `droits_membre` est en Postgres : le rôle est fixé ici.
     app.dependency_overrides[get_role_membre] = lambda: role
     return TestClient(app), decisions_stub, justificatifs_stub, signatures_stub
@@ -1261,3 +1265,34 @@ def test_la_2031_est_servie_a_l_ir_et_refusee_a_l_is() -> None:
     assert is_.status_code == 409
     fiche = client.get("/dossiers/DEMO_eurl_ir", headers=_en_tete("DEMO_eurl_ir")).json()
     assert (fiche["declaration_resultat"], fiche["depot_greffe"]) == ("2031", True)
+
+
+def test_dernier_exercice_d_option_ir_alerte_et_montre_la_bascule_a_venir() -> None:
+    client = _client()
+    depot = client.app.dependency_overrides[get_dossiers]()  # type: ignore[attr-defined]
+    dossier = Dossier(
+        id=DossierId("DEMO_option"),
+        tenant_id=TenantId("TENANT_DEMO"),
+        forme_juridique="SASU",
+        regime_imposition="option_IR",
+        regime_tva="reel_normal",
+        nom="Option IR",
+        tva_recettes_regime="assujetti_taux_reduit",
+        exercice_debut=date(2025, 1, 1),
+        option_ir_debut=2021,
+    )
+    depot.enregistrer(dossier)
+    avenants = client.app.dependency_overrides[get_avenants]()  # type: ignore[attr-defined]
+    programmer_bascules((dossier,), avenants, datetime(2025, 6, 1))
+
+    fiche = client.get("/dossiers/DEMO_option", headers=_en_tete("DEMO_option")).json()
+
+    assert "Dernier exercice couvert" in fiche["alerte_regime"]
+    assert fiche["regimes_a_venir"] == [
+        {
+            "exercice": 2026,
+            "regime": "Société à l'IS",
+            "motif": "Fin de l'option pour l'IR (5 exercices)",
+        }
+    ]
+    assert fiche["declaration_resultat"] == "2031"

@@ -34,6 +34,20 @@ export default function ExerciceChauffeurPage({
     <div>
       <h1 className="text-[28px] font-bold tracking-tight text-ink">Exercice</h1>
       {periode && <p className="mt-2 text-sm text-subtle">{periode}</p>}
+      {dossier.alerte_regime && (
+        <p className="mt-4 rounded-md border border-border bg-canvas p-3 text-sm text-ink">
+          {dossier.alerte_regime}
+        </p>
+      )}
+      {dossier.regimes_a_venir.length > 0 && (
+        <ul className="mt-3 space-y-1 text-sm text-subtle">
+          {dossier.regimes_a_venir.map((changement) => (
+            <li key={changement.exercice}>
+              Exercice {changement.exercice} : {changement.regime} ({changement.motif})
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="mt-8">
         <ClotureSection dossier={dossier} />
         {dossier.depot_greffe && <GreffeInpiSection dossier={dossier} />}

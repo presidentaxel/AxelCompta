@@ -31,8 +31,11 @@ from axelcompta.core.money import Money
 from axelcompta.core.rls import appliquer_rls, contexte_identite
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
+from axelcompta.tenants.avenants import AvenantRegime, MotifAvenant
+from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
 from axelcompta.tenants.models import Dossier, Tenant
 from axelcompta.tenants.postgres import PostgresDossierRepository
+from axelcompta.tenants.statuts import RegimeImposition
 from axelcompta.workflow.decisions import DecisionHumaine
 from axelcompta.workflow.decisions_postgres import PostgresDecisionRepository
 from axelcompta.workflow.notifications import NotificationEnvoyee
@@ -255,6 +258,32 @@ def test_notifications_lues_seulement_dans_son_dossier_et_rien_dautre_modifiable
                 connexion.execute(text("UPDATE notifications_envoyees SET type = 'autre'"))
 
     assert depot_admin.lister(DossierId("karim"), limite=5)[0].lue_le is None
+
+
+def test_avenants_de_regime_lus_par_dossier_et_jamais_modifies(
+    engine: Engine, engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """Append-only même pour le propriétaire (trigger), et Sophie ne voit
+    pas les avenants de Karim (migration `a4d7e2c9b518`)."""
+    PostgresAvenantRegimeRepository(engine).enregistrer(
+        AvenantRegime(
+            id="av-karim",
+            dossier_id=DossierId("karim"),
+            exercice_effet=2027,
+            regime_imposition=RegimeImposition.IS,
+            option_ir_debut=None,
+            motif=MotifAvenant.FIN_OPTION_IR,
+            enregistre_le=datetime(2026, 9, 26, 12, 0),
+            enregistre_par="systeme",
+        )
+    )
+    with contexte_identite(dossier_id="sophie", tenant_id=None):
+        assert PostgresAvenantRegimeRepository(engine_web).lister(DossierId("karim")) == ()
+    with contexte_identite(dossier_id="karim", tenant_id=None):
+        (avenant,) = PostgresAvenantRegimeRepository(engine_web).lister(DossierId("karim"))
+    assert avenant.exercice_effet == 2027
+    with engine.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
+        connexion.execute(text("UPDATE avenants_regime SET exercice_effet = 2026"))
 
 
 def test_le_role_administrateur_nest_jamais_soumis_aux_policies(

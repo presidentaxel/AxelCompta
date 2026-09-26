@@ -24,7 +24,7 @@ position ni ses règles de dépendance.
 AxeLCompta/
 ├── backend/axelcompta/
 │   ├── core/          # Money, ids, erreurs, identité légale, accès DB
-│   ├── tenants/       # portefeuilles, dossiers, RLS ; matrice statut × régime (matrice_statuts.toml)
+│   ├── tenants/       # portefeuilles, dossiers, RLS ; matrice statut × régime, avenants de régime
 │   ├── packs/         # pack VTC réduit (V1 : taxonomie complète)
 │   ├── ingestion/
 │   │   └── providers/ # DataProvider ; démo sur fixtures, synchro Digifactory codée

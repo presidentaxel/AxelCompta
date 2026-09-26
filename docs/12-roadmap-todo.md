@@ -92,6 +92,8 @@ traitement, jamais cochée d'office (doc 19 §2.1).
 - Liasse 2031 + 2031-bis sur le formulaire officiel pour les sociétés à
   l'IR ; l'écran Exercice propose la 2065 ou la 2031 et masque le dépôt au
   greffe selon la matrice (PR #24, liasse pivot au §3).
+- Fin de l'option IR : alertes N-1/N et bascule vers l'IS enregistrée par
+  avenant daté, append-only, par le cron (§1.1, option IR bornée).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
@@ -217,7 +219,19 @@ testé (ou développement mené contre fixtures si le token reste bloqué — do
       dépôt au greffe refusés (409) hors de leur colonne. Reste : la liasse
       2031 (IR), la 2050 (réel normal), la franchise dans la clôture, puis
       les alertes et la bascule de fin d'option IR (item suivant).
-- [ ] **Option IR bornée** : date de début d'option, décompte des 5 exercices, alertes N-1/N, bascule IS tracée (doc 06 §7) + changement de régime par avenant daté (mécanique générique).
+- [x] **Option IR bornée** : date de début d'option, décompte des 5 exercices, alertes N-1/N, bascule IS tracée (doc 06 §7) + changement de régime par avenant daté (mécanique générique).
+      **Fait le 2026-09-26** : `tenants/avenants.py`, table append-only
+      `avenants_regime` (verrou en base, policy par dossier, migration
+      `a4d7e2c9b518`). Alertes calculées à l'avant-dernier et au dernier
+      exercice, affichées au chauffeur (écran Exercice) et au gestionnaire
+      (portefeuille). Au dernier exercice, le cron horaire enregistre seul
+      l'avenant « fin d'option IR » vers l'IS à l'exercice suivant,
+      visible avant de s'appliquer ; `regime_pour_exercice` donne le régime
+      de n'importe quel exercice. Restent : la renonciation anticipée côté
+      écran (le motif existe, pas le parcours, à décider avec Louis car
+      c'est un acte irrévocable du dirigeant), et le passage d'un exercice
+      au suivant, qui n'existe pas encore dans le code (un dossier n'a
+      qu'un exercice) et devra lire `regime_pour_exercice`.
 - [ ] **Création de dossiers en masse** : import CSV/XLSX de la configuration (SIREN, forme, régime, dates d'exercice, option IR…) pour onboarder 200 dossiers sans 200 saisies manuelles, avec rapport de validation avant création.
 - [ ] Auth B2B : email + MFA TOTP, rôles V1, journal d'audit append-only. **Tranche journal (2026-09-24)** : décisions et signatures seulement (`journal_audit`). Auth/MFA et le journal consultations/exports restent ouverts.
 - [ ] Observabilité : logs JSON structurés, Sentry, premières métriques.
