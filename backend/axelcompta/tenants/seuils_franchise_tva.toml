@@ -1,0 +1,18 @@
+# Franchise en base de TVA (art. 293 B CGI) : seuils des prestations de
+# services, dont le transport de personnes (VTC). Données versionnées : un
+# nouveau millésime s'ajoute ici, jamais dans le code.
+#
+# Source : BOI-TVA-DECLA-40-10-10-20260701, § 130 (règles de sortie), § 140
+# (montants), § 230 (chiffre d'affaires hors taxe), § 285 (prorata la
+# première année). Les plafonds s'apprécient sur l'année civile.
+# - base : dépassé sans dépasser le majoré, la franchise vaut pour toute
+#   l'année et se perd au 1er janvier suivant ;
+# - majore : dépassé, la franchise cesse dès la date du dépassement.
+
+[annees.2025]
+base_eur = 37500
+majore_eur = 41250
+
+[annees.2026]
+base_eur = 37500
+majore_eur = 41250

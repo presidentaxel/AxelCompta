@@ -96,6 +96,8 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   avenant daté, append-only, par le cron (§1.1, option IR bornée).
 - Entreprise individuelle au réel opérationnelle : 2031 + 2033, bilan de
   l'exploitant, sans associés ni dépôt au greffe (§3, liasse pivot).
+- Seuils de la franchise en base de TVA surveillés, alerte au chauffeur et
+  au gestionnaire (§1.3, paramétrage TVA).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
@@ -260,7 +262,21 @@ testé (ou développement mené contre fixtures si le token reste bloqué — do
 - [ ] **Templates recettes plateformes** : settlement Rollee → 706 + 44571 (10% ou franchise) + 622x + 44566 (TVA commission selon entité Uber/Bolt — doc 13 §5). Config plateformes dans `packs/vtc/platforms.yaml`.
 - [ ] Immobilisations : fiche, plan d'amortissement linéaire, prorata, cession + tests de propriétés (Σ dotations = base).
 - [ ] LOA : loyers, part non déductible, suivi hors-bilan, levée d'option.
-- [ ] Paramétrage TVA par dossier : `tva_recettes_regime` (assujetti_taux_reduit | franchise), régime déclaration (réel normal — cible unique nouveaux dossiers ; réel simplifié en lecture d'historique seulement, supprimé au 01/01/2027, doc 02 §7bis), surveillance des seuils franchise. Table de règles fiscales versionnée par millésime.
+- [x] Paramétrage TVA par dossier : `tva_recettes_regime` (assujetti_taux_reduit | franchise), régime déclaration (réel normal — cible unique nouveaux dossiers ; réel simplifié en lecture d'historique seulement, supprimé au 01/01/2027, doc 02 §7bis), surveillance des seuils franchise. Table de règles fiscales versionnée par millésime.
+      **Fait le 2026-09-26** : les deux régimes et leur cohérence sont
+      validés par la matrice des statuts (`tenants/statuts.py`, le réel
+      simplifié refusé pour un exercice ouvert en 2027). Seuils de la
+      franchise en base versionnés par millésime
+      (`tenants/seuils_franchise_tva.toml`, source
+      BOI-TVA-DECLA-40-10-10-20260701 : 37 500 € et 41 250 € pour les
+      services en 2025 et 2026), surveillés par `tenants/franchise_tva.py`
+      sur le 706 de l'année civile : alerte à 90 % du seuil, perte au
+      1er janvier suivant au-delà du seuil de base, perte immédiate
+      au-delà du majoré. Affichée au chauffeur et au gestionnaire. Restent :
+      la date de début d'activité pour le prorata de la première année
+      (le calcul l'accepte, le dossier ne la porte pas encore), et le
+      passage effectif au réel, qui attend le passage d'un exercice au
+      suivant.
 - [ ] Rapprochement bancaire.
 - [ ] Dossiers de référence synthétiques → golden tests : SASU IS + Rollee settlements, EURL option IR, dossier franchise TVA, dossier traversant fin d'option IR.
 - [ ] **Relecture des templates par un expert-comptable** (prestation, doc 09 §8) — obligatoire avant V1.

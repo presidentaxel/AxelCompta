@@ -25,6 +25,10 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 ## Fichiers
 
 - `models.py` — domaine pur (`Tenant`, `Dossier`).
+- `franchise_tva.py` + `seuils_franchise_tva.toml` (**fait, 2026-09-26**) :
+  seuils de la franchise en base par millésime (BOFIP), état du dossier
+  selon son chiffre d'affaires HT de l'année civile (sous le seuil,
+  approche, seuil de base ou majoré dépassé), prorata la première année.
 - `avenants.py` / `avenants_postgres.py` (**fait, 2026-09-26**) : avenants
   de régime datés, append-only (table `avenants_regime`, verrou en base).
   `regime_pour_exercice`, alertes de fin d'option IR, bascule vers l'IS
