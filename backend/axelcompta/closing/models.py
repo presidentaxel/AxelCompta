@@ -38,6 +38,9 @@ class LiassePivot:
     forme_juridique: str = ""
     # Faux à l'IR : la déclaration de résultat est la 2031, pas la 2065.
     soumis_is: bool = True
+    # Faux pour une entreprise individuelle : ni associés (2031-bis cadre E)
+    # ni composition du capital (2033-F).
+    associes: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,3 +59,5 @@ class ParametresCloture:
     # Colonne de la matrice doc 06 §7 : faux quand le résultat est imposé à
     # l'IR chez l'exploitant ou les associés (ni écriture d'IS, ni 2065).
     soumis_is: bool = True
+    # Colonne de la matrice : la déclaration liste-t-elle des associés ?
+    associes: bool = True

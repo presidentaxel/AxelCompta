@@ -350,6 +350,7 @@ def _parametres(dossier: Dossier) -> ParametresCloture:
         forme_juridique=dossier.forme_juridique,
         identite=dossier.identite,
         soumis_is=_colonne(dossier).soumis_is,
+        associes=_colonne(dossier).associes,
     )
 
 

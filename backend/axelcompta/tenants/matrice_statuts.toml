@@ -3,7 +3,7 @@
 # Ajouter un statut, c'est ajouter des données ici (et ses formulaires), pas
 # une migration. Toute modification change `version`.
 
-version = "2026-09-26.2"
+version = "2026-09-26.3"
 
 # Une colonne de la matrice = un traitement comptable et fiscal.
 # - disponible : le moteur sait produire ses comptes et sa liasse de bout en bout.
@@ -11,6 +11,8 @@ version = "2026-09-26.2"
 #   ou les associés), "micro" (pas de résultat comptable, abattement forfaitaire).
 # - compte_usage_personnel : où va une dépense personnelle détectée ; absent =
 #   signalée sans écriture.
+# - associes : la déclaration liste les associés et le capital (2031-bis
+#   cadre E, 2033-F) ; faux pour l'exploitant d'une entreprise individuelle.
 
 [colonnes.societe_is]
 libelle = "Société à l'IS"
@@ -21,6 +23,7 @@ impot = "IS"
 formulaires_resultat = ["2065", "2033"]
 depot_comptes_inpi = true
 compte_usage_personnel = "455"
+associes = true
 
 [colonnes.societe_ir]
 libelle = "Société à l'IR"
@@ -32,16 +35,20 @@ impot = "IR"
 formulaires_resultat = ["2031", "2033"]
 depot_comptes_inpi = true
 compte_usage_personnel = "455"
+associes = true
 
 [colonnes.ei_reel]
 libelle = "Entreprise individuelle au réel"
-disponible = false
+# 2031 + 2033 depuis le 2026-09-26, bilan de l'exploitant (108 en capital
+# individuel, pas de 2033-F).
+disponible = true
 entite = "l'exploitant"
 comptabilite = "engagement"
 impot = "IR"
 formulaires_resultat = ["2031", "2033"]
 depot_comptes_inpi = false
 compte_usage_personnel = "108"
+associes = false
 
 [colonnes.micro]
 libelle = "Micro-entreprise"
@@ -51,6 +58,7 @@ comptabilite = "livre_recettes"
 impot = "micro"
 formulaires_resultat = ["2042-C-PRO"]
 depot_comptes_inpi = false
+associes = false
 
 # Combinaisons (forme juridique, régime d'imposition) admises, et leur colonne.
 # - option_IR : option temporaire (art. 239 bis AB CGI), bornée à 5 exercices,

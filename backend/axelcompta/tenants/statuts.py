@@ -70,6 +70,7 @@ class ColonneMatrice:
     formulaires_resultat: tuple[str, ...]
     depot_comptes_inpi: bool
     compte_usage_personnel: str | None
+    associes: bool
 
     @property
     def soumis_is(self) -> bool:
@@ -102,6 +103,7 @@ def charger_matrice(chemin: Path = CHEMIN_MATRICE) -> Matrice:
             formulaires_resultat=tuple(c["formulaires_resultat"]),
             depot_comptes_inpi=c["depot_comptes_inpi"],
             compte_usage_personnel=c.get("compte_usage_personnel"),
+            associes=c["associes"],
         )
         for cle, c in brut["colonnes"].items()
     }

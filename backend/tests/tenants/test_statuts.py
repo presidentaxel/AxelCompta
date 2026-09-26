@@ -42,7 +42,7 @@ def test_la_matrice_versionnee_se_charge_et_chaque_combinaison_a_sa_colonne() ->
     assert matrice.version
     assert set(matrice.combinaisons.values()) == set(matrice.colonnes)
     operationnelles = [c.cle for c in matrice.colonnes.values() if c.disponible]
-    assert operationnelles == ["societe_is", "societe_ir"]
+    assert operationnelles == ["societe_is", "societe_ir", "ei_reel"]
 
 
 @pytest.mark.parametrize(
