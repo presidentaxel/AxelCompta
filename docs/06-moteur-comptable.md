@@ -256,7 +256,9 @@ Implémentée le 2026-09-26 dans `backend/axelcompta/tenants/matrice_statuts.tom
 (données versionnées) et `statuts.py` (validation, lecture par le moteur). Les
 colonnes société à l'IS, société à l'IR et entreprise individuelle au réel
 sont opérationnelles (2065 ou 2031, avec la 2033 ; pour l'EI, compte de
-l'exploitant 108 en capital individuel, ni associés ni 2033-F). La fin de l'option IR (alertes N-1/N, bascule vers l'IS par
+l'exploitant 108 en capital individuel, ni associés ni 2033-F). Les seuils
+de la franchise en base sont surveillés (`tenants/franchise_tva.py`, seuils
+par millésime dans `seuils_franchise_tva.toml`). La fin de l'option IR (alertes N-1/N, bascule vers l'IS par
 avenant daté et append-only) est dans `tenants/avenants.py`. La
 colonne CAE n'y est pas encore : elle attend de savoir comment une
 coopérative se représente en dossiers.
