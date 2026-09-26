@@ -253,7 +253,9 @@ jamais les autres.
 | TVA | Régime TVA configuré par dossier — **réel normal opérationnel V1 et seule trajectoire pour les nouveaux dossiers** (les chauffeurs du pilote sont normalement tous au réel), franchise supportée aussi ; réel simplifié en lecture d'historique seulement (doc 02 §7bis, supprimé au 01/01/2027) | idem | idem | Franchise par défaut, bascule si seuils | Portée par la coop |
 
 Implémentée le 2026-09-26 dans `backend/axelcompta/tenants/matrice_statuts.toml`
-(données versionnées) et `statuts.py` (validation, lecture par le moteur). La
+(données versionnées) et `statuts.py` (validation, lecture par le moteur). Les
+colonnes société à l'IS et société à l'IR sont opérationnelles (2065 ou 2031,
+avec la 2033). La
 colonne CAE n'y est pas encore : elle attend de savoir comment une
 coopérative se représente en dossiers.
 

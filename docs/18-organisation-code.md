@@ -33,7 +33,7 @@ AxeLCompta/
 │   ├── anomaly/       # V1 seulement
 │   ├── ledger/        # moteur pur, Postgres, écritures validées immuables
 │   ├── closing/       # clôture fiscale IS : TVA, IS, liasse 2033
-│   ├── filings/       # CERFA 2065 + 2033 officiels, FEC légal, PDF (V1 : EDI/INPI)
+│   ├── filings/       # CERFA 2065, 2031 et 2033 officiels, FEC légal, PDF (V1 : EDI/INPI)
 │   ├── workflow/      # décisions humaines, signatures démo, journal d'audit, notifications
 │   ├── api/           # V1 ; la démo passe par demo_api.py (Supabase Auth, exception ADR-003)
 │   └── ml/            # modèle déjà entraîné, réutilisé tel quel
