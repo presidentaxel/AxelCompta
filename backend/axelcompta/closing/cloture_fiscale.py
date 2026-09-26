@@ -1,5 +1,6 @@
 """Clôture fiscale complète d'un exercice au régime simplifié d'imposition
-(IS) : écritures d'inventaire, puis liasse 2065 + 2033-A à E, toutes les
+(IS, ou IR sans écriture d'IS ni 2065 quand `soumis_is` est faux) :
+écritures d'inventaire, puis liasse 2065 + 2033-A à E, toutes les
 cases dans une seule `LiassePivot` (doc 02 §5 : un pivot, plusieurs
 renderers — PDF CERFA aujourd'hui, EDI-TDFC plus tard).
 
@@ -57,6 +58,8 @@ def ecritures_de_cloture(
     avec_tva = ecritures + ((tva,) if tva else ())
     balance = soldes(avec_tva)
     fiscal = resultat_fiscal(compte_de_resultat(balance), balance, parametres.deficits_anterieurs)
+    if not parametres.soumis_is:
+        return (tva,) if tva else ()
     impot = calculer_is(fiscal["370"], parametres.exercice_debut, fin).impot
     ecriture_is = ecriture_impot_societes(dossier_id, impot, fin)
     return tuple(e for e in (tva, ecriture_is) if e is not None)
@@ -105,9 +108,12 @@ def cloturer_fiscalement(
     actif_passif = bilan(balance, resultat["310"])
     m = mouvements(completes)
     cases = _cases_historiques(balance, balance_avant)
+    # Clé historique du tableau de bord : le résultat fiscal, quel que soit
+    # l'impôt. Les cases du formulaire 2065 n'existent qu'à l'IS.
     cases["2065"] = (fiscal["370"] - fiscal["372"]) * 100
-    cases |= _prefixer("2065", _cases_2065(fiscal, parametres))
-    cases |= _prefixer("2065J", {"SALAIRES": arrondir_euros(balance.get("641", 0))})
+    if parametres.soumis_is:
+        cases |= _prefixer("2065", _cases_2065(fiscal, parametres))
+        cases |= _prefixer("2065J", {"SALAIRES": arrondir_euros(balance.get("641", 0))})
     cases |= _prefixer("2033A", actif_passif)
     cases |= _prefixer("2033A.NET", net_actif(actif_passif))
     cases |= _prefixer("2033B", resultat | fiscal)

@@ -1,7 +1,6 @@
-"""Squelette de structure — aucune validation, aucune persistance.
-
-La matrice complète statut × régime (doc 06 §7) et son modèle Pydantic
-Settings-validé restent à écrire ; ceci ne fixe que la forme des objets.
+"""Tenant et dossier. Les valeurs fiscales restent en texte ici ; leur
+validation et leur lecture dans la matrice doc 06 §7 sont dans `statuts.py`,
+appelé par les repositories avant toute écriture.
 """
 
 from __future__ import annotations
@@ -29,8 +28,8 @@ class Dossier:
 
     id: DossierId
     tenant_id: TenantId
-    forme_juridique: str  # ex. "SASU", "EURL" — à typer en enum (doc 06 §7)
-    regime_imposition: str  # "IS" ou "option_IR" — option IR bornée à 5 exercices
+    forme_juridique: str  # FormeJuridique (statuts.py) : SASU, SAS, EURL, SARL, EI
+    regime_imposition: str  # RegimeImposition : IS, option_IR, IR, micro
     regime_tva: str  # "reel_normal" | "reel_simplifie" | "franchise"
     nom: str
     tva_recettes_regime: str  # "assujetti_taux_reduit" | "franchise" (doc 14 §1.2)
@@ -52,6 +51,11 @@ class Dossier:
     # Retiré du portefeuille : les écritures restent, le dossier n'apparaît plus
     # dans la liste du gestionnaire.
     retire_le: date | None = None
+    # Pack métier (règles, templates, taxonomie) : "vtc" seul aujourd'hui.
+    pack_metier: str = "vtc"
+    # Année du premier exercice couvert par l'option IR temporaire (art. 239
+    # bis AB CGI). Obligatoire au régime option_IR, vide sinon.
+    option_ir_debut: int | None = None
 
     def fin_exercice(self) -> date:
         if self.exercice_fin is not None:

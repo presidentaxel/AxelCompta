@@ -45,7 +45,7 @@ def _dossier(engine: Engine, id_unique: str) -> None:
             tenant_id=TenantId(id_unique),
             forme_juridique="SASU",
             regime_imposition="IS",
-            regime_tva="reel_normal",
+            regime_tva="franchise",
             nom="Test",
             tva_recettes_regime="franchise",
             exercice_debut=date(2026, 1, 1),

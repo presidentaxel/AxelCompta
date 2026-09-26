@@ -189,7 +189,16 @@ testé (ou développement mené contre fixtures si le token reste bloqué — do
 - [ ] CI complète dès le premier jour (doc 08 §4) — la barrière avant le code, pas après.
 - [ ] `core/` : Money (centimes), Result, erreurs, identifiants typés + tests de propriétés.
 - [x] Multi-tenant : modèles tenant (mode portefeuille/mono) + dossier — **fait**. RLS, middleware d'isolation + suite de tests d'isolation — **posés le 2026-09-22** (doc 03 §7, migration `87fc7238e52e`), sur le schéma de démo actuel. Reste pour le vrai V1 : étendre aux tables futures au fur et à mesure qu'elles apparaissent (chaque nouvelle table dossier-scopée doit recevoir sa policy dans la même migration qui la crée, pas après coup).
-- [ ] **Configuration de dossier de premier rang** : statut juridique + régime fiscal + régime TVA + pack métier, matrice doc 06 §7 en données versionnées (toutes les colonnes dans le modèle, IS et option IR opérationnelles). Chaque dossier indépendant, valeurs tenant en simple pré-remplissage.
+- [x] **Configuration de dossier de premier rang** : statut juridique + régime fiscal + régime TVA + pack métier, matrice doc 06 §7 en données versionnées (toutes les colonnes dans le modèle, IS et option IR opérationnelles). Chaque dossier indépendant, valeurs tenant en simple pré-remplissage.
+      **Fait le 2026-09-26** : `tenants/matrice_statuts.toml` + `statuts.py`,
+      formes SASU, SAS, EURL, SARL, EI et régimes IS, option_IR, IR, micro,
+      TVA réel normal, réel simplifié (avant 2027) et franchise, pack métier,
+      année de début d'option IR. Validation à chaque écriture de dossier.
+      Le moteur lit la matrice : compte d'usage personnel (455, 108, ou
+      signalé sans écriture), IS seulement pour la colonne à l'IS, 2065 et
+      dépôt au greffe refusés (409) hors de leur colonne. Reste : la liasse
+      2031 (IR), la 2050 (réel normal), la franchise dans la clôture, puis
+      les alertes et la bascule de fin d'option IR (item suivant).
 - [ ] **Option IR bornée** : date de début d'option, décompte des 5 exercices, alertes N-1/N, bascule IS tracée (doc 06 §7) + changement de régime par avenant daté (mécanique générique).
 - [ ] **Création de dossiers en masse** : import CSV/XLSX de la configuration (SIREN, forme, régime, dates d'exercice, option IR…) pour onboarder 200 dossiers sans 200 saisies manuelles, avec rapport de validation avant création.
 - [ ] Auth B2B : email + MFA TOTP, rôles V1, journal d'audit append-only. **Tranche journal (2026-09-24)** : décisions et signatures seulement (`journal_audit`). Auth/MFA et le journal consultations/exports restent ouverts.

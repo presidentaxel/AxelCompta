@@ -1206,3 +1206,31 @@ def test_notifications_exigent_le_jeton_du_dossier() -> None:
     assert client.get(url).status_code == 401
     assert client.get(url, headers=_en_tete("DEMO_karim")).status_code == 403
     assert client.post(f"{url}/lues", headers=_en_tete("DEMO_karim")).status_code == 403
+
+
+def test_un_dossier_a_l_ir_n_a_ni_2065_ni_depot_au_greffe_mais_garde_sa_2033() -> None:
+    """Matrice doc 06 §7 : une EI au réel est à l'IR et ne dépose pas ses
+    comptes. Les annexes 2033 restent produites (elles accompagnent la 2031)."""
+    client = _client()
+    depot = client.app.dependency_overrides[get_dossiers]()  # type: ignore[attr-defined]
+    depot.enregistrer(
+        Dossier(
+            id=DossierId("DEMO_ei"),
+            tenant_id=TenantId("TENANT_DEMO"),
+            forme_juridique="EI",
+            regime_imposition="IR",
+            regime_tva="reel_normal",
+            nom="EI",
+            tva_recettes_regime="assujetti_taux_reduit",
+            exercice_debut=date(2025, 1, 1),
+        )
+    )
+    en_tete = _en_tete("DEMO_ei")
+    base = "/dossiers/DEMO_ei"
+
+    cerfa = client.get(f"{base}/cerfa-2065.pdf", headers=en_tete)
+    assert cerfa.status_code == 409
+    assert "la 2065 ne concerne que l'IS" in cerfa.json()["detail"]
+    assert client.get(f"{base}/greffe-inpi.pdf", headers=en_tete).status_code == 409
+    assert client.post(f"{base}/greffe-inpi/signature", headers=en_tete).status_code == 409
+    assert client.get(f"{base}/liasse-fiscale.pdf", headers=en_tete).status_code == 200

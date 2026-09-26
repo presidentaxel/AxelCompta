@@ -36,8 +36,8 @@ Données à obtenir du client **avant** de créer quoi que ce soit :
 |---------|-------------|---------|-------|
 | siren | Oui | 821456789 | 9 chiffres |
 | raison_sociale | Oui | DUPONT VTC SASU | |
-| forme_juridique | Oui | SASU | SASU, EURL, EI |
-| regime_imposition | Oui | IS | IS, IR |
+| forme_juridique | Oui | SASU | SASU, SAS, EURL, SARL, EI (matrice `tenants/matrice_statuts.toml`) |
+| regime_imposition | Oui | IS | IS, option_IR (239 bis AB, 5 exercices, exige option_ir_debut), IR (EURL, SARL de famille, EI), micro (EI) |
 | option_ir_debut | Si IR | 2023 | Année du 1er exercice en option IR |
 | regime_tva | Oui | reel_normal | reel_normal, reel_simplifie, franchise |
 | tva_recettes_regime | Oui | assujetti_taux_reduit | assujetti_taux_reduit, franchise |

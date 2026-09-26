@@ -17,6 +17,7 @@ from .identite_json import identite_depuis_json, identite_vers_json
 from .models import Dossier, Tenant
 from .orm import dossiers, tenants
 from .repository import DossierRepository
+from .statuts import configuration_de
 
 
 class PostgresDossierRepository(DossierRepository):
@@ -31,6 +32,7 @@ class PostgresDossierRepository(DossierRepository):
             )
 
     def enregistrer(self, dossier: Dossier) -> None:
+        configuration_de(dossier)
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
             connexion.execute(
@@ -50,6 +52,8 @@ class PostgresDossierRepository(DossierRepository):
                     exercice_fin=dossier.exercice_fin,
                     identite=identite_vers_json(dossier.identite),
                     retire_le=dossier.retire_le,
+                    pack_metier=dossier.pack_metier,
+                    option_ir_debut=dossier.option_ir_debut,
                 )
                 .on_conflict_do_nothing(index_elements=[dossiers.c.id])
             )
@@ -125,4 +129,6 @@ def _vers_dossier(ligne: Any) -> Dossier:
         exercice_fin=ligne.exercice_fin,
         identite=identite_depuis_json(ligne.identite),
         retire_le=ligne.retire_le,
+        pack_metier=ligne.pack_metier,
+        option_ir_debut=ligne.option_ir_debut,
     )
