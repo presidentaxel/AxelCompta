@@ -8,13 +8,19 @@ from __future__ import annotations
 
 from axelcompta.core.ids import DossierId
 
-from .demo_comptes import CompteDejaInviteError, CompteRepository, Invitation, StatutInvitation
+from .demo_comptes import (
+    CompteDejaInviteError,
+    CompteRepository,
+    Invitation,
+    MembreCompte,
+    StatutInvitation,
+)
 
 
 class InMemoryCompteRepository(CompteRepository):
     def __init__(self) -> None:
         self._invitations: dict[DossierId, Invitation] = {}
-        self._membres: dict[str, set[str]] = {}
+        self._membres: dict[str, dict[str, bool]] = {}
 
     def inviter(
         self, dossier_id: DossierId, email: str, *, verifier_existant: bool = True
@@ -28,10 +34,14 @@ class InMemoryCompteRepository(CompteRepository):
     def statut(self, dossier_id: DossierId) -> Invitation | None:
         return self._invitations.get(dossier_id)
 
-    def membres(self, tenant_id: str) -> list[str]:
-        return sorted(self._membres.get(tenant_id, ()))
+    def membres(self, tenant_id: str) -> list[MembreCompte]:
+        return [
+            MembreCompte(email=email, accepte=accepte)
+            for email, accepte in sorted(self._membres.get(tenant_id, {}).items())
+        ]
 
     def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
-        if any(email.strip() in emails for emails in self._membres.values()):
+        propre = email.strip()
+        if any(propre in emails for emails in self._membres.values()):
             raise CompteDejaInviteError(f"un compte existe déjà : {email}")
-        self._membres.setdefault(tenant_id, set()).add(email.strip())
+        self._membres.setdefault(tenant_id, {})[propre] = False

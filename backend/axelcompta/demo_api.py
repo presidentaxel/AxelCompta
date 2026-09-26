@@ -936,6 +936,7 @@ _CANAUX = frozenset({"sms", "mail", "appel"})
 class MembrePortefeuille(BaseModel):
     email: str
     role: str
+    statut: str  # "invité" tant que le lien n'est pas ouvert, "actif" ensuite
 
 
 class InvitationMembreEntree(BaseModel):
@@ -994,6 +995,15 @@ def _role_membre(tenant_id: TenantId, email: str) -> str:
             )
         ).first()
     return ligne.role if ligne else "admin"
+
+
+def _statut_membre(comptes: CompteRepository, tenant_id: str, email: str) -> str:
+    """« actif » une fois le lien ouvert, « invité » tant qu'il ne l'est pas.
+    Un e-mail absent du fournisseur de comptes n'a pas accepté."""
+    for membre in comptes.membres(tenant_id):
+        if membre.email.lower() == email.lower():
+            return "actif" if membre.accepte else "invité"
+    return "invité"
 
 
 def _exiger_admin(identite: IdentiteAuthentifiee, tenant_id: TenantId) -> None:
@@ -1204,8 +1214,12 @@ def _enregistrer_routes_membres(app: FastAPI) -> None:
     def lister_membres(comptes: ComptesDep, identite: IdentiteDep) -> list[MembrePortefeuille]:
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
         return [
-            MembrePortefeuille(email=email, role=_role_membre(tenant_id, email))
-            for email in comptes.membres(str(tenant_id))
+            MembrePortefeuille(
+                email=membre.email,
+                role=_role_membre(tenant_id, membre.email),
+                statut="actif" if membre.accepte else "invité",
+            )
+            for membre in comptes.membres(str(tenant_id))
         ]
 
     @app.post("/portefeuille/membres", response_model=MembrePortefeuille)
@@ -1225,17 +1239,21 @@ def _enregistrer_routes_membres(app: FastAPI) -> None:
             comptes.inviter_membre(str(tenant_id), email, entree.role)
         except CompteDejaInviteError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        return MembrePortefeuille(email=email, role=entree.role)
+        return MembrePortefeuille(email=email, role=entree.role, statut="invité")
 
     @app.patch("/portefeuille/membres", response_model=MembrePortefeuille)
-    def changer_role(entree: InvitationMembreEntree, identite: IdentiteDep) -> MembrePortefeuille:
+    def changer_role(
+        entree: InvitationMembreEntree, comptes: ComptesDep, identite: IdentiteDep
+    ) -> MembrePortefeuille:
         tenant_id, identite = _verifier_acces_gestionnaire(identite)
         _exiger_admin(identite, tenant_id)
         if entree.role not in _ROLES:
             raise HTTPException(status_code=400, detail="Rôle inconnu.")
         email = entree.email.strip().lower()
         _ecrire_role(tenant_id, email, entree.role)
-        return MembrePortefeuille(email=email, role=entree.role)
+        return MembrePortefeuille(
+            email=email, role=entree.role, statut=_statut_membre(comptes, str(tenant_id), email)
+        )
 
 
 def _enregistrer_routes_invitation(app: FastAPI) -> None:

@@ -36,6 +36,15 @@ def test_statut_est_isole_par_dossier() -> None:
     assert repo.statut(autre) is None
 
 
+def test_un_membre_invite_n_a_pas_encore_accepte() -> None:
+    repo = InMemoryCompteRepository()
+    repo.inviter_membre("T1", "marie@example.com")
+
+    membres = repo.membres("T1")
+
+    assert [(membre.email, membre.accepte) for membre in membres] == [("marie@example.com", False)]
+
+
 def test_inviter_un_membre_deja_connu_est_refuse() -> None:
     repo = InMemoryCompteRepository()
     repo.inviter_membre("T1", "marie@example.com")
