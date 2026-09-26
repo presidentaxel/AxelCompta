@@ -122,11 +122,16 @@ traitement, jamais cochée d'office (doc 19 §2.1).
 - Report à nouveau : un résultat d'exercice antérieur repris en
   à-nouveaux et pas encore affecté figure en 2033-A ligne 134, la ligne
   136 ne portant que le résultat de l'exercice.
-- À venir, décidés le même jour : la **rémunération du dirigeant**
-  catégorisée par le chauffeur (compte selon la forme), et un **écran
-  d'affectation du résultat** (réserves, dividendes) où l'on propose des
-  scénarios chiffrés, du plus au moins de dividendes, et où le chauffeur
-  choisit seul.
+- **Rémunération du dirigeant** catégorisée par le chauffeur lui-même
+  (« Ma rémunération » dans la question de catégorisation) : 641 pour le
+  président de SASU/SAS, 644 pour le gérant d'EURL (non salarié), 108 pour
+  l'exploitant d'EI (prélèvement), lus dans la matrice des statuts. Pour
+  une SARL, le compte dépend de la situation du gérant (majoritaire ou
+  non) : demandé plutôt que deviné. Les charges sociales et le bulletin de
+  paie du président de SASU ne sont pas produits.
+- À venir, décidé le même jour : un **écran d'affectation du résultat**
+  (réserves, dividendes) où l'on propose des scénarios chiffrés, du plus
+  au moins de dividendes, et où le chauffeur choisit seul.
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :

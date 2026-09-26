@@ -47,6 +47,9 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
   avant chaque écriture. Seule `societe_is` est opérationnelle de bout en
   bout ; les autres se créent et se lisent, leurs formulaires restent à
   faire. Ajouter un statut = ajouter des données, pas une migration.
+  La matrice porte aussi le compte de la rémunération du dirigeant par
+  forme (641, 644, 108 ; SARL à préciser), lu par
+  `ConfigurationDossier.comptes_categories_statut`.
 - `orm.py` — mapping SQLAlchemy Core (**étendu le 2026-09-21**) : tables
   `tenants` et `dossiers` (nom, régime TVA recettes, début d'exercice,
   plateformes, mode d'accès bancaire, `contact_nr` Digifactory unique). Un
