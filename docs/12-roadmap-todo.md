@@ -63,15 +63,17 @@ Supabase ouverts dans l'application, premier chargement Digifactory découpé.
 La frise de l'année d'avant montre l'exercice terminé en cours de
 traitement, jamais cochée d'office (doc 19 §2.1).
 
-**En cours le 2026-09-25 :**
+**Fait le 2026-09-25/26 (PR #17 et #18) :**
 - Frise par jalons : chaque étape après le compte (clôture, signature de
   validation, greffe, impôts, signature légale) est une preuve dans
   `documents_signes`, et la frise s'arrête au premier jalon absent
   (`demo_jalons.py`, `demo_seed.poser_jalons_demo`).
-- Refonte UX du parcours chauffeur (retour du 22/09).
-- Menu Démo du gestionnaire pour remettre la démo à neuf : la méthode
-  d'effacement des décisions et signatures verrouillées reste à décider
-  (doc 17 §6).
+- Refonte UX du parcours chauffeur (retour du 22/09) : app utilisable au
+  téléphone, jusqu'à la liasse et au greffe.
+- Menu Démo du gestionnaire : remise à neuf à la carte. Les données
+  verrouillées s'effacent par la connexion propriétaire, verrous suspendus
+  le temps d'une seule transaction, portefeuille de démo et admin seulement
+  (`demo_admin.py`, doc 17 §6).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
