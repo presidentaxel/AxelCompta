@@ -11,8 +11,8 @@ import type { TransactionVue } from "@/lib/types";
 /** doc 19 §5.6 : « petites questions de catégorisation ... présentée
  * simplement » — même mécanisme de revue que doc 17 §9 bloc C (désormais
  * exclusivement indiv, doc 19 §2.1) mais sans le vocabulaire comptable
- * ("471", "reclasser") : une question fermée d'abord, un champ libre
- * seulement si la réponse est non. */
+ * ("471", "reclasser") : trois réponses fermées d'abord (personnelle, sa
+ * rémunération, autre chose), un champ libre seulement pour « autre chose ». */
 export function QuestionCategorisation({
   dossierId,
   ecritureId,
@@ -47,7 +47,7 @@ export function QuestionCategorisation({
 
   return (
     <div className="rounded-md border border-warning/40 bg-pending-subtle p-3">
-      <p className="mb-2 text-sm font-medium text-ink">Cette dépense est-elle personnelle ?</p>
+      <p className="mb-2 text-sm font-medium text-ink">À quoi correspond cette dépense ?</p>
       {!afficherAutre ? (
         <div className="flex gap-2">
           <Button
@@ -57,7 +57,18 @@ export function QuestionCategorisation({
             disabled={enCours}
             onClick={() => repondre("usage_personnel")}
           >
-            Oui
+            Personnelle
+          </Button>
+          {/* Louis, 2026-09-26 : le chauffeur se paie et catégorise sa paie
+              lui-même ; le compte (641, 644, 108) dépend de sa forme. */}
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-11 flex-1"
+            disabled={enCours}
+            onClick={() => repondre("remuneration_dirigeant")}
+          >
+            Ma rémunération
           </Button>
           <Button
             type="button"
@@ -66,7 +77,7 @@ export function QuestionCategorisation({
             disabled={enCours}
             onClick={() => setAfficherAutre(true)}
           >
-            Non
+            Autre chose
           </Button>
         </div>
       ) : (

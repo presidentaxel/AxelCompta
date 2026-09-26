@@ -331,7 +331,7 @@ def _ledger_avec_decisions(
     for ecriture in appliquer_decisions(
         base.grand_livre(dossier.id),
         decisions.lister_decisions(dossier.id),
-        _colonne(dossier).compte_usage_personnel,
+        configuration_de(dossier).comptes_categories_statut(),
         charger_compte_par_categorie(),
     ):
         resultat.enregistrer(ecriture)
@@ -815,7 +815,7 @@ def _trancher(
     comptes = charger_compte_par_categorie()
     try:
         resoudre_ecriture_a_trancher(
-            ecriture, categorie, _colonne(dossier).compte_usage_personnel, comptes
+            ecriture, categorie, configuration_de(dossier).comptes_categories_statut(), comptes
         )
     except CategorieInconnueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

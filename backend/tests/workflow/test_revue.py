@@ -4,22 +4,31 @@ from datetime import date
 
 import pytest
 
-from axelcompta.core.ids import DossierId, EcritureId
+from axelcompta.core.ids import DossierId, EcritureId, TenantId
 from axelcompta.core.money import Money
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
-from axelcompta.tenants.statuts import FormeJuridique, RegimeImposition, charger_matrice
+from axelcompta.tenants.models import Dossier
+from axelcompta.tenants.statuts import configuration_de
 from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
 
 COMPTES = {"carburant": "6061"}
 
 
-def _compte_usage_personnel(forme: str, regime: str) -> str | None:
-    colonne = charger_matrice().colonne(FormeJuridique(forme), RegimeImposition(regime))
-    assert colonne is not None
-    return colonne.compte_usage_personnel
+def _comptes_statut(forme: str, regime: str) -> dict[str, str | None]:
+    dossier = Dossier(
+        id=DossierId("d1"),
+        tenant_id=TenantId("t"),
+        forme_juridique=forme,
+        regime_imposition=regime,
+        regime_tva="reel_normal",
+        nom="d1",
+        tva_recettes_regime="assujetti_taux_reduit",
+        exercice_debut=date(2026, 1, 1),
+    )
+    return configuration_de(dossier).comptes_categories_statut()
 
 
-SOCIETE = _compte_usage_personnel("EURL", "IS")
+SOCIETE = _comptes_statut("EURL", "IS")
 
 
 def _ecriture_a_trancher(montant_cts: int = 68_00) -> Ecriture:
@@ -43,7 +52,7 @@ def _ecriture_a_trancher(montant_cts: int = 68_00) -> Ecriture:
 )
 def test_usage_personnel_suit_la_matrice(forme: str, regime: str, compte: str) -> None:
     resolue = resoudre_ecriture_a_trancher(
-        _ecriture_a_trancher(), "usage_personnel", _compte_usage_personnel(forme, regime), COMPTES
+        _ecriture_a_trancher(), "usage_personnel", _comptes_statut(forme, regime), COMPTES
     )
     assert {ligne.compte for ligne in resolue.lignes} == {"512", compte}
 
@@ -71,7 +80,25 @@ def test_categorie_inconnue_du_pack_leve_plutot_que_deviner() -> None:
 
 
 def test_micro_entreprise_usage_personnel_signale_sans_ecriture() -> None:
-    compte = _compte_usage_personnel("EI", "micro")
-    assert compte is None
-    with pytest.raises(CategorieInconnueError):
-        resoudre_ecriture_a_trancher(_ecriture_a_trancher(), "usage_personnel", compte, COMPTES)
+    comptes = _comptes_statut("EI", "micro")
+    assert comptes["usage_personnel"] is None
+    with pytest.raises(CategorieInconnueError, match="signalé sans écriture"):
+        resoudre_ecriture_a_trancher(_ecriture_a_trancher(), "usage_personnel", comptes, COMPTES)
+
+
+@pytest.mark.parametrize(
+    ("forme", "regime", "compte"),
+    [("SASU", "IS", "641"), ("SAS", "IS", "641"), ("EURL", "IS", "644"), ("EI", "IR", "108")],
+)
+def test_la_remuneration_du_dirigeant_suit_la_forme(forme: str, regime: str, compte: str) -> None:
+    resolue = resoudre_ecriture_a_trancher(
+        _ecriture_a_trancher(), "remuneration_dirigeant", _comptes_statut(forme, regime), COMPTES
+    )
+    assert {ligne.compte for ligne in resolue.lignes} == {"512", compte}
+
+
+def test_la_remuneration_d_un_gerant_de_sarl_se_precise_plutot_que_se_devine() -> None:
+    with pytest.raises(CategorieInconnueError, match="majoritaire ou non"):
+        resoudre_ecriture_a_trancher(
+            _ecriture_a_trancher(), "remuneration_dirigeant", _comptes_statut("SARL", "IS"), COMPTES
+        )

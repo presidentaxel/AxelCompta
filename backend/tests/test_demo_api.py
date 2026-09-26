@@ -1391,3 +1391,19 @@ def test_le_gestionnaire_ne_peut_ni_voir_ni_valider_une_cloture() -> None:
         401,
         403,
     )
+
+
+def test_le_chauffeur_categorise_sa_propre_remuneration() -> None:
+    """Louis, 2026-09-26 : le chauffeur se paie et catégorise sa paie lui-même.
+    Sophie est gérante d'EURL, donc 644 (travailleur non salarié)."""
+    client = _client()
+    ecriture_id = _premiere_a_trancher(client, "DEMO_sophie")
+
+    reponse = client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ecriture_id}/decision",
+        json={"categorie": "remuneration_dirigeant"},
+        headers=_en_tete("DEMO_sophie"),
+    )
+
+    assert reponse.status_code == 200
+    assert (reponse.json()["statut"], reponse.json()["compte"]) == ("validé", "644")

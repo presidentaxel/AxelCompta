@@ -3,7 +3,7 @@
 # Ajouter un statut, c'est ajouter des données ici (et ses formulaires), pas
 # une migration. Toute modification change `version`.
 
-version = "2026-09-26.3"
+version = "2026-09-26.4"
 
 # Une colonne de la matrice = un traitement comptable et fiscal.
 # - disponible : le moteur sait produire ses comptes et sa liasse de bout en bout.
@@ -119,3 +119,16 @@ colonne = "ei_reel"
 forme = "EI"
 regime = "micro"
 colonne = "micro"
+
+# Rémunération du dirigeant, catégorisée par le chauffeur lui-même (Louis,
+# 2026-09-26) : le compte dépend de la forme, pas de la colonne.
+# - SASU, SAS : président assimilé salarié, 641 ;
+# - EURL : gérant associé unique, donc majoritaire, travailleur non salarié, 644 ;
+# - EI : prélèvement de l'exploitant, 108 (pas une charge).
+# SARL absente exprès : 644 si le gérant est majoritaire, 641 sinon ; on le
+# demande plutôt que de le deviner.
+[remuneration_dirigeant]
+SASU = "641"
+SAS = "641"
+EURL = "644"
+EI = "108"
