@@ -3,11 +3,11 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { estLienInvitation } from "@/lib/auth-lien";
+import { estLienInvitation, lireFragmentAuth, pageInvitation } from "@/lib/auth-lien";
 
 /** Si Supabase renvoie le lien vers la racine du site, le fragment
- * `#access_token` est repris vers `/auth/lien`. Une invitation
- * (`type=invite`) va sur la page qui demande le mot de passe.
+ * `#access_token` est repris. Une invitation chauffeur va choisir son mot
+ * de passe sur sa page, une invitation d'équipe sur `/auth/lien`.
  * `location.replace` garde le fragment : le routeur Next le perd. */
 export function RebondLienAuth() {
   const chemin = usePathname();
@@ -20,11 +20,22 @@ export function RebondLienAuth() {
     if (!fragment.includes("access_token=")) {
       return;
     }
-    const cible = estLienInvitation(fragment)
-      ? `/chauffeur/accepter-invitation${fragment}`
-      : `/auth/lien${fragment}`;
+    const cible = destinationDuFragment(fragment);
     window.location.replace(cible);
   }, [chemin]);
 
   return null;
+}
+
+function destinationDuFragment(fragment: string): string {
+  if (!estLienInvitation(fragment)) return `/auth/lien${fragment}`;
+  try {
+    const recu = lireFragmentAuth(fragment);
+    if (pageInvitation(recu.accessToken) === "chauffeur") {
+      return `/chauffeur/accepter-invitation${fragment}`;
+    }
+  } catch {
+    // Jeton illisible : la page du lien affiche l'erreur.
+  }
+  return `/auth/lien${fragment}`;
 }
