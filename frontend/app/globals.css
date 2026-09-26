@@ -142,7 +142,9 @@ body {
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
+  /* Pas de `--color-muted: var(--muted)` : il écrasait le gris `muted` du
+     design (#94a3b8) par le fond `surface-soft` (#f1f5f9), et les
+     placeholders devenaient blancs sur blanc. */
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);

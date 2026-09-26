@@ -33,6 +33,7 @@ from __future__ import annotations
 import re
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -49,6 +50,7 @@ from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.core.rls import appliquer_rls, contexte_identite
+from axelcompta.demo_admin import CLES_PARTIES, PARTIES, reinitialiser_demo
 from axelcompta.demo_auth import (
     IdentiteAuthentifiee,
     identite_chauffeur_optionnelle,
@@ -61,10 +63,12 @@ from axelcompta.demo_comptes import (
     SupabaseCompteRepository,
     SupabaseConfig,
 )
+from axelcompta.demo_jalons import JALONS_EXERCICE, etape_depuis_preuves
 from axelcompta.demo_justificatifs import (
     FichierJustificatifRepository,
     JustificatifRepository,
 )
+from axelcompta.demo_seed import TENANT_DEMO
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
 from axelcompta.filings.fec import exporter_fec, nom_fichier_fec
@@ -345,33 +349,37 @@ def _verifier_acces_gestionnaire(
     return identite.tenant_id, identite
 
 
-def _etape_en_traitement(resume: DossierResume) -> str:
-    """Exercice terminé, en traitement l'année suivante (clôture, signatures,
-    greffe, impôts). Compte et suivi viennent de l'onboarding. Signé vient
-    du dépôt greffe déjà produit, sans exposer le détail des écritures."""
-    if resume.statut_invitation != "actif":
-        return "Compte"
-    if resume.greffe_inpi_signe:
-        return "Signé"
-    return "Suivi"
+def _preuves_exercice(signatures: SignatureRepository, dossier_id: DossierId) -> set[str]:
+    """Types de jalons déjà enregistrés pour ce dossier. Une lecture par
+    type : la table est append-only et indexée par dossier."""
+    return {
+        type_document
+        for type_document, _nom in JALONS_EXERCICE
+        if signatures.dernier(dossier_id, type_document) is not None
+    }
 
 
-def _frises(resume: DossierResume, dossier: Dossier) -> tuple[int, str, int, str]:
+def _frises(
+    resume: DossierResume, dossier: Dossier, preuves: set[str]
+) -> tuple[int, str, int, str]:
     """doc 19 §2.1 : deux frises, l'exercice en cours et celui d'avant, que
     l'on traite pendant le début de l'année suivante. L'exercice du dossier
-    est la seule donnée : terminé, il est celui d'avant et porte la vraie
-    étape ; pas encore terminé, il est celui en cours et rien n'est connu
-    de l'exercice d'avant. Retourne (année en cours, étape, année d'avant,
-    étape)."""
+    est la seule donnée : terminé, il est celui d'avant et son étape est
+    celle des preuves (`etape_depuis_preuves`) ; pas encore terminé, il est
+    celui en cours et rien n'est connu de l'exercice d'avant. Retourne
+    (année en cours, étape, année d'avant, étape)."""
     fin = dossier.fin_exercice()
     compte = "Suivi" if resume.statut_invitation == "actif" else "Compte"
     if fin < datetime.now(UTC).date():
-        return fin.year + 1, compte, fin.year, _etape_en_traitement(resume)
+        etape = etape_depuis_preuves(resume.statut_invitation, preuves)
+        return fin.year + 1, compte, fin.year, etape
     return fin.year, compte, fin.year - 1, "Sans exercice"
 
 
-def _agregat(resume: DossierResume, dossier: Dossier) -> DossierAgregat:
-    annee_courante, etape_courante, annee_precedente, etape_precedente = _frises(resume, dossier)
+def _agregat(resume: DossierResume, dossier: Dossier, preuves: set[str]) -> DossierAgregat:
+    annee_courante, etape_courante, annee_precedente, etape_precedente = _frises(
+        resume, dossier, preuves
+    )
     return DossierAgregat(
         dossier_id=resume.dossier_id,
         nom=resume.nom,
@@ -744,7 +752,11 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         if en_cache is not None:
             return en_cache
         agregats = [
-            _agregat(_resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures), d)
+            _agregat(
+                _resume(d, _ledger_avec_decisions(d, base, decisions), comptes, signatures),
+                d,
+                _preuves_exercice(signatures, d.id),
+            )
             for d in dossiers.lister_par_tenant(tenant_id)
         ]
         _ecrire_cache_agregats(request.app, str(tenant_id), agregats)
@@ -1318,7 +1330,8 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
         pdf_non_signe = _document_greffe_inpi(dossier, ledger)
         document = SignatureDemoProvider().signer(pdf_non_signe, identite.user_id)
         signatures.enregistrer(dossier.id, TYPE_DOCUMENT_GREFFE_INPI, document)
-        # La frise du gestionnaire avance jusqu'à Greffe.
+        # Preuve greffe enregistrée. La frise n'avance que si clôture et
+        # signature de validation sont déjà là (préfixe, demo_jalons).
         _vider_cache_agregats(request.app, str(dossier.tenant_id))
         return SignatureGreffeVue(
             dossier_id=dossier.id,
@@ -1326,6 +1339,80 @@ def _enregistrer_routes_greffe_inpi(app: FastAPI) -> None:
             signe_le=document.signe_le.isoformat(),
             qualifie=document.qualifie,
         )
+
+
+class PartieVue(BaseModel):
+    cle: str
+    libelle: str
+    detail: str
+
+
+class RemiseANeufEntree(BaseModel):
+    parties: list[str]
+
+
+class RemiseANeufVue(BaseModel):
+    parties: list[str]
+    dossiers: list[str]
+
+
+Reinitialiseur = Callable[[TenantId, frozenset[str]], list[str]]
+
+_ENGINE_PROPRIETAIRE: Engine | None = None
+
+
+def get_reinitialiseur() -> Reinitialiseur:
+    """Menu Démo (`demo_admin`). Seule route de l'API sur la connexion
+    propriétaire `DATABASE_URL`, construite à la première remise à neuf
+    seulement : les verrous des décisions et des preuves ne cèdent pas au
+    rôle web. Autorisé explicitement par Louis le 2026-09-25, démo seulement."""
+
+    def reinitialiser(tenant_id: TenantId, parties: frozenset[str]) -> list[str]:
+        global _ENGINE_PROPRIETAIRE
+        if _ENGINE_PROPRIETAIRE is None:
+            _ENGINE_PROPRIETAIRE = engine_depuis_env("DATABASE_URL")
+        return reinitialiser_demo(
+            _ENGINE_PROPRIETAIRE, tenant_id, parties, RACINE_JUSTIFICATIFS_DEMO
+        )
+
+    return reinitialiser
+
+
+ReinitialiseurDep = Annotated[Reinitialiseur, Depends(get_reinitialiseur)]
+
+
+def _exiger_admin_demo(identite: IdentiteAuthentifiee | None, role: str) -> TenantId:
+    tenant_id, _identite = _verifier_acces_gestionnaire(identite)
+    if tenant_id != TENANT_DEMO:
+        raise HTTPException(status_code=403, detail="Réservé au portefeuille de démo.")
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
+    return tenant_id
+
+
+def _enregistrer_routes_demo(app: FastAPI) -> None:
+    @app.get("/demo/parties", response_model=list[PartieVue])
+    def lister_parties(identite: IdentiteDep, role: RoleMembreDep) -> list[PartieVue]:
+        _exiger_admin_demo(identite, role)
+        return [PartieVue(cle=p.cle, libelle=p.libelle, detail=p.detail) for p in PARTIES]
+
+    @app.post("/demo/reinitialiser", response_model=RemiseANeufVue)
+    def reinitialiser(
+        request: Request,
+        entree: RemiseANeufEntree,
+        identite: IdentiteDep,
+        role: RoleMembreDep,
+        reinitialiseur: ReinitialiseurDep,
+    ) -> RemiseANeufVue:
+        """Remet à neuf les parties cochées du portefeuille de démo. Le
+        grand livre n'en fait jamais partie."""
+        tenant_id = _exiger_admin_demo(identite, role)
+        parties = frozenset(entree.parties)
+        if not parties or not parties <= CLES_PARTIES:
+            raise HTTPException(status_code=400, detail="Choisis au moins une partie connue.")
+        dossiers = reinitialiseur(tenant_id, parties)
+        _vider_cache_agregats(request.app, str(tenant_id))
+        return RemiseANeufVue(parties=sorted(parties), dossiers=dossiers)
 
 
 def create_app() -> FastAPI:
@@ -1341,6 +1428,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_invitation(app)
     _enregistrer_routes_cloture(app)
     _enregistrer_routes_greffe_inpi(app)
+    _enregistrer_routes_demo(app)
     return app
 
 

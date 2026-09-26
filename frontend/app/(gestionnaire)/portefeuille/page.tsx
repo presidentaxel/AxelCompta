@@ -414,9 +414,10 @@ function Bascule<T extends string>({
 const ETAPES = ["Compte", "Clôture", "Signature", "Greffe", "Impôts", "Signature légale"];
 
 function rangEtape(etape: string, compteOuvert: boolean): number {
+  if (etape === "Suivi" || (etape === "Compte" && compteOuvert)) return ETAPES.indexOf("Compte");
   if (etape === "Signé") return ETAPES.indexOf("Greffe");
-  if (compteOuvert || etape === "Suivi") return ETAPES.indexOf("Compte");
-  return -1;
+  const index = ETAPES.indexOf(etape);
+  return etape === "Compte" ? -1 : index;
 }
 
 function Frise({

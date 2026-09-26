@@ -36,6 +36,7 @@ from axelcompta.demo_api import (
     get_justificatifs,
     get_ledger,
     get_propositions,
+    get_reinitialiseur,
     get_role_membre,
     get_signatures_inpi,
 )
@@ -200,21 +201,36 @@ def _dossier_finissant_le(fin: date) -> Dossier:
     )
 
 
-def test_frise_davant_porte_letape_reelle_de_lexercice_en_traitement() -> None:
+def test_frise_davant_suit_les_preuves_dans_l_ordre() -> None:
     """Exercice clos au 31/12 : l'année suivante, on le traite. Sa frise
-    avance avec le dépôt greffe signé, celle de l'année en cours ne montre
-    que le compte."""
+    avance avec les preuves, dans l'ordre, et un trou ne saute pas d'étape.
+    L'année en cours ne montre que le compte."""
     fin = date(datetime.now(UTC).year - 1, 12, 31)
     dossier = _dossier_finissant_le(fin)
+    resume = _resume_actif(False)
 
-    assert _frises(_resume_actif(False), dossier) == (fin.year + 1, "Suivi", fin.year, "Suivi")
-    assert _frises(_resume_actif(True), dossier) == (fin.year + 1, "Suivi", fin.year, "Signé")
+    assert _frises(resume, dossier, set()) == (fin.year + 1, "Suivi", fin.year, "Suivi")
+    assert _frises(resume, dossier, {"cloture"}) == (fin.year + 1, "Suivi", fin.year, "Clôture")
+    assert _frises(resume, dossier, {"cloture", "validation_comptes"}) == (
+        fin.year + 1,
+        "Suivi",
+        fin.year,
+        "Signature",
+    )
+    assert _frises(resume, dossier, {"cloture", "validation_comptes", "greffe_inpi"}) == (
+        fin.year + 1,
+        "Suivi",
+        fin.year,
+        "Greffe",
+    )
+    # Le greffe seul ne coche pas les étapes d'avant.
+    assert _frises(resume, dossier, {"greffe_inpi"}) == (fin.year + 1, "Suivi", fin.year, "Suivi")
 
 
 def test_frise_sans_exercice_davant_si_lexercice_nest_pas_termine() -> None:
     fin = datetime.now(UTC).date() + timedelta(days=30)
 
-    frises = _frises(_resume_actif(True), _dossier_finissant_le(fin))
+    frises = _frises(_resume_actif(True), _dossier_finissant_le(fin), set())
 
     assert frises == (fin.year, "Suivi", fin.year - 1, "Sans exercice")
 
@@ -981,3 +997,65 @@ def test_une_ecriture_contre_passee_nest_plus_a_trancher_nulle_part() -> None:
         f"{url}/{ecriture_id}/decision", json={"categorie": "carburant"}, headers=en_tete
     )
     assert decision.status_code == 409
+
+
+def _client_demo(role: str = "admin") -> tuple[TestClient, list[tuple[str, frozenset[str]]]]:
+    """Le vrai réinitialiseur ouvre la connexion propriétaire : remplacé
+    par un enregistreur d'appels."""
+    client = _client_et_stubs(role=role)[0]
+    appels: list[tuple[str, frozenset[str]]] = []
+
+    def reinitialiser(tenant_id: TenantId, parties: frozenset[str]) -> list[str]:
+        appels.append((str(tenant_id), parties))
+        return ["DEMO_karim"]
+
+    client.app.dependency_overrides[get_reinitialiseur] = lambda: reinitialiser  # type: ignore[attr-defined]
+    return client, appels
+
+
+def test_remise_a_neuf_ne_touche_que_les_parties_cochees() -> None:
+    client, appels = _client_demo()
+
+    reponse = client.post(
+        "/demo/reinitialiser",
+        json={"parties": ["decisions", "rappels"]},
+        headers=_en_tete_gestionnaire(),
+    )
+
+    assert reponse.status_code == 200
+    assert reponse.json() == {"parties": ["decisions", "rappels"], "dossiers": ["DEMO_karim"]}
+    assert appels == [("TENANT_DEMO", frozenset({"decisions", "rappels"}))]
+
+
+def test_remise_a_neuf_liste_ses_parties_sans_le_grand_livre() -> None:
+    client, _ = _client_demo()
+
+    cles = [p["cle"] for p in client.get("/demo/parties", headers=_en_tete_gestionnaire()).json()]
+
+    assert "decisions" in cles
+    assert not any("ecriture" in cle or "ledger" in cle for cle in cles)
+
+
+def test_remise_a_neuf_refuse_une_partie_inconnue_ou_vide() -> None:
+    client, appels = _client_demo()
+    for parties in ([], ["ecritures"]):
+        reponse = client.post(
+            "/demo/reinitialiser", json={"parties": parties}, headers=_en_tete_gestionnaire()
+        )
+        assert reponse.status_code == 400
+    assert appels == []
+
+
+def test_remise_a_neuf_reservee_a_un_admin_du_portefeuille_demo() -> None:
+    membre, appels_membre = _client_demo(role="membre")
+    autre, appels_autre = _client_demo()
+    corps = {"parties": ["decisions"]}
+
+    assert (
+        membre.post("/demo/reinitialiser", json=corps, headers=_en_tete_gestionnaire()).status_code
+        == 403
+    )
+    en_tete_autre = _en_tete_gestionnaire("AUTRE_TENANT")
+    assert autre.post("/demo/reinitialiser", json=corps, headers=en_tete_autre).status_code == 403
+    assert autre.post("/demo/reinitialiser", json=corps).status_code == 401
+    assert appels_membre == appels_autre == []

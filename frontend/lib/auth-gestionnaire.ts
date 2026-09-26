@@ -190,15 +190,64 @@ export type RoleMembre = "admin" | "membre" | "lecture";
 
 export type MembrePortefeuille = { email: string; role: RoleMembre };
 
+const CLE_EQUIPE = "axelcompta_equipe";
+const ROLES_MEMBRE: readonly RoleMembre[] = ["admin", "membre", "lecture"];
+
+function estMembre(valeur: unknown): valeur is MembrePortefeuille {
+  if (!valeur || typeof valeur !== "object") return false;
+  const membre = valeur as MembrePortefeuille;
+  return typeof membre.email === "string" && ROLES_MEMBRE.includes(membre.role);
+}
+
+/** Dernière équipe affichée, pour ne pas attendre Supabase à chaque navigation. */
+export function lireEquipeSession(): MembrePortefeuille[] | null {
+  try {
+    const brut = window.sessionStorage.getItem(CLE_EQUIPE);
+    if (!brut) return null;
+    const valeur = JSON.parse(brut) as unknown;
+    if (!Array.isArray(valeur) || !valeur.every(estMembre)) return null;
+    return valeur;
+  } catch {
+    return null;
+  }
+}
+
+function memoriserEquipe(membres: MembrePortefeuille[]): void {
+  try {
+    window.sessionStorage.setItem(CLE_EQUIPE, JSON.stringify(membres));
+  } catch {
+    // Affichage quand même, simplement pas mémorisé pour la prochaine page.
+  }
+}
+
+/** Ajoute ou remplace un membre dans la liste mémorisée, sans relire Supabase. */
+export function integrerMembreSession(
+  actuels: MembrePortefeuille[],
+  membre: MembrePortefeuille,
+): MembrePortefeuille[] {
+  const suite = [
+    ...actuels.filter((item) => item.email.toLowerCase() !== membre.email.toLowerCase()),
+    membre,
+  ].sort((a, b) => a.email.localeCompare(b.email, "fr"));
+  memoriserEquipe(suite);
+  return suite;
+}
+
 export async function listerMembres(): Promise<MembrePortefeuille[]> {
   const reponse = await requeteGestionnaire("/portefeuille/membres");
   if (!reponse.ok) {
     throw new ApiError(`API (/portefeuille/membres) : HTTP ${reponse.status}`, reponse.status);
   }
-  return (await reponse.json()) as MembrePortefeuille[];
+  const membres = (await reponse.json()) as MembrePortefeuille[];
+  return membres;
 }
 
-export async function inviterMembre(email: string, role: RoleMembre): Promise<void> {
+/** Mémorise une liste acceptée. Un chargement déjà dépassé ne doit pas écrire. */
+export function publierEquipeSession(membres: MembrePortefeuille[]): void {
+  memoriserEquipe(membres);
+}
+
+export async function inviterMembre(email: string, role: RoleMembre): Promise<MembrePortefeuille> {
   const reponse = await requeteGestionnaire("/portefeuille/membres", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -208,6 +257,7 @@ export async function inviterMembre(email: string, role: RoleMembre): Promise<vo
     const corps = await reponse.json().catch(() => ({}));
     throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
   }
+  return (await reponse.json()) as MembrePortefeuille;
 }
 
 export async function lireNomPortefeuille(): Promise<string> {
@@ -286,7 +336,7 @@ export async function declencherRappel(regleId: string, dossierId: string): Prom
   }
 }
 
-export async function changerRole(email: string, role: RoleMembre): Promise<void> {
+export async function changerRole(email: string, role: RoleMembre): Promise<MembrePortefeuille> {
   const reponse = await requeteGestionnaire("/portefeuille/membres", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -295,6 +345,7 @@ export async function changerRole(email: string, role: RoleMembre): Promise<void
   if (!reponse.ok) {
     throw new ApiError("Impossible de changer le rôle.", reponse.status);
   }
+  return (await reponse.json()) as MembrePortefeuille;
 }
 
 export async function inviterChauffeur(
@@ -344,4 +395,35 @@ export async function inviterEnMasse(
     );
   }
   return corps as InvitationsMasse;
+}
+
+export type PartieDemo = { cle: string; libelle: string; detail: string };
+
+/** Menu Démo : le portefeuille de démo seulement (`TENANT_DEMO`). */
+export function estPortefeuilleDemo(): boolean {
+  return obtenirSessionGestionnaire()?.tenantId === "TENANT_DEMO";
+}
+
+export async function listerPartiesDemo(): Promise<PartieDemo[]> {
+  const reponse = await requeteGestionnaire("/demo/parties");
+  if (!reponse.ok) {
+    const corps = await reponse.json().catch(() => ({}));
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return (await reponse.json()) as PartieDemo[];
+}
+
+/** Remet à neuf les parties cochées. Le grand livre n'en fait jamais partie. */
+export async function reinitialiserDemo(parties: string[]): Promise<string[]> {
+  const reponse = await requeteGestionnaire("/demo/reinitialiser", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parties }),
+  });
+  const corps = await reponse.json().catch(() => ({}));
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  window.sessionStorage.removeItem(CLE_PORTEFEUILLE);
+  return corps.dossiers as string[];
 }
