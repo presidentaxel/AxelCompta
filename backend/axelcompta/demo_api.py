@@ -92,6 +92,7 @@ from axelcompta.tenants.avenants import (
     alerte_option_ir,
 )
 from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
+from axelcompta.tenants.franchise_tva import MillesimeInconnu, suivre_franchise
 from axelcompta.tenants.models import Dossier
 from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
 from axelcompta.tenants.postgres import PostgresDossierRepository
@@ -99,6 +100,7 @@ from axelcompta.tenants.repository import DossierRepository
 from axelcompta.tenants.statuts import (
     ColonneMatrice,
     FormeJuridique,
+    RegimeTva,
     charger_matrice,
     configuration_de,
 )
@@ -207,6 +209,8 @@ class DossierResume(BaseModel):
     # prendront effet après l'exercice en cours (doc 06 §7).
     alerte_regime: str | None = None
     regimes_a_venir: list[RegimeAVenirVue] = []
+    # Franchise en base : approche ou dépassement des seuils de l'année civile.
+    alerte_tva: str | None = None
 
 
 class DossierAgregat(BaseModel):
@@ -238,6 +242,7 @@ class DossierAgregat(BaseModel):
     # Approche du terme de l'option IR (doc 06 §7) : une information de
     # régime, pas un détail comptable (doc 19 §2.4).
     alerte_regime: str | None = None
+    alerte_tva: str | None = None
 
 
 class TransactionVue(BaseModel):
@@ -378,6 +383,26 @@ _MOTIFS_AVENANT = {
 }
 
 
+def _alerte_franchise_tva(dossier: Dossier, ecritures: tuple[Ecriture, ...]) -> str | None:
+    """Seuls les dossiers en franchise sont suivis. L'année civile est celle
+    de la clôture de l'exercice (les plafonds sont civils, § 130) ; le
+    chiffre d'affaires est le 706 hors taxe de cette année."""
+    if configuration_de(dossier).regime_tva is not RegimeTva.FRANCHISE:
+        return None
+    annee = dossier.fin_exercice().year
+    ca = sum(
+        (ligne.montant.centimes if ligne.sens is Sens.CREDIT else -ligne.montant.centimes)
+        for ecriture in ecritures
+        if ecriture.date.year == annee
+        for ligne in ecriture.lignes
+        if ligne.compte.startswith("706")
+    )
+    try:
+        return suivre_franchise(ca, annee).message
+    except MillesimeInconnu:
+        return None
+
+
 def _colonne(dossier: Dossier) -> ColonneMatrice:
     """Colonne du dossier dans la matrice statut × régime (doc 06 §7). Un
     dossier en base est déjà validé à l'écriture (`DossierRepository`)."""
@@ -443,6 +468,7 @@ def _resume(
         ca_ht_cts=liasse.cases.get("CA_HT", 0),
         charges_cts=liasse.cases.get("CHARGES", 0),
         resultat_cts=liasse.cases.get("RESULTAT", 0),
+        alerte_tva=_alerte_franchise_tva(dossier, ecritures),
         tresorerie_cts=liasse.cases.get("TRESORERIE", 0),
         tva_a_payer_cts=liasse.cases.get("TVA_A_PAYER", 0),
         nb_transactions=len(ecritures),
@@ -543,6 +569,7 @@ def _agregat(resume: DossierResume, dossier: Dossier, preuves: set[str]) -> Doss
         annee_precedente=annee_precedente,
         etape_precedente=etape_precedente,
         alerte_regime=alerte_option_ir(dossier),
+        alerte_tva=resume.alerte_tva,
     )
 
 

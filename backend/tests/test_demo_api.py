@@ -28,6 +28,7 @@ from pypdf import PdfReader
 import axelcompta.demo_auth as demo_auth
 import axelcompta.demo_seed as demo_seed
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
+from axelcompta.core.money import Money
 from axelcompta.demo_api import (
     DossierResume,
     GuideGreffeVue,
@@ -51,6 +52,7 @@ from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
+from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.tenants.avenants import InMemoryAvenantRegimeRepository, programmer_bascules
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
@@ -1296,3 +1298,44 @@ def test_dernier_exercice_d_option_ir_alerte_et_montre_la_bascule_a_venir() -> N
         }
     ]
     assert fiche["declaration_resultat"] == "2031"
+
+
+def test_un_dossier_en_franchise_au_dela_du_seuil_est_alerte() -> None:
+    client = _client()
+    depot = client.app.dependency_overrides[get_dossiers]()  # type: ignore[attr-defined]
+    depot.enregistrer(
+        Dossier(
+            id=DossierId("DEMO_franchise"),
+            tenant_id=TenantId("TENANT_DEMO"),
+            forme_juridique="SASU",
+            regime_imposition="IS",
+            regime_tva="franchise",
+            nom="Franchise",
+            tva_recettes_regime="franchise",
+            exercice_debut=date(2025, 1, 1),
+        )
+    )
+    ledger = client.app.dependency_overrides[get_ledger]()  # type: ignore[attr-defined]
+    recettes = Money(38_000_00)
+    ledger.enregistrer(
+        Ecriture(
+            id=EcritureId("fr-1"),
+            dossier_id=DossierId("DEMO_franchise"),
+            journal=Journal.BQ,
+            date=date(2025, 11, 30),
+            libelle="Recettes plateformes",
+            reference_piece=None,
+            lignes=(
+                LigneEcriture(compte="512", sens=Sens.DEBIT, montant=recettes),
+                LigneEcriture(compte="706", sens=Sens.CREDIT, montant=recettes),
+            ),
+        )
+    )
+
+    fiche = client.get("/dossiers/DEMO_franchise", headers=_en_tete("DEMO_franchise")).json()
+    portefeuille = client.get("/dossiers", headers=_en_tete_gestionnaire()).json()
+
+    assert "1er janvier 2026" in fiche["alerte_tva"]
+    alertes = {d["dossier_id"]: d["alerte_tva"] for d in portefeuille}
+    assert alertes["DEMO_franchise"] == fiche["alerte_tva"]
+    assert alertes["DEMO_karim"] is None

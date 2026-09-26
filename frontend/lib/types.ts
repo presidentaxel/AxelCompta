@@ -33,6 +33,8 @@ export type DossierResume = {
   // Approche du terme de l'option IR et changements de régime à venir.
   alerte_regime: string | null;
   regimes_a_venir: RegimeAVenir[];
+  // Franchise en base : approche ou dépassement des seuils de l'année.
+  alerte_tva: string | null;
 };
 
 export type LignePortail = {
@@ -77,6 +79,7 @@ export type DossierAgregat = {
   annee_precedente: number;
   etape_precedente: string;
   alerte_regime: string | null;
+  alerte_tva: string | null;
 };
 
 // doc 17 §9 Semaine 4 + AXE-417/418 : exports de clôture (PDF + CSV),
