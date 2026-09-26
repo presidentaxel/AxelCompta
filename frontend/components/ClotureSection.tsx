@@ -24,7 +24,6 @@ const LIASSE: DocumentCloture = "liasse-fiscale.pdf";
 /** Pièces à emporter pour les impôts. Pas une télédéclaration : rien n'est
  * envoyé à l'administration depuis cet écran. */
 const PIECES: Array<{ document: DocumentCloture; label: string; detail: string }> = [
-  { document: "cerfa-2065.pdf", label: "Formulaire 2065", detail: "Page de garde de la liasse" },
   { document: "fec.txt", label: "FEC", detail: "Fichier des écritures comptables" },
   { document: "grand-livre.pdf", label: "Grand livre", detail: "PDF" },
   { document: "balance.pdf", label: "Balance", detail: "PDF" },
@@ -32,6 +31,16 @@ const PIECES: Array<{ document: DocumentCloture; label: string; detail: string }
   { document: "grand-livre.csv", label: "Grand livre", detail: "Tableur" },
   { document: "balance.csv", label: "Balance", detail: "Tableur" },
 ];
+
+/** 2065 à l'IS, 2031 à l'IR : c'est l'API qui le dit (matrice des statuts). */
+function pieceDeclaration(dossier: DossierResume) {
+  const numero = dossier.declaration_resultat;
+  return {
+    document: `cerfa-${numero}.pdf` as DocumentCloture,
+    label: `Formulaire ${numero}`,
+    detail: "Page de garde de la liasse",
+  };
+}
 
 export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   const [erreur, setErreur] = useState<string | null>(null);
@@ -140,7 +149,7 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
         </Dialogue>
       )}
       <ul className="mt-2">
-        {PIECES.map(({ document, label, detail }) => (
+        {[pieceDeclaration(dossier), ...PIECES].map(({ document, label, detail }) => (
           <li key={document} className="border-b border-hairline">
             <button
               type="button"

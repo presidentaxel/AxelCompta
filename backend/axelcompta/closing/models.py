@@ -36,6 +36,8 @@ class LiassePivot:
     # historiques ci-dessus).
     identite: IdentiteEntreprise | None = None
     forme_juridique: str = ""
+    # Faux à l'IR : la déclaration de résultat est la 2031, pas la 2065.
+    soumis_is: bool = True
 
 
 @dataclass(frozen=True, slots=True)

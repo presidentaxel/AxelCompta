@@ -36,7 +36,7 @@ export default function ExerciceChauffeurPage({
       {periode && <p className="mt-2 text-sm text-subtle">{periode}</p>}
       <div className="mt-8">
         <ClotureSection dossier={dossier} />
-        <GreffeInpiSection dossier={dossier} />
+        {dossier.depot_greffe && <GreffeInpiSection dossier={dossier} />}
       </div>
     </div>
   );

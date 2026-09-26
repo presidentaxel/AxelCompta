@@ -112,3 +112,5 @@ def test_a_l_ir_ni_ecriture_d_is_ni_cases_2065() -> None:
     assert _euros(liasse, "2033B.370") == 1_234
     assert liasse.cases["2065"] == 1_234_00
     assert not any(cle.startswith(("2065.", "2065J.")) for cle in liasse.cases)
+    assert (liasse.cases["2031.BENEFICE"], liasse.cases["2031.DEFICIT"]) == (1_234_00, 0)
+    assert not liasse.soumis_is

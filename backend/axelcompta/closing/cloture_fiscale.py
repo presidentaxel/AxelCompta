@@ -111,9 +111,14 @@ def cloturer_fiscalement(
     # Clé historique du tableau de bord : le résultat fiscal, quel que soit
     # l'impôt. Les cases du formulaire 2065 n'existent qu'à l'IS.
     cases["2065"] = (fiscal["370"] - fiscal["372"]) * 100
+    salaires = {"SALAIRES": arrondir_euros(balance.get("641", 0))}
     if parametres.soumis_is:
         cases |= _prefixer("2065", _cases_2065(fiscal, parametres))
-        cases |= _prefixer("2065J", {"SALAIRES": arrondir_euros(balance.get("641", 0))})
+        cases |= _prefixer("2065J", salaires)
+    else:
+        # 2031 cadre C.1 : bénéfice (370) ou déficit (372) de la 2033-B.
+        cases |= _prefixer("2031", {"BENEFICE": fiscal["370"], "DEFICIT": fiscal["372"]})
+        cases |= _prefixer("2031H", salaires)
     cases |= _prefixer("2033A", actif_passif)
     cases |= _prefixer("2033A.NET", net_actif(actif_passif))
     cases |= _prefixer("2033B", resultat | fiscal)
@@ -130,4 +135,5 @@ def cloturer_fiscalement(
         exercice_fin=parametres.exercice_fin,
         identite=parametres.identite,
         forme_juridique=parametres.forme_juridique,
+        soumis_is=parametres.soumis_is,
     )
