@@ -88,7 +88,7 @@ def test_statuts_en_masse_ne_lit_les_comptes_qu_une_fois() -> None:
 
 
 def test_membres_distingue_invitation_envoyee_et_acceptee() -> None:
-    utilisateurs = [
+    utilisateurs: list[dict[str, object]] = [
         {
             "email": "marie@exemple.fr",
             "app_metadata": {"tenant_id": "T1"},
