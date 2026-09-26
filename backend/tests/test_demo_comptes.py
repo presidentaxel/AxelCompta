@@ -87,6 +87,34 @@ def test_statuts_en_masse_ne_lit_les_comptes_qu_une_fois() -> None:
     assert len([a for a in appels if a.method == "GET"]) == 1
 
 
+def test_membres_distingue_invitation_envoyee_et_acceptee() -> None:
+    utilisateurs = [
+        {
+            "email": "marie@exemple.fr",
+            "app_metadata": {"tenant_id": "T1"},
+            "email_confirmed_at": None,
+        },
+        {
+            "email": "paul@exemple.fr",
+            "app_metadata": {"tenant_id": "T1"},
+            "email_confirmed_at": "2026-09-01T00:00:00Z",
+        },
+        {
+            "email": "autre@exemple.fr",
+            "app_metadata": {"tenant_id": "T2"},
+            "email_confirmed_at": "2026-09-01T00:00:00Z",
+        },
+    ]
+    depot = _depot_supabase(utilisateurs, [])
+
+    membres = depot.membres("T1")
+
+    assert [(membre.email, membre.accepte) for membre in membres] == [
+        ("marie@exemple.fr", False),
+        ("paul@exemple.fr", True),
+    ]
+
+
 def test_inviter_sans_reverifier_ne_relit_pas_les_comptes() -> None:
     appels: list[httpx.Request] = []
     depot = _depot_supabase([], appels)

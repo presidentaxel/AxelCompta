@@ -213,15 +213,22 @@ export async function listerDossiers(): Promise<DossierAgregat[]> {
 
 export type RoleMembre = "admin" | "membre" | "lecture";
 
-export type MembrePortefeuille = { email: string; role: RoleMembre };
+export type StatutMembre = "invité" | "actif";
+
+export type MembrePortefeuille = { email: string; role: RoleMembre; statut: StatutMembre };
 
 const CLE_EQUIPE = "axelcompta_equipe";
 const ROLES_MEMBRE: readonly RoleMembre[] = ["admin", "membre", "lecture"];
+const STATUTS_MEMBRE: readonly StatutMembre[] = ["invité", "actif"];
 
 function estMembre(valeur: unknown): valeur is MembrePortefeuille {
   if (!valeur || typeof valeur !== "object") return false;
   const membre = valeur as MembrePortefeuille;
-  return typeof membre.email === "string" && ROLES_MEMBRE.includes(membre.role);
+  return (
+    typeof membre.email === "string" &&
+    ROLES_MEMBRE.includes(membre.role) &&
+    STATUTS_MEMBRE.includes(membre.statut)
+  );
 }
 
 /** Dernière équipe affichée, pour ne pas attendre Supabase à chaque navigation. */

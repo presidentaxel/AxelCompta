@@ -13,7 +13,12 @@ import {
   ErreurAuthChauffeur,
 } from "@/lib/auth-chauffeur";
 import { connexionGestionnaire } from "@/lib/auth-gestionnaire";
-import { lireFragmentAuth, ouvrirSessionDepuisJetons, type FragmentAuth } from "@/lib/auth-lien";
+import {
+  lireFragmentAuth,
+  ouvrirSessionDepuisJetons,
+  pageInvitation,
+  type FragmentAuth,
+} from "@/lib/auth-lien";
 
 type Etape = "lecture" | "mot_de_passe" | "email_confirme" | "erreur";
 
@@ -27,6 +32,7 @@ export default function LienAuthPage() {
   const [motDePasse, setMotDePasse] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [premiereConnexion, setPremiereConnexion] = useState(false);
 
   useEffect(() => {
     // Le fragment `#access_token` n'existe que dans le navigateur.
@@ -39,8 +45,14 @@ export default function LienAuthPage() {
         );
       }
       const recu = lireFragmentAuth(window.location.hash);
-      if (recu.type === "invite") {
+      if (recu.type === "invite" && pageInvitation(recu.accessToken) === "chauffeur") {
         window.location.replace(`/chauffeur/accepter-invitation${window.location.hash}`);
+        return;
+      }
+      if (recu.type === "invite") {
+        setFragment(recu);
+        setPremiereConnexion(true);
+        setEtape("mot_de_passe");
         return;
       }
       if (recu.type === "recovery") {
@@ -125,8 +137,12 @@ export default function LienAuthPage() {
 
   return (
     <main className="mx-auto mt-24 max-w-sm px-4">
-      <h1 className="mb-1 text-xl font-bold text-ink">Nouveau mot de passe</h1>
-      <p className="mb-6 text-sm text-subtle">Choisissez le mot de passe de vos prochaines connexions.</p>
+      <h1 className="mb-1 text-xl font-bold text-ink">
+        {premiereConnexion ? "Bienvenue" : "Nouveau mot de passe"}
+      </h1>
+      <p className="mb-6 text-sm text-subtle">
+        Choisissez un mot de passe pour vos prochaines connexions.
+      </p>
       <form className="space-y-3" onSubmit={valider}>
         <Input
           type="password"

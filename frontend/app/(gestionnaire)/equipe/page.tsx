@@ -79,7 +79,12 @@ export default function EquipePage() {
     };
   }, [router]);
 
-  const liste = membres && membres.length > 0 ? membres : email ? [{ email, role: "admin" as const }] : [];
+  const liste =
+    membres && membres.length > 0
+      ? membres
+      : email
+        ? [{ email, role: "admin" as const, statut: "actif" as const }]
+        : [];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -124,7 +129,11 @@ export default function EquipePage() {
           <li key={membre.email} className="border-b border-hairline py-4">
             <p className="text-sm font-medium text-ink">
               {membre.email}
-              {membre.email === email ? " · vous" : ""}
+              <span className="font-normal text-subtle">
+                {" · "}
+                {membre.statut === "actif" ? "Invitation acceptée" : "Invitation envoyée"}
+                {membre.email === email ? " · vous" : ""}
+              </span>
             </p>
             <div className="mt-3">
               <Segment

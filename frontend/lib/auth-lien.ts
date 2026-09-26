@@ -19,6 +19,16 @@ export function estLienInvitation(fragment: string): boolean {
   return new URLSearchParams(fragment.replace(/^#/, "")).get("type") === "invite";
 }
 
+/** Le lien d'invitation est le même pour les deux rôles. Le chauffeur a un
+ * `dossier_id`, le membre d'équipe un `tenant_id`. */
+export function pageInvitation(accessToken: string): "chauffeur" | "gestionnaire" {
+  const charge = decoderChargeUtileJwt(accessToken);
+  const meta = (charge.app_metadata ?? {}) as { dossier_id?: string; tenant_id?: string };
+  if (meta.dossier_id) return "chauffeur";
+  if (meta.tenant_id) return "gestionnaire";
+  throw new ErreurAuthChauffeur("Ce compte n'est lié ni à un dossier ni à un portefeuille.");
+}
+
 export function lireFragmentAuth(fragment: string): FragmentAuth {
   const parametres = new URLSearchParams(fragment.replace(/^#/, ""));
   const accessToken = parametres.get("access_token");

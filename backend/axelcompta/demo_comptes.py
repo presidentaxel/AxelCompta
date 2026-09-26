@@ -46,6 +46,15 @@ class Invitation:
     statut: StatutInvitation
 
 
+@dataclass(frozen=True, slots=True)
+class MembreCompte:
+    """Un gestionnaire du portefeuille. `accepte` est faux tant que le lien
+    d'invitation n'a pas été ouvert."""
+
+    email: str
+    accepte: bool
+
+
 class CompteDejaInviteError(ValueError):
     """Un compte existe déjà pour ce dossier — pas de double invitation
     silencieuse (doc 08 §2.7)."""
@@ -64,9 +73,9 @@ class CompteRepository(ABC):
         l'appelant vient déjà de le vérifier pour tout un lot (`statuts`) :
         évite de relister tous les comptes à chaque invitation."""
 
-    def membres(self, tenant_id: str) -> list[str]:
-        """E-mails des comptes rattachés au portefeuille. Vide si le
-        fournisseur ne sait pas les lister (tests en mémoire)."""
+    def membres(self, tenant_id: str) -> list[MembreCompte]:
+        """Comptes rattachés au portefeuille, avec l'état de l'invitation.
+        Vide si le fournisseur ne sait pas les lister."""
         return []
 
     def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
@@ -155,16 +164,18 @@ class SupabaseCompteRepository(CompteRepository):
                 )
         return resultat
 
-    def membres(self, tenant_id: str) -> list[str]:
-        emails: list[str] = []
+    def membres(self, tenant_id: str) -> list[MembreCompte]:
+        trouves: list[MembreCompte] = []
         for utilisateur in self._tous_les_utilisateurs():
             meta = utilisateur.get("app_metadata") or {}
             if str(meta.get("tenant_id") or "") != tenant_id:
                 continue
             email = utilisateur.get("email")
-            if email:
-                emails.append(email)
-        return sorted(emails)
+            if not email:
+                continue
+            confirme = utilisateur.get("email_confirmed_at") or utilisateur.get("confirmed_at")
+            trouves.append(MembreCompte(email=email, accepte=bool(confirme)))
+        return sorted(trouves, key=lambda membre: membre.email)
 
     def inviter_membre(self, tenant_id: str, email: str, role: str = "membre") -> None:
         # `/invite` répond 422 sur un e-mail déjà connu : on le dit avant.
