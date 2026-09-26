@@ -25,6 +25,11 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 ## Fichiers
 
 - `models.py` — domaine pur (`Tenant`, `Dossier`).
+- `exercices.py` / `exercices_postgres.py` (**fait, 2026-09-26**) :
+  historique append-only des exercices clos (table `exercices_clos`, verrou
+  en base), avec ce qui a changé à l'ouverture du suivant.
+  `DossierRepository.ouvrir_exercice` est la seule mise à jour de
+  configuration admise, à ce moment-là.
 - `franchise_tva.py` + `seuils_franchise_tva.toml` (**fait, 2026-09-26**) :
   seuils de la franchise en base par millésime (BOFIP), état du dossier
   selon son chiffre d'affaires HT de l'année civile (sous le seuil,

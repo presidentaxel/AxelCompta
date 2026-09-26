@@ -46,6 +46,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine, Row
 
 from axelcompta.closing.bilan_simplifie import ClotureSimplifieeService
+from axelcompta.closing.cloture_fiscale import chiffre_affaires_ht
 from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
@@ -78,7 +79,7 @@ from axelcompta.filings.inpi_depot import GuideGreffe, PdfDepotInpiRenderer, gui
 from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
-from axelcompta.ledger.contrepassation import annulees, origine
+from axelcompta.ledger.contrepassation import annulees
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
@@ -110,7 +111,11 @@ from axelcompta.workflow.notifications import NotificationRepository
 from axelcompta.workflow.notifications_postgres import PostgresNotificationRepository
 from axelcompta.workflow.propositions import PropositionRepository
 from axelcompta.workflow.propositions_postgres import PostgresPropositionRepository
-from axelcompta.workflow.revue import CategorieInconnueError, resoudre_ecriture_a_trancher
+from axelcompta.workflow.revue import (
+    CategorieInconnueError,
+    appliquer_decisions,
+    resoudre_ecriture_a_trancher,
+)
 from axelcompta.workflow.signature import SignatureRepository
 from axelcompta.workflow.signature_demo import SignatureDemoProvider
 from axelcompta.workflow.signature_postgres import PostgresSignatureRepository
@@ -313,20 +318,13 @@ def _ledger_avec_decisions(
     """Le ledger persisté, avec les décisions humaines ré-appliquées par-dessus
     (doc 17 §9 bloc A/C). Les écritures d'origine ne sont jamais modifiées en
     base (append-only, doc 06 §1) : une décision est une couche séparée."""
-    ecritures = base.grand_livre(dossier.id)
-    dernieres_decisions = {
-        decision.ecriture_id: decision for decision in decisions.lister_decisions(dossier.id)
-    }
-    comptes = charger_compte_par_categorie()
     resultat = InMemoryLedgerService()
-    for ecriture in ecritures:
-        # Une contre-passation suit la décision de son originale : sinon son
-        # 471 resterait ouvert et la paire ne s'annulerait plus.
-        decision = dernieres_decisions.get(origine(ecriture.id) or ecriture.id)
-        if decision is not None:
-            ecriture = resoudre_ecriture_a_trancher(
-                ecriture, decision.categorie, _colonne(dossier).compte_usage_personnel, comptes
-            )
+    for ecriture in appliquer_decisions(
+        base.grand_livre(dossier.id),
+        decisions.lister_decisions(dossier.id),
+        _colonne(dossier).compte_usage_personnel,
+        charger_compte_par_categorie(),
+    ):
         resultat.enregistrer(ecriture)
     return resultat
 
@@ -390,15 +388,8 @@ def _alerte_franchise_tva(dossier: Dossier, ecritures: tuple[Ecriture, ...]) -> 
     if configuration_de(dossier).regime_tva is not RegimeTva.FRANCHISE:
         return None
     annee = dossier.fin_exercice().year
-    ca = sum(
-        (ligne.montant.centimes if ligne.sens is Sens.CREDIT else -ligne.montant.centimes)
-        for ecriture in ecritures
-        if ecriture.date.year == annee
-        for ligne in ecriture.lignes
-        if ligne.compte.startswith("706")
-    )
     try:
-        return suivre_franchise(ca, annee).message
+        return suivre_franchise(chiffre_affaires_ht(ecritures, annee), annee).message
     except MillesimeInconnu:
         return None
 

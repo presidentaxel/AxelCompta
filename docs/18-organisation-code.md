@@ -109,9 +109,10 @@ convergent dans le même `ledger` (Postgres, amorcé par `demo_seed`).
 absent du découpage doc 03 §3 exprès : c'est un point d'entrée (comme `api/`),
 pas un module d'architecture, donc pas soumis aux mêmes contraintes de
 dépendance. Même statut pour les autres points d'entrée à la racine du
-paquet : `demo_api.py` (l'API), `synchro_digifactory.py`, `notifier.py` et
+paquet : `demo_api.py` (l'API), `synchro_digifactory.py`, `notifier.py`,
 `taches.py` (les tâches planifiées, lancées par
-`scripts/taches_planifiees.sh` depuis un cron).
+`scripts/taches_planifiees.sh` depuis un cron) et `exercices.py` (le
+passage d'un dossier à l'exercice suivant, en ligne de commande).
 
 ## État
 

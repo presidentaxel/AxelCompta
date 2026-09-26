@@ -45,6 +45,12 @@ class InMemoryDossierRepository(DossierRepository):
     def obtenir_tenant(self, tenant_id: TenantId) -> Tenant | None:
         return self._tenants.get(tenant_id)
 
+    def ouvrir_exercice(self, dossier: Dossier) -> None:
+        if dossier.id not in self._dossiers:
+            raise ValueError(f"dossier inconnu : {dossier.id}")
+        configuration_de(dossier)
+        self._dossiers[dossier.id] = dossier
+
     def lister_tenants(self) -> tuple[Tenant, ...]:
         return tuple(sorted(self._tenants.values(), key=lambda t: t.id))
 

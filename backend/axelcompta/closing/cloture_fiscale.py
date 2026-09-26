@@ -20,7 +20,12 @@ from __future__ import annotations
 from axelcompta.core.ids import DossierId
 from axelcompta.ledger.models import Ecriture, Sens
 
-from .ecritures_cloture import ecriture_impot_societes, ecriture_liquidation_tva
+from .ecritures_cloture import (
+    ecriture_impot_societes,
+    ecriture_liquidation_tva,
+    id_cloture_is,
+    id_cloture_tva,
+)
 from .impot_societes import arrondir_euros, calculer_is
 from .liasse_2033 import Balance, bilan, compte_de_resultat, net_actif, resultat_fiscal
 from .liasse_2033_annexes import (
@@ -41,6 +46,18 @@ def soldes(ecritures: tuple[Ecriture, ...]) -> Balance:
     return balance
 
 
+def chiffre_affaires_ht(ecritures: tuple[Ecriture, ...], annee: int) -> int:
+    """Recettes hors taxe (706) de l'année civile, en centimes : l'assiette
+    des seuils de la franchise en base de TVA (plafonds civils)."""
+    return sum(
+        ligne.montant.centimes if ligne.sens is Sens.CREDIT else -ligne.montant.centimes
+        for ecriture in ecritures
+        if ecriture.date.year == annee
+        for ligne in ecriture.lignes
+        if ligne.compte.startswith("706")
+    )
+
+
 def ecritures_exercice(
     ecritures: tuple[Ecriture, ...], parametres: ParametresCloture
 ) -> tuple[Ecriture, ...]:
@@ -49,10 +66,24 @@ def ecritures_exercice(
     )
 
 
+def hors_inventaire(
+    dossier_id: DossierId, ecritures: tuple[Ecriture, ...], parametres: ParametresCloture
+) -> tuple[Ecriture, ...]:
+    """Les écritures de l'exercice sans ses écritures d'inventaire. Une fois
+    l'exercice clos, celles-ci sont en base (`axelcompta.exercices`) ; on
+    les recalcule toujours depuis le reste, à l'identique (identifiants et
+    montants stables), plutôt que de les compter deux fois ou de fausser
+    les soldes « avant inventaire » (TVA de la 2033-D)."""
+    annee = parametres.exercice_fin.year
+    exclues = {id_cloture_tva(dossier_id, annee), id_cloture_is(dossier_id, annee)}
+    return tuple(e for e in ecritures if e.id not in exclues)
+
+
 def ecritures_de_cloture(
     dossier_id: DossierId, ecritures: tuple[Ecriture, ...], parametres: ParametresCloture
 ) -> tuple[Ecriture, ...]:
     """TVA puis IS, dans cet ordre. `ecritures` : celles de l'exercice."""
+    ecritures = hors_inventaire(dossier_id, ecritures, parametres)
     fin = parametres.exercice_fin
     tva = ecriture_liquidation_tva(dossier_id, soldes(ecritures), fin)
     avec_tva = ecritures + ((tva,) if tva else ())
@@ -100,7 +131,7 @@ def cloturer_fiscalement(
     ecritures: tuple[Ecriture, ...],
     parametres: ParametresCloture,
 ) -> LiassePivot:
-    ecritures = ecritures_exercice(ecritures, parametres)
+    ecritures = hors_inventaire(dossier_id, ecritures_exercice(ecritures, parametres), parametres)
     completes = ecritures + ecritures_de_cloture(dossier_id, ecritures, parametres)
     balance_avant, balance = soldes(ecritures), soldes(completes)
     resultat = compte_de_resultat(balance)

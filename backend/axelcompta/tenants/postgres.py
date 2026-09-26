@@ -82,6 +82,23 @@ class PostgresDossierRepository(DossierRepository):
             return None
         return Tenant(id=TenantId(ligne.id), nom=ligne.nom)
 
+    def ouvrir_exercice(self, dossier: Dossier) -> None:
+        configuration_de(dossier)
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                update(dossiers)
+                .where(dossiers.c.id == dossier.id)
+                .values(
+                    exercice_debut=dossier.exercice_debut,
+                    exercice_fin=dossier.exercice_fin,
+                    regime_imposition=dossier.regime_imposition,
+                    option_ir_debut=dossier.option_ir_debut,
+                    regime_tva=dossier.regime_tva,
+                    tva_recettes_regime=dossier.tva_recettes_regime,
+                )
+            )
+
     def lister_tenants(self) -> tuple[Tenant, ...]:
         with self._engine.connect() as connexion:
             appliquer_rls(connexion)

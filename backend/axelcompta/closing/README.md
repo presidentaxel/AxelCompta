@@ -21,7 +21,13 @@ pivot de liasse (`LiassePivot`) avant rendu par `filings/`.
   2033-C/D/E (`liasse_2033_annexes.py`), le tout dans une `LiassePivot`
   indexée par code officiel (`2033B.310`...). Correspondance comptes →
   rubriques : `rubriques_2033.py`, d'après la notice 2033-NOT-SD, sans
-  relecture d'expert-comptable (décision démo).
+  relecture d'expert-comptable (décision démo). Les écritures d'inventaire
+  sont toujours recalculées depuis le grand livre privé d'elles-mêmes
+  (`hors_inventaire`) : passées en base à la clôture, elles ne comptent
+  pas double et la liasse de l'exercice clos ne bouge pas.
+- `ouverture.py` (**2026-09-26**) : écriture d'à-nouveaux (journal AN) à
+  l'ouverture de l'exercice suivant, comptes de bilan repris, résultat en
+  120 ou 129. Appelée par `axelcompta/exercices.py`.
 
 ## Statuts
 

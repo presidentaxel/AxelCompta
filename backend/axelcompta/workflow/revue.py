@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import dataclasses
 
+from axelcompta.ledger.contrepassation import origine
 from axelcompta.ledger.models import Ecriture
+
+from .decisions import DecisionHumaine
 
 COMPTE_ATTENTE = "471"
 CATEGORIE_USAGE_PERSONNEL = "usage_personnel"
@@ -57,3 +60,27 @@ def _compte_cible(
     if compte is None:
         raise CategorieInconnueError(f"catégorie inconnue du pack : {categorie_choisie!r}")
     return compte
+
+
+def appliquer_decisions(
+    ecritures: tuple[Ecriture, ...],
+    decisions: tuple[DecisionHumaine, ...],
+    compte_usage_personnel: str | None,
+    comptes_par_categorie: dict[str, str],
+) -> tuple[Ecriture, ...]:
+    """Le grand livre tel que les décisions humaines le disent : chaque
+    écriture tranchée prend son compte réel, les autres restent telles
+    quelles. Les écritures en base ne changent jamais (append-only, doc 06
+    §1) : la décision est une couche lue par-dessus. La dernière décision
+    d'une écriture l'emporte, et une contre-passation suit celle de son
+    originale, sinon son 471 resterait ouvert."""
+    dernieres = {decision.ecriture_id: decision for decision in decisions}
+    resultat = []
+    for ecriture in ecritures:
+        decision = dernieres.get(origine(ecriture.id) or ecriture.id)
+        if decision is not None:
+            ecriture = resoudre_ecriture_a_trancher(
+                ecriture, decision.categorie, compte_usage_personnel, comptes_par_categorie
+            )
+        resultat.append(ecriture)
+    return tuple(resultat)

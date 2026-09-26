@@ -45,6 +45,13 @@ class DossierRepository(ABC):
         """Le nom affiché du portefeuille, choisi par l'organisation."""
 
     @abstractmethod
+    def ouvrir_exercice(self, dossier: Dossier) -> None:
+        """Seule mise à jour de configuration admise : à l'ouverture de
+        l'exercice suivant (`axelcompta.exercices`), les bornes et les
+        régimes du nouvel exercice. Lève `ConfigurationInvalide` avant
+        d'écrire si la nouvelle configuration n'a pas de sens."""
+
+    @abstractmethod
     def retirer(self, dossier_id: DossierId) -> None:
         """Sort le dossier de la liste du portefeuille. Les écritures restent."""
 
