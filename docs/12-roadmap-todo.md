@@ -89,6 +89,9 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   (`tenants/matrice_statuts.toml`), validée à chaque écriture ; le moteur
   lit la matrice pour l'usage personnel, l'IS, la 2065 et le dépôt au
   greffe (PR #22, migration `f1b6d3e82a47`, §1.1 ci-dessous).
+- Liasse 2031 + 2031-bis sur le formulaire officiel pour les sociétés à
+  l'IR ; l'écran Exercice propose la 2065 ou la 2031 et masque le dépôt au
+  greffe selon la matrice (PR #24, liasse pivot au §3).
 
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
@@ -365,7 +368,7 @@ zéro fuite au test de pseudonymisation.
 ## Phase 3 — Production comptable complète
 
 - [ ] Checklist de clôture automatisée (doc 06 §5) : CCA/FNP assistées, cadrage TVA, dotations, réintégrations fiscales (plafonds VP, LOA), IS.
-- [ ] **Liasse pivot** case-par-case alignée dictionnaire TDFC, formulaires sélectionnés par le statut du dossier : 2065 + 2050/2033 (IS) et 2031 + annexes (option IR) + contrôles de cohérence inter-cases. **Avancé le 2026-09-23 (doc 17 §15)** : 2065 + 2033-A à G complets pour l'IS au régime simplifié, cases indexées par le code officiel, sans relecture d'expert-comptable (décision démo). Restent : 2050-2059 (réel normal), 2031 (option IR), alignement sur le dictionnaire TDFC, contrôles inter-cases formalisés.
+- [ ] **Liasse pivot** case-par-case alignée dictionnaire TDFC, formulaires sélectionnés par le statut du dossier : 2065 + 2050/2033 (IS) et 2031 + annexes (option IR) + contrôles de cohérence inter-cases. **Avancé le 2026-09-23 (doc 17 §15)** : 2065 + 2033-A à G complets pour l'IS au régime simplifié, cases indexées par le code officiel, sans relecture d'expert-comptable (décision démo). **2031 + 2031-bis faits le 2026-09-26** pour la colonne à l'IR (EURL, SARL de famille, option 239 bis AB), 2033 jointe, pas d'IS ni de 2065 ; la colonne `societe_ir` de la matrice passe opérationnelle, et l'écran Exercice propose la 2065 ou la 2031 et masque le dépôt au greffe selon la matrice. Restent : 2050-2059 (réel normal), EI au réel (bilan de l'exploitant, dossier de référence), alignement sur le dictionnaire TDFC, contrôles inter-cases formalisés.
 - [ ] Renderers : FEC final (CI « Test Compta Demat »), PDF liasse fidèle CERFA, balance/GL/journaux exports, CA3 pré-remplie (CA12 en lecture d'historique seulement, doc 02 §7bis). **Avancé le 2026-09-23** : FEC conforme au texte de l'A.47 A-1 (pas encore passé dans Test Compta Demat), PDF 2065 + 2033 sur les formulaires officiels 2026, grand livre et balance en PDF.
 - [ ] Dossier de dépôt comptes annuels (Guichet Unique INPI) — génération, dépôt manuel documenté.
 - [ ] Dossiers de référence supplémentaires (EURL avec LOA, EURL option IR clôturée, dossier traversant la **fin d'option IR** : exercice N en IR → N+1 en IS) en golden tests — un par colonne opérationnelle de la matrice doc 06 §7.

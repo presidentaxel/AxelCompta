@@ -21,6 +21,9 @@ export type DossierResume = {
   cloture_faite: boolean; // preuve de clôture : la validation de liasse se fait au téléchargement
   greffe_inpi_signe: boolean; // doc 20 : dossier de dépôt signé (démo, jamais qualifié RGS)
   guide_greffe: GuideGreffe;
+  // Lus dans la matrice des statuts côté API : 2065 à l'IS, 2031 à l'IR.
+  declaration_resultat: "2065" | "2031";
+  depot_greffe: boolean;
 };
 
 export type LignePortail = {
@@ -72,6 +75,7 @@ export type DocumentCloture =
   | "liasse-fiscale.pdf"
   | "liasse.pdf"
   | "cerfa-2065.pdf"
+  | "cerfa-2031.pdf"
   | "fec.txt"
   | "grand-livre.pdf"
   | "grand-livre.csv"

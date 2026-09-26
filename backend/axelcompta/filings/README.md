@@ -25,9 +25,18 @@ Renderers : FEC, PDF de liasse, EDI-TDFC, dossier INPI.
   `cerfa_2033.py` : `PdfLiasse2033Renderer`, les 7 tableaux 2033-A à G
   officiels. Coordonnées des cases extraites du PDF par
   `scripts/extraire_cases_cerfa.py` (ADR-006, §Extension au 2033).
-- `liasse_fiscale.py` : `PdfLiasseFiscaleRenderer`, 2065 + 2065-bis +
-  2033-A à G en un PDF, sans les pages de notice. Route
-  `/dossiers/{id}/liasse-fiscale.pdf`.
+- `cerfa/2031-sd_2026.pdf` + `cerfa_2031.py` (**2026-09-26**) :
+  `PdfCerfa2031Renderer`, 2031-SD et 2031-bis-SD officiels, pour la colonne
+  à l'IR de la matrice des statuts. Exercice, régime simplifié, identité,
+  activité, cadre C (bénéfice 370 ou déficit 372 de la 2033-B, total,
+  bénéfice imposable), comptabilité informatisée, déclarant, cadre E
+  (associés, gérant, « B », quote-part au prorata des titres) et cadre H.
+  Route `/dossiers/{id}/cerfa-2031.pdf` (409 pour un dossier à l'IS, comme
+  la 2065 l'est pour un dossier à l'IR).
+- `liasse_fiscale.py` : `PdfLiasseFiscaleRenderer`, déclaration de résultat
+  (2065 + 2065-bis à l'IS, 2031 + 2031-bis à l'IR, selon
+  `LiassePivot.soumis_is`) + 2033-A à G en un PDF, sans les pages de
+  notice. Route `/dossiers/{id}/liasse-fiscale.pdf`.
 
 Aucun de ces PDF n'est une télédéclaration : le dépôt légal est EDI/EFI
 (statut Partenaire EDI, doc 02).

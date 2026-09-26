@@ -2,7 +2,9 @@
 
 **Date :** 2026-06-16
 **Statut :** overlay retenu pour le 2065 et le 2033-A à G (2026-09-23, voir
-§Extension au 2033) ; reste à évaluer pour le 2050-2059 et le 2031.
+§Extension au 2033), puis pour le 2031 (2026-09-26 : millésime 2026 sans
+AcroForm non plus, cellules relevées à la main sur les bordures, rendu
+vérifié à l'œil) ; reste à évaluer pour le 2050-2059.
 **Décideurs :** Louis Vedovato
 
 ## Contexte

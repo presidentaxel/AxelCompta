@@ -69,6 +69,7 @@ from axelcompta.demo_justificatifs import (
     JustificatifRepository,
 )
 from axelcompta.demo_seed import TENANT_DEMO
+from axelcompta.filings.cerfa_2031 import PdfCerfa2031Renderer
 from axelcompta.filings.cerfa_2033 import extraire_page_2033
 from axelcompta.filings.cerfa_2065 import PdfCerfa2065Renderer
 from axelcompta.filings.export_comptable import exporter_balance, exporter_grand_livre
@@ -179,6 +180,10 @@ class DossierResume(BaseModel):
         bool  # doc 20 : dossier de dépôt des comptes annuels signé (démo, pas qualifié)
     )
     guide_greffe: GuideGreffeVue
+    # Lus dans la matrice statut × régime (doc 06 §7) : l'écran n'a pas à
+    # déduire lui-même le formulaire ou le dépôt de la forme juridique.
+    declaration_resultat: str  # "2065" (IS) ou "2031" (IR)
+    depot_greffe: bool
 
 
 class DossierAgregat(BaseModel):
@@ -397,6 +402,8 @@ def _resume(
         cloture_faite=document_cloture is not None,
         greffe_inpi_signe=document_greffe is not None,
         guide_greffe=_guide_vue(guide_greffe(liasse)),
+        declaration_resultat=_colonne(dossier).formulaires_resultat[0],
+        depot_greffe=_colonne(dossier).depot_comptes_inpi,
     )
 
 
@@ -1398,6 +1405,31 @@ def _enregistrer_routes_pieces_greffe(app: FastAPI) -> None:
         return _fichier(pdf, "application/pdf", f"compte-de-resultat-{dossier.id}.pdf")
 
 
+def _enregistrer_routes_declarations(app: FastAPI) -> None:
+    """Déclaration de résultat selon la colonne de la matrice (doc 06 §7) :
+    2065 à l'IS, 2031 à l'IR. L'autre répond 409, jamais un formulaire faux."""
+
+    @app.get("/dossiers/{dossier_id}/cerfa-2065.pdf")
+    def telecharger_cerfa(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        if not _colonne(dossier).soumis_is:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{_colonne(dossier).libelle} : la 2065 ne concerne que l'IS.",
+            )
+        pdf = PdfCerfa2065Renderer().rendre(_construire_liasse(dossier, ledger))
+        return _fichier(pdf, "application/pdf", f"cerfa-2065-{dossier.id}.pdf")
+
+    @app.get("/dossiers/{dossier_id}/cerfa-2031.pdf")
+    def telecharger_cerfa_2031(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
+        if _colonne(dossier).soumis_is:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{_colonne(dossier).libelle} : la 2031 ne concerne que l'IR.",
+            )
+        pdf = PdfCerfa2031Renderer().rendre(_construire_liasse(dossier, ledger))
+        return _fichier(pdf, "application/pdf", f"cerfa-2031-{dossier.id}.pdf")
+
+
 def _enregistrer_routes_cloture(app: FastAPI) -> None:
     """Semaine 4 (doc 17 §9) : les renderers de clôture, exposés en
     téléchargement direct — sur le ledger avec décisions humaines appliquées
@@ -1412,17 +1444,6 @@ def _enregistrer_routes_cloture(app: FastAPI) -> None:
     def telecharger_liasse_fiscale(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
         pdf = PdfLiasseFiscaleRenderer().rendre(_construire_liasse(dossier, ledger))
         return _fichier(pdf, "application/pdf", f"liasse-fiscale-{dossier.id}.pdf")
-
-    @app.get("/dossiers/{dossier_id}/cerfa-2065.pdf")
-    def telecharger_cerfa(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
-        if not _colonne(dossier).soumis_is:
-            # La 2031 de l'IR n'est pas encore produite (doc 12 §3).
-            raise HTTPException(
-                status_code=409,
-                detail=f"{_colonne(dossier).libelle} : la 2065 ne concerne que l'IS.",
-            )
-        pdf = PdfCerfa2065Renderer().rendre(_construire_liasse(dossier, ledger))
-        return _fichier(pdf, "application/pdf", f"cerfa-2065-{dossier.id}.pdf")
 
     @app.get("/dossiers/{dossier_id}/fec.txt")
     def telecharger_fec(dossier: DossierDep, ledger: LedgerDossierDep) -> Response:
@@ -1641,6 +1662,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_membres(app)
     _enregistrer_routes_invitation(app)
     _enregistrer_routes_cloture(app)
+    _enregistrer_routes_declarations(app)
     _enregistrer_routes_pieces_greffe(app)
     _enregistrer_routes_greffe_inpi(app)
     _enregistrer_routes_notifications(app)

@@ -202,6 +202,8 @@ def _resume_actif(greffe_signe: bool) -> DossierResume:
         guide_greffe=GuideGreffeVue(
             depose=False, lien="https://procedures.inpi.fr/", lignes=[], pieces=[]
         ),
+        declaration_resultat="2065",
+        depot_greffe=True,
     )
 
 
@@ -1234,3 +1236,28 @@ def test_un_dossier_a_l_ir_n_a_ni_2065_ni_depot_au_greffe_mais_garde_sa_2033() -
     assert client.get(f"{base}/greffe-inpi.pdf", headers=en_tete).status_code == 409
     assert client.post(f"{base}/greffe-inpi/signature", headers=en_tete).status_code == 409
     assert client.get(f"{base}/liasse-fiscale.pdf", headers=en_tete).status_code == 200
+
+
+def test_la_2031_est_servie_a_l_ir_et_refusee_a_l_is() -> None:
+    client = _client()
+    depot = client.app.dependency_overrides[get_dossiers]()  # type: ignore[attr-defined]
+    depot.enregistrer(
+        Dossier(
+            id=DossierId("DEMO_eurl_ir"),
+            tenant_id=TenantId("TENANT_DEMO"),
+            forme_juridique="EURL",
+            regime_imposition="IR",
+            regime_tva="reel_normal",
+            nom="EURL IR",
+            tva_recettes_regime="assujetti_taux_reduit",
+            exercice_debut=date(2025, 1, 1),
+        )
+    )
+
+    ir = client.get("/dossiers/DEMO_eurl_ir/cerfa-2031.pdf", headers=_en_tete("DEMO_eurl_ir"))
+    is_ = client.get("/dossiers/DEMO_karim/cerfa-2031.pdf", headers=_en_tete("DEMO_karim"))
+
+    assert ir.status_code == 200 and ir.content.startswith(b"%PDF-")
+    assert is_.status_code == 409
+    fiche = client.get("/dossiers/DEMO_eurl_ir", headers=_en_tete("DEMO_eurl_ir")).json()
+    assert (fiche["declaration_resultat"], fiche["depot_greffe"]) == ("2031", True)
