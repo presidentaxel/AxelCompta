@@ -42,6 +42,21 @@ dossiers = Table(
     Column("option_ir_debut", Integer, nullable=True),
 )
 
+# Avenants de régime d'imposition (doc 06 §7), append-only : verrou en base
+# contre UPDATE et DELETE (migration `a4d7e2c9b518`).
+avenants_regime = Table(
+    "avenants_regime",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("dossier_id", String, ForeignKey("dossiers.id"), nullable=False, index=True),
+    Column("exercice_effet", Integer, nullable=False),
+    Column("regime_imposition", String, nullable=False),
+    Column("option_ir_debut", Integer, nullable=True),
+    Column("motif", String, nullable=False),
+    Column("enregistre_le", DateTime, nullable=False),
+    Column("enregistre_par", String, nullable=False),
+)
+
 regles_rappel = Table(
     "regles_rappel",
     metadata,

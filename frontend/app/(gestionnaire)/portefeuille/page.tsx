@@ -189,6 +189,9 @@ export default function PortefeuillePage() {
                     etape={dossier.etape_precedente}
                     compteOuvert={dossier.statut_invitation === "actif"}
                   />
+                  {dossier.alerte_regime && (
+                    <span className="block text-sm text-subtle">{dossier.alerte_regime}</span>
+                  )}
                 </span>
               </span>
               <span

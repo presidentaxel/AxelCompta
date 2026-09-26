@@ -96,3 +96,30 @@ def test_sans_synchro_seules_les_notifications_passent() -> None:
     bilan = lancer_taches(_depot(("b1", "B", "12")), None, _notifier_tout)
 
     assert bilan.lignes == ["B notifications : 1 créées, 0 en échec"]
+
+
+def test_les_bascules_de_regime_passent_avant_les_notifications() -> None:
+    appels: list[str] = []
+
+    def bascules(dossiers: tuple[Dossier, ...]) -> int:
+        appels.append("bascules")
+        return 1
+
+    def notifier(dossiers: tuple[Dossier, ...]) -> list[ResultatNotification]:
+        appels.append("notifications")
+        return _notifier_tout(dossiers)
+
+    bilan = lancer_taches(_depot(("a1", "A", None)), None, notifier, bascules)
+
+    assert appels == ["bascules", "notifications"]
+    assert "A bascules de régime : 1 enregistrées" in bilan.lignes
+
+
+def test_une_bascule_en_echec_n_empeche_pas_les_notifications() -> None:
+    def planter(dossiers: tuple[Dossier, ...]) -> int:
+        raise ConnectionError("base")
+
+    bilan = lancer_taches(_depot(("a1", "A", None)), None, _notifier_tout, planter)
+
+    assert bilan.echec
+    assert bilan.lignes[-1] == "A notifications : 1 créées, 0 en échec"

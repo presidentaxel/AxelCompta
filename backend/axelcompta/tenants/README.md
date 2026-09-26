@@ -17,12 +17,17 @@ d'héritage implicite (doc 03 §3bis, doc 06 §7).
 - Matrice de configuration statut × régime (doc 06 §7), en données
   versionnées : **faite le 2026-09-26** (`matrice_statuts.toml`). Reste à
   rendre la colonne IR opérationnelle de bout en bout (liasse 2031).
-- Option IR bornée : date de début, décompte des 5 exercices, alertes N-1/N,
+- Option IR bornée (**faite le 2026-09-26**, `avenants.py`) : date de
+  début, décompte des 5 exercices, alertes N-1/N,
   bascule IS tracée, changement de régime par avenant daté.
 
 ## Fichiers
 
 - `models.py` — domaine pur (`Tenant`, `Dossier`).
+- `avenants.py` / `avenants_postgres.py` (**fait, 2026-09-26**) : avenants
+  de régime datés, append-only (table `avenants_regime`, verrou en base).
+  `regime_pour_exercice`, alertes de fin d'option IR, bascule vers l'IS
+  programmée par `axelcompta.taches` au dernier exercice de l'option.
 - `matrice_statuts.toml` + `statuts.py` (**fait, 2026-09-26**) : matrice
   statut × régime (doc 06 §7) en données versionnées. Chaque couple (forme,
   régime) mène à une colonne (`societe_is`, `societe_ir`, `ei_reel`,

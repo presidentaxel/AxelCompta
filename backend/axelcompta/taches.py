@@ -1,5 +1,6 @@
-"""Tâches planifiées : pour chaque portefeuille, synchro Digifactory puis
-notifications internes (doc 12, J3 et J5).
+"""Tâches planifiées : pour chaque portefeuille, synchro Digifactory, bascules
+de régime dues (fin d'option IR, doc 06 §7), puis notifications internes
+(doc 12, J3 et J5).
 
 Un seul point d'entrée pour le planificateur, quel qu'il soit : le crontab
 du poste de Louis pour la démo, celui du serveur (ou un timer systemd) en
@@ -29,6 +30,8 @@ from datetime import UTC, datetime
 from axelcompta.core.db import engine_depuis_env
 from axelcompta.notifier import notifier_depuis_base
 from axelcompta.synchro_digifactory import ResultatDossier, synchroniser_portefeuille
+from axelcompta.tenants.avenants import programmer_bascules
+from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
 from axelcompta.tenants.models import Dossier
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
@@ -36,6 +39,8 @@ from axelcompta.workflow.notifications import ResultatNotification
 
 Synchroniser = Callable[[tuple[Dossier, ...]], list[ResultatDossier]]
 Notifier = Callable[[tuple[Dossier, ...]], list[ResultatNotification]]
+# Renvoie le nombre d'avenants de régime enregistrés.
+ProgrammerBascules = Callable[[tuple[Dossier, ...]], int]
 
 
 @dataclass
@@ -48,6 +53,7 @@ def lancer_taches(
     depot: DossierRepository,
     synchroniser: Synchroniser | None,
     notifier: Notifier,
+    programmer_bascules: ProgrammerBascules | None = None,
 ) -> BilanTaches:
     """`synchroniser` à None saute la synchro (`--sans-synchro`). Un
     portefeuille sans aucun contact Digifactory n'appelle pas Digifactory."""
@@ -69,6 +75,15 @@ def lancer_taches(
                     f"{tenant.id} synchro : {len(resultats) - len(erreurs)} ok, "
                     f"{len(erreurs)} en échec"
                 )
+        if programmer_bascules is not None:
+            try:
+                nb = programmer_bascules(dossiers)
+            except Exception as exc:  # noqa: BLE001 — une étape n'arrête pas les autres
+                bilan.echec = True
+                bilan.lignes.append(f"{tenant.id} bascules : échec ({type(exc).__name__})")
+            else:
+                if nb:
+                    bilan.lignes.append(f"{tenant.id} bascules de régime : {nb} enregistrées")
         notifs = notifier(dossiers)
         creees = sum(1 for r in notifs if r.statut == "creee")
         echecs = sum(1 for r in notifs if r.statut == "echec")
@@ -88,6 +103,13 @@ def main() -> int:
         PostgresDossierRepository(engine),
         None if args.sans_synchro else (lambda d: synchroniser_portefeuille(engine, d)),
         lambda d: notifier_depuis_base(engine, d),
+        lambda d: len(
+            programmer_bascules(
+                d,
+                PostgresAvenantRegimeRepository(engine),
+                datetime.now(UTC).replace(tzinfo=None),
+            )
+        ),
     )
     print(f"[{debut.isoformat(timespec='seconds')}] tâches planifiées")
     for ligne in bilan.lignes:
