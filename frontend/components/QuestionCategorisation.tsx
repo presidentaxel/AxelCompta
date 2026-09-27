@@ -23,10 +23,15 @@ const RACCOURCIS = [
 export function QuestionCategorisation({
   dossierId,
   ecritureId,
+  proposition,
+  sansProposition = false,
   onResolu,
 }: {
   dossierId: string;
   ecritureId: string;
+  proposition: { code: string; libelle: string } | null;
+  /** Vrai quand le libellé ne porte aucune catégorie : le modèle n'a pas tourné. */
+  sansProposition?: boolean;
   onResolu: (transaction: TransactionVue) => void;
 }) {
   const [autreCategorie, setAutreCategorie] = useState("");
@@ -54,13 +59,30 @@ export function QuestionCategorisation({
 
   return (
     <div className="rounded-md border border-warning/40 bg-pending-subtle p-3">
-      <p className="mb-2 text-sm font-medium text-ink">À quoi correspond cette dépense ?</p>
+      <p className="mb-2 text-sm font-medium text-ink">
+        {proposition
+          ? `Proposition : ${proposition.libelle}`
+          : sansProposition
+            ? "Pas de proposition automatique. À quoi correspond cette dépense ?"
+            : "À quoi correspond cette dépense ?"}
+      </p>
       {!afficherAutre ? (
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          {proposition && (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-auto min-h-11 w-full px-3 whitespace-normal!"
+              disabled={enCours}
+              onClick={() => repondre(proposition.code)}
+            >
+              Oui, c&apos;est ça
+            </Button>
+          )}
           <Button
             type="button"
             variant="secondary"
-            className="h-11 flex-1"
+            className="h-11 w-full"
             disabled={enCours}
             onClick={() => repondre("usage_personnel")}
           >
@@ -71,7 +93,7 @@ export function QuestionCategorisation({
           <Button
             type="button"
             variant="secondary"
-            className="h-11 flex-1"
+            className="h-11 w-full"
             disabled={enCours}
             onClick={() => repondre("remuneration_dirigeant")}
           >
@@ -80,7 +102,7 @@ export function QuestionCategorisation({
           <Button
             type="button"
             variant="secondary"
-            className="h-11 flex-1"
+            className="h-11 w-full"
             disabled={enCours}
             onClick={() => setAfficherAutre(true)}
           >
@@ -99,6 +121,7 @@ export function QuestionCategorisation({
                 variant="secondary"
                 size="sm"
                 disabled={enCours}
+                className="max-w-full whitespace-normal!"
                 onClick={() => repondre(categorie)}
               >
                 {libelle}

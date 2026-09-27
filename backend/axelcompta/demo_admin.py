@@ -11,7 +11,9 @@ route qui l'appelle n'accepte que le portefeuille de démo et un admin.
 Jamais touché, quelles que soient les parties cochées : le grand livre
 (une décision ne le modifie pas, elle se lit par-dessus), le journal
 d'audit, les comptes Supabase et les droits d'équipe (sans ligne de droit,
-un compte redeviendrait admin).
+un compte redeviendrait admin). Les dossiers branchés à Digifactory
+(`contact_nr` renseigné) non plus : leurs décisions, notifications et
+photos ne sont pas celles de Karim, Sophie et Yanis.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ from axelcompta.workflow.signature_postgres import PostgresSignatureRepository
 
 NOM_PORTEFEUILLE_DEMO = "Portefeuille démo"
 
-_DOSSIERS_DU_TENANT = "SELECT id FROM dossiers WHERE tenant_id = :tenant"
+_DOSSIERS_DU_TENANT = "SELECT id FROM dossiers WHERE tenant_id = :tenant AND contact_nr IS NULL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,7 +100,11 @@ def _remettre_en_base(connexion: Connection, parties: frozenset[str], tenant: st
         _effacer(connexion, "notifications_envoyees", parametres)
     if "portefeuille" in parties:
         connexion.execute(
-            text("UPDATE dossiers SET retire_le = NULL WHERE tenant_id = :tenant"), parametres
+            text(
+                "UPDATE dossiers SET retire_le = NULL "
+                "WHERE tenant_id = :tenant AND contact_nr IS NULL"
+            ),
+            parametres,
         )
         connexion.execute(
             text("UPDATE tenants SET nom = :nom WHERE id = :tenant"),

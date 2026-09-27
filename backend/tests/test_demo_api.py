@@ -218,6 +218,8 @@ def _resume_actif(greffe_signe: bool) -> DossierResume:
         ),
         declaration_resultat="2065",
         depot_greffe=True,
+        forme_juridique="SASU",
+        regime_libelle="Société à l'IS",
     )
 
 
@@ -600,6 +602,8 @@ def test_faux_digifactory_masque_connecter_sa_banque_jusqua_au_reglage() -> None
     sophie = client.get("/dossiers/DEMO_sophie", headers=_en_tete("DEMO_sophie")).json()
     assert karim["peut_connecter_sa_banque"] is False
     assert sophie["peut_connecter_sa_banque"] is False
+    assert (karim["forme_juridique"], karim["regime_libelle"]) == ("SASU", "Société à l'IS")
+    assert sophie["forme_juridique"] == "EURL"
     lecture = client.get("/demo/parametres", headers=_en_tete_gestionnaire())
     assert lecture.status_code == 200
     assert lecture.json() == {"digifactory_branche": True}
