@@ -44,6 +44,19 @@ détail des écritures attendues par profil est dans l'archive (§4).
 
 ## 3. Ce que la démo montre
 
+**Le produit qui apprend, sur un dossier réel (depuis le 2026-09-27)** :
+se connecter en `demo-digi-4952@axelcompta.fr` (mot de passe commun des
+chauffeurs de démo). Ses 337 opérations à trancher sont surtout des
+salaires versés, que le modèle ne connaît pas : « pas de proposition
+automatique », et quelques propositions du modèle affichées avec leur
+confiance. Classer une seule ligne « SOLDE SALAIRE » en « Salaire d'un
+salarié » (sous « Autre chose ») : la liste se relit, et un encart annonce
+que 295 opérations ressemblent à ce classement, liste consultable, puis
+« Tout classer » en un geste. Vérifié en simulation sur les vraies données
+le 2026-09-27 : les 295 sont exactement les lignes « SOLDE SALAIRE » et
+« ACOMPTE SALAIRE ». Pour rejouer, cocher « Dépenses tranchées des
+dossiers Digifactory » dans le menu Démo (§6).
+
 **Gestionnaire (web)** : la liste des entreprises du portefeuille, deux
 frises réglementaires par entreprise (l'exercice en cours, et celui
 d'avant qu'on traite au début de l'année), les invitations individuelles ou
@@ -94,7 +107,8 @@ Pièges connus :
 - Le CORS n'accepte que `http://localhost:3000`. Un `next dev` qui traîne
   d'une session précédente fait démarrer le nouveau sur 3001, et toutes les
   actions échouent. Vérifier que le port 3000 est libre avant de lancer.
-- `DATABASE_URL_WEB` doit être défini, sinon l'API refuse de démarrer
+- `DATABASE_URL_WEB` doit être défini (`set -a && . ../.env && set +a`
+  avant `uvicorn`), sinon l'API démarre mais chaque requête répond 500
   (elle ne retombe jamais sur la connexion propriétaire).
 - Comptes : trois chauffeurs (`scripts/creer_comptes_demo_chauffeurs.py`)
   et deux gestionnaires, persistants dans Supabase Auth. Mot de passe
@@ -112,6 +126,12 @@ verrous le temps d'une seule transaction, annulée en entier au moindre
 échec. Seuls le portefeuille de démo et un admin y ont accès, et le grand
 livre, le journal d'audit et les comptes Supabase ne sont jamais touchés
 (`demo_admin.py`).
+
+Les dossiers `DIGI_` échappent à toutes les parties, sauf une qui leur est
+propre depuis le 2026-09-27 : « Dépenses tranchées des dossiers
+Digifactory » efface leurs seules décisions, pour rejouer le « tout
+classer » du §3. Leurs opérations ne sont jamais touchées. Rien n'est coché
+par défaut.
 
 ## 7. Risques
 
