@@ -35,6 +35,7 @@ import re
 import time
 import uuid
 from collections.abc import Callable
+from collections.abc import Set as AbstractSet
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -62,6 +63,9 @@ from axelcompta.categorize.appris import (
     libelle_sans_categorie,
     propositions_apprises,
 )
+from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, charger_modele
+from axelcompta.categorize.models import Etage
+from axelcompta.categorize.rules_and_ml import CATEGORIE_PAR_DEFAUT, RulesAndMlPipeline
 from axelcompta.closing.affectation import (
     MillesimeDividendesInconnu,
     disponible,
@@ -74,7 +78,7 @@ from axelcompta.closing.dividendes import RetenuesDividendes, retenues
 from axelcompta.closing.models import LiassePivot, ParametresCloture
 from axelcompta.closing.paie import Bulletin, BulletinIncoherent
 from axelcompta.core.db import engine_depuis_env
-from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
+from axelcompta.core.ids import DossierId, EcritureId, TenantId, TransactionId, UserId
 from axelcompta.core.rls import appliquer_rls, contexte_identite
 from axelcompta.demo_admin import CLES_PARTIES, PARTIES, reinitialiser_demo
 from axelcompta.demo_auth import (
@@ -111,12 +115,13 @@ from axelcompta.filings.inpi_depot import GuideGreffe, PdfDepotInpiRenderer, gui
 from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
+from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.ledger.contrepassation import annulees
 from axelcompta.ledger.memory import InMemoryLedgerService
 from axelcompta.ledger.models import Ecriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.ledger.service import LedgerService
-from axelcompta.packs.vtc_demo import charger_compte_par_categorie
+from axelcompta.packs.vtc_demo import charger_compte_par_categorie, charger_regles
 from axelcompta.tenants.affectations import AffectationRepository
 from axelcompta.tenants.affectations_postgres import PostgresAffectationRepository
 from axelcompta.tenants.avenants import (
@@ -300,14 +305,28 @@ class TransactionVue(BaseModel):
     compte: str
     statut: str  # "validé" | "à trancher" — vocabulaire unique de badge (doc 11 §4)
     a_justificatif: bool  # doc 17 §9 Semaine 3 : une photo a été jointe (contenu non lu)
-    # Catégorie reprise d'une opération semblable que l'indiv a déjà tranchée
-    # (`categorize/appris.py`). Prime sur la proposition du pipeline, collée
-    # au libellé au moment de la synchro.
-    proposition_apprise: str | None = None
+    # Proposition pour une opération à trancher, calculée à la lecture : une
+    # opération semblable déjà tranchée par l'indiv (« appris »), sinon les
+    # règles (« regle ») et le modèle (« modele ») en vigueur. La proposition
+    # d'origine, figée à la synchro, reste en base comme trace.
+    proposition: str | None = None
+    origine_proposition: str | None = None  # "appris" | "regle" | "modele"
+    confiance_proposition: float | None = None
 
 
 class DecisionEntree(BaseModel):
     categorie: str  # "usage_personnel" ou toute catégorie du pack (doc 17 §9 bloc C)
+
+
+MAX_DECISIONS_GROUPEES = 1000
+
+
+class DecisionsGroupeesEntree(BaseModel):
+    """« Tout confirmer » : une même catégorie pour des opérations que l'indiv
+    a vues listées et confirmées d'un geste."""
+
+    categorie: str
+    ecriture_ids: list[str]
 
 
 class InvitationEntree(BaseModel):
@@ -617,6 +636,7 @@ def _transactions_dossier(
     ledger: InMemoryLedgerService,
     justificatifs: JustificatifRepository,
     decisions: tuple[DecisionHumaine, ...] = (),
+    pipeline: RulesAndMlPipeline | None = None,
 ) -> list[TransactionVue]:
     """Extrait de la route (doc 08 §2 : longueur de fonction)."""
     ecritures = ledger.grand_livre(dossier.id)
@@ -625,14 +645,24 @@ def _transactions_dossier(
         _transaction_vue(e, justificatifs.a_un_justificatif(dossier.id, e.id), e.id in exclues)
         for e in ecritures
     ]
-    return _avec_propositions_apprises(vues, decisions)
+    return _avec_propositions(dossier, vues, decisions, pipeline)
 
 
-def _avec_propositions_apprises(
-    vues: list[TransactionVue], decisions: tuple[DecisionHumaine, ...]
+_ORIGINE_PAR_ETAGE = {Etage.REGLE: "regle", Etage.ML: "modele"}
+
+
+def _avec_propositions(
+    dossier: Dossier,
+    vues: list[TransactionVue],
+    decisions: tuple[DecisionHumaine, ...],
+    pipeline: RulesAndMlPipeline | None,
 ) -> list[TransactionVue]:
-    """Les opérations à trancher reprennent la catégorie d'une opération
-    semblable déjà tranchée par l'indiv (dernière décision de chaque écriture)."""
+    """Une proposition par opération à trancher : d'abord une opération
+    semblable que l'indiv a déjà tranchée (dernière décision de chaque
+    écriture), sinon le pipeline actuel. Rien si le modèle s'abstient."""
+    a_trancher = [vue for vue in vues if vue.statut == "à trancher"]
+    if not a_trancher:
+        return vues
     categories = {decision.ecriture_id: decision.categorie for decision in decisions}
     par_id = {vue.ecriture_id: vue for vue in vues}
     tranchees = [
@@ -640,18 +670,44 @@ def _avec_propositions_apprises(
         for ecriture_id, categorie in categories.items()
         if (vue := par_id.get(ecriture_id)) is not None
     ]
-    a_trancher = [vue for vue in vues if vue.statut == "à trancher"]
-    propositions = propositions_apprises(
-        tranchees, [(libelle_sans_categorie(v.libelle), v.montant_cts) for v in a_trancher]
+    requetes = [(libelle_sans_categorie(v.libelle), v.montant_cts) for v in a_trancher]
+    apprises = propositions_apprises(tranchees, requetes)
+    actuelles = (
+        pipeline.categoriser_lot(
+            dossier.id,
+            [
+                NormalizedTransaction(
+                    id=TransactionId(vue.ecriture_id),
+                    dossier_id=dossier.id,
+                    date=date.fromisoformat(vue.date),
+                    montant_cts=vue.montant_cts,
+                    libelle=libelle,
+                    source_provider="lecture",
+                    raw_payload={},
+                )
+                for vue, (libelle, _) in zip(a_trancher, requetes, strict=True)
+            ],
+        )
+        if pipeline is not None
+        else [None] * len(a_trancher)
     )
-    apprises = {
-        vue.ecriture_id: proposition.categorie
-        for vue, proposition in zip(a_trancher, propositions, strict=True)
-        if proposition is not None
-    }
+    mises_a_jour: dict[str, dict[str, object]] = {}
+    for vue, apprise, actuelle in zip(a_trancher, apprises, actuelles, strict=True):
+        if apprise is not None:
+            mises_a_jour[vue.ecriture_id] = {
+                "proposition": apprise.categorie,
+                "origine_proposition": "appris",
+                "confiance_proposition": round(apprise.similarite, 2),
+            }
+        elif actuelle is not None and actuelle.categorie != CATEGORIE_PAR_DEFAUT:
+            mises_a_jour[vue.ecriture_id] = {
+                "proposition": actuelle.categorie,
+                "origine_proposition": _ORIGINE_PAR_ETAGE.get(actuelle.etage),
+                "confiance_proposition": round(actuelle.confiance, 2),
+            }
     return [
-        vue.model_copy(update={"proposition_apprise": apprises[vue.ecriture_id]})
-        if vue.ecriture_id in apprises
+        vue.model_copy(update=mises_a_jour[vue.ecriture_id])
+        if vue.ecriture_id in mises_a_jour
         else vue
         for vue in vues
     ]
@@ -730,10 +786,28 @@ def get_propositions() -> PropositionRepository:
     return PostgresPropositionRepository(_engine())
 
 
+_PIPELINE: RulesAndMlPipeline | None = None
+
+
+def get_pipeline() -> RulesAndMlPipeline:
+    """Dépendance FastAPI — règles du pack et modèle chargés une fois par
+    processus. Sans modèle sur le poste (fichier gitignoré), les règles
+    seules : l'étage ML s'abstient, rien ne plante (doc 08 §5)."""
+    global _PIPELINE
+    if _PIPELINE is None:
+        try:
+            modele = charger_modele()
+        except ModeleMlIndisponible:
+            modele = None
+        _PIPELINE = RulesAndMlPipeline(regles=charger_regles(), modele=modele)
+    return _PIPELINE
+
+
 DecisionsDep = Annotated[DecisionRepository, Depends(get_decisions)]
 DossiersDep = Annotated[DossierRepository, Depends(get_dossiers)]
 LedgerBaseDep = Annotated[LedgerService, Depends(get_ledger)]
 PropositionsDep = Annotated[PropositionRepository, Depends(get_propositions)]
+PipelineDep = Annotated[RulesAndMlPipeline, Depends(get_pipeline)]
 
 
 _CLIENT_COMPTES: SupabaseCompteRepository | None = None
@@ -916,6 +990,79 @@ def _trancher(
     return next(e for e in ledger_a_jour.grand_livre(dossier.id) if e.id == ecriture_id)
 
 
+def _a_trancher_ou_refus(
+    ecriture: Ecriture | None, ecriture_id: str, deja_traitees: AbstractSet[EcritureId]
+) -> Ecriture:
+    """Les refus de `_trancher`, pour une opération d'un lot."""
+    if ecriture is None:
+        raise HTTPException(status_code=404, detail=f"Écriture inconnue : {ecriture_id}")
+    if ecriture.id in deja_traitees:
+        raise HTTPException(status_code=409, detail=f"Opération déjà traitée : {ecriture_id}")
+    if not any(ligne.compte == COMPTE_ATTENTE for ligne in ecriture.lignes):
+        raise HTTPException(
+            status_code=409, detail=f"Opération qui n'est pas à trancher : {ecriture_id}"
+        )
+    return ecriture
+
+
+def _trancher_groupe(
+    dossier: Dossier,
+    entree: DecisionsGroupeesEntree,
+    base: LedgerService,
+    decisions: DecisionRepository,
+    propositions: PropositionRepository,
+    decide_par: UserId,
+) -> list[Ecriture]:
+    """Tout ou rien : une seule opération refusée refuse le lot, avec sa
+    raison, et rien n'est écrit."""
+    ids = list(dict.fromkeys(entree.ecriture_ids))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Aucune opération à confirmer.")
+    if len(ids) > MAX_DECISIONS_GROUPEES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Au plus {MAX_DECISIONS_GROUPEES} opérations à la fois.",
+        )
+    ecritures = base.grand_livre(dossier.id)
+    par_id = {e.id: e for e in ecritures}
+    deja_traitees = annulees(ecritures) | {
+        d.ecriture_id for d in decisions.lister_decisions(dossier.id)
+    }
+    comptes = charger_compte_par_categorie()
+    comptes_statut = configuration_de(dossier).comptes_categories_statut()
+    maintenant = datetime.now(UTC)
+    a_ecrire: list[DecisionHumaine] = []
+    for ecriture_id in ids:
+        ecriture = _a_trancher_ou_refus(
+            par_id.get(EcritureId(ecriture_id)), ecriture_id, deja_traitees
+        )
+        proposition = propositions.obtenir(dossier.id, ecriture.id)
+        if proposition is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Aucune proposition d'origine pour cette écriture (incohérence interne).",
+            )
+        try:
+            resoudre_ecriture_a_trancher(ecriture, entree.categorie, comptes_statut, comptes)
+        except CategorieInconnueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        a_ecrire.append(
+            DecisionHumaine(
+                dossier_id=dossier.id,
+                ecriture_id=ecriture.id,
+                categorie=entree.categorie,
+                etage_origine=proposition.etage,
+                confiance_origine=proposition.confiance,
+                decide_par=decide_par,
+                decide_le=maintenant,
+            )
+        )
+    decisions.enregistrer_decisions(a_ecrire)
+    ledger_a_jour = _ledger_avec_decisions(dossier, base, decisions)
+    voulues = {decision.ecriture_id for decision in a_ecrire}
+    return [e for e in ledger_a_jour.grand_livre(dossier.id) if e.id in voulues]
+
+
 def _photo_acceptee(fichier: UploadFile) -> bool:
     """Le type MIME d'un fichier choisi sur ordinateur est parfois vide ou
     `application/octet-stream`. L'extension suffit alors. Un texte reste refusé."""
@@ -1095,18 +1242,48 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
         )
 
 
-def _enregistrer_routes_transactions(app: FastAPI) -> None:
+def _enregistrer_routes_revue(app: FastAPI) -> None:
+    """La file à trancher : sa lecture, avec les propositions à jour, et
+    « tout confirmer »."""
+
     @app.get("/dossiers/{dossier_id}/transactions", response_model=list[TransactionVue])
     def lister_transactions(
         dossier: DossierDep,
         ledger: LedgerDossierDep,
         justificatifs: JustificatifsDep,
         decisions: DecisionsDep,
+        pipeline: PipelineDep,
     ) -> list[TransactionVue]:
         return _transactions_dossier(
-            dossier, ledger, justificatifs, decisions.lister_decisions(dossier.id)
+            dossier, ledger, justificatifs, decisions.lister_decisions(dossier.id), pipeline
         )
 
+    @app.post("/dossiers/{dossier_id}/decisions-groupees", response_model=list[TransactionVue])
+    def trancher_en_groupe(
+        request: Request,
+        entree: DecisionsGroupeesEntree,
+        dossier: DossierDep,
+        base: LedgerBaseDep,
+        decisions: DecisionsDep,
+        propositions: PropositionsDep,
+        justificatifs: JustificatifsDep,
+        identite: IdentiteDep,
+    ) -> list[TransactionVue]:
+        """« Tout confirmer » : les mêmes contrôles que pour une décision
+        seule, sur chaque opération, avant d'écrire quoi que ce soit ; puis
+        toutes les décisions dans une seule transaction."""
+        identite = _verifier_acces_dossier(dossier.id, identite)
+        ecritures = _trancher_groupe(
+            dossier, entree, base, decisions, propositions, identite.user_id
+        )
+        _vider_cache_agregats(request.app, str(dossier.tenant_id))
+        return [
+            _transaction_vue(e, justificatifs.a_un_justificatif(dossier.id, e.id), annulee=False)
+            for e in ecritures
+        ]
+
+
+def _enregistrer_routes_transactions(app: FastAPI) -> None:
     @app.post(
         "/dossiers/{dossier_id}/transactions/{ecriture_id}/decision",
         response_model=TransactionVue,
@@ -2235,6 +2412,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_parametres_demo(app)
     _enregistrer_routes_dossiers(app)
     _enregistrer_routes_transactions(app)
+    _enregistrer_routes_revue(app)
     _enregistrer_routes_portefeuille(app)
     _enregistrer_routes_rappels(app)
     _enregistrer_routes_regles(app)

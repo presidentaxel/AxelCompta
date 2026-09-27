@@ -27,15 +27,17 @@ export function QuestionCategorisation({
   dossierId,
   ecritureId,
   proposition,
-  apprise = false,
+  origine = null,
+  confiance = null,
   sansProposition = false,
   onResolu,
 }: {
   dossierId: string;
   ecritureId: string;
   proposition: { code: string; libelle: string } | null;
-  /** Vrai quand la proposition vient d'une opération semblable déjà tranchée. */
-  apprise?: boolean;
+  /** D'où vient la proposition : choix passés du chauffeur, règle ou modèle. */
+  origine?: TransactionVue["origine_proposition"];
+  confiance?: number | null;
   /** Vrai quand le libellé ne porte aucune catégorie : le modèle n'a pas tourné. */
   sansProposition?: boolean;
   onResolu: (transaction: TransactionVue) => void;
@@ -67,9 +69,7 @@ export function QuestionCategorisation({
     <div className="rounded-md border border-warning/40 bg-pending-subtle p-3">
       <p className="mb-2 text-sm font-medium text-ink">
         {proposition
-          ? apprise
-            ? `Comme une opération déjà classée : ${proposition.libelle}`
-            : `Proposition : ${proposition.libelle}`
+          ? intitule(proposition.libelle, origine, confiance)
           : sansProposition
             ? "Pas de proposition automatique. À quoi correspond cette dépense ?"
             : "À quoi correspond cette dépense ?"}
@@ -167,4 +167,18 @@ export function QuestionCategorisation({
       {erreur && <p className="mt-1 text-xs text-danger">{erreur}</p>}
     </div>
   );
+}
+
+/** Le chauffeur voit d'où vient la proposition : ce qu'il a déjà classé lui-même,
+ * ou le modèle et sa confiance. */
+function intitule(
+  libelle: string,
+  origine: TransactionVue["origine_proposition"],
+  confiance: number | null,
+): string {
+  if (origine === "appris") return `Comme une opération déjà classée : ${libelle}`;
+  if (origine === "modele" && confiance !== null) {
+    return `Proposition du modèle (${Math.round(confiance * 100)} %) : ${libelle}`;
+  }
+  return `Proposition : ${libelle}`;
 }

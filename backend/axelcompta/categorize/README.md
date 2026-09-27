@@ -61,9 +61,14 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
   proposées, 91,6 % justes). Le v1 reste à côté pour revenir en arrière.
 - **Propositions apprises** (`appris.py`) : une opération semblable à une
   opération déjà tranchée par l'indiv, dans le même sens, reprend sa
-  catégorie en proposition (calculée à la lecture, `demo_api`). Mesuré sur le
-  jeu d'audit en simulant un indiv qui tranche dans l'ordre : 81 % des
-  lignes couvertes, 92 % justes.
+  catégorie en proposition. Mesuré sur le jeu d'audit en simulant un indiv
+  qui tranche dans l'ordre : 81 % des lignes couvertes, 92 % justes.
+- **Proposition à la lecture** (`demo_api._avec_propositions`) : pour chaque
+  opération à trancher, d'abord la proposition apprise, sinon les règles et
+  le modèle en vigueur (`categoriser_lot`, un seul appel au modèle). Un
+  nouveau modèle vaut donc tout de suite pour les opérations en attente. La
+  proposition d'origine, figée à la synchro, reste en base comme trace
+  (`etage_origine` des décisions).
 - **Réentraînement sur les décisions** : `entrainer_modele.py --decisions`
   ajoute chaque décision humaine (hors dossiers `DEMO_`) comme exemple, lue en
   base, jamais écrite dans un fichier ; chaque dossier reste un groupe de la

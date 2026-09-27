@@ -10,16 +10,30 @@ import pytest
 from sqlalchemy import create_engine
 
 from axelcompta.core.ids import TenantId
-from axelcompta.demo_admin import _DOSSIERS_DU_TENANT, CLES_PARTIES, PARTIES, reinitialiser_demo
+from axelcompta.demo_admin import (
+    _DOSSIERS_DIGIFACTORY,
+    _DOSSIERS_DU_TENANT,
+    CLES_PARTIES,
+    PARTIES,
+    reinitialiser_demo,
+)
 
 
 def test_la_remise_a_neuf_epargne_les_dossiers_digifactory() -> None:
     assert "contact_nr IS NULL" in _DOSSIERS_DU_TENANT
 
 
+def test_leurs_decisions_ont_une_partie_a_part() -> None:
+    """Rejouer « tout confirmer » sur un dossier réel sans toucher à ses
+    opérations : une partie distincte, jamais cochée avec les autres."""
+    assert "decisions_digifactory" in CLES_PARTIES
+    assert "contact_nr IS NOT NULL" in _DOSSIERS_DIGIFACTORY
+
+
 def test_le_grand_livre_nest_jamais_une_partie() -> None:
     assert CLES_PARTIES == {
         "decisions",
+        "decisions_digifactory",
         "jalons",
         "justificatifs",
         "rappels",

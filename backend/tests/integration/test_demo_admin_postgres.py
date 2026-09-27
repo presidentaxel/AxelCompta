@@ -151,3 +151,23 @@ def test_les_verrous_reviennent_apres_la_remise_a_neuf(
             connexion.execute(
                 text("DELETE FROM decisions_humaines WHERE dossier_id = :id"), {"id": id_unique}
             )
+
+
+def test_les_decisions_digifactory_ne_partent_qu_avec_leur_partie(
+    engine: Engine, id_unique: str, migrations_appliquees: None, tmp_path: Path
+) -> None:
+    """Un dossier branché à Digifactory garde ses décisions quand on remet
+    la démo à neuf, sauf si sa partie est cochée ; ses opérations restent."""
+    _peupler(engine, id_unique)
+    with engine.begin() as connexion:
+        connexion.execute(
+            text("UPDATE dossiers SET contact_nr = :nr WHERE id = :id"),
+            {"nr": f"nr-{id_unique}", "id": id_unique},
+        )
+
+    reinitialiser_demo(engine, TenantId(id_unique), frozenset({"decisions"}), tmp_path)
+    assert _compte(engine, "decisions_humaines", id_unique) == 1
+
+    reinitialiser_demo(engine, TenantId(id_unique), frozenset({"decisions_digifactory"}), tmp_path)
+    assert _compte(engine, "decisions_humaines", id_unique) == 0
+    assert len(PostgresLedgerService(engine).grand_livre(DossierId(id_unique))) == 1

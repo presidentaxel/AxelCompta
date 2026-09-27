@@ -17,6 +17,7 @@ export type DossierCharge =
 export function useDossierChauffeur(dossierId: string): {
   charge: DossierCharge;
   remplacer: (transaction: TransactionVue) => void;
+  recharger: () => void;
 } {
   const router = useRouter();
   const [charge, setCharge] = useState<DossierCharge>({ statut: "en_cours" });
@@ -52,5 +53,15 @@ export function useDossierChauffeur(dossierId: string): {
     );
   }
 
-  return { charge, remplacer };
+  /** Relit les opérations sans remettre la page en chargement : après une
+   * décision, les propositions des opérations semblables changent. */
+  function recharger() {
+    fetchAvecAuthChauffeur<TransactionVue[]>(`/dossiers/${dossierId}/transactions`)
+      .then((transactions) =>
+        setCharge((etat) => (etat.statut === "pret" ? { ...etat, transactions } : etat)),
+      )
+      .catch(() => undefined);
+  }
+
+  return { charge, remplacer, recharger };
 }

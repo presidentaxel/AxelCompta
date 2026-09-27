@@ -4,13 +4,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from axelcompta.core.ids import DossierId
 from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.packs.vtc_demo import RegleCategorisation
 
-from .ml_fallback import ModeleSklearn, predire, sens_compatible
+from .ml_fallback import ModeleSklearn, predire_lot, sens_compatible
 from .models import Etage, ProposedEntry
 from .pipeline import CategorizationPipeline
 
@@ -43,6 +44,28 @@ class RulesAndMlPipeline(CategorizationPipeline):
     def categoriser(
         self, dossier_id: DossierId, transaction: NormalizedTransaction
     ) -> ProposedEntry:
+        return self.categoriser_lot(dossier_id, [transaction])[0]
+
+    def categoriser_lot(
+        self, dossier_id: DossierId, transactions: Sequence[NormalizedTransaction]
+    ) -> list[ProposedEntry]:
+        """Même résultat que `categoriser` ligne par ligne, avec un seul appel
+        au modèle pour toutes les transactions qu'aucune règle ne couvre."""
+        propositions: list[ProposedEntry | None] = [
+            self._via_regles(dossier_id, transaction) for transaction in transactions
+        ]
+        sans_regle = [i for i, proposition in enumerate(propositions) if proposition is None]
+        for i, proposition in zip(
+            sans_regle,
+            self._via_ml(dossier_id, [transactions[i] for i in sans_regle]),
+            strict=True,
+        ):
+            propositions[i] = proposition
+        return [proposition for proposition in propositions if proposition is not None]
+
+    def _via_regles(
+        self, dossier_id: DossierId, transaction: NormalizedTransaction
+    ) -> ProposedEntry | None:
         for regle in self.regles:
             # Même garde que l'étage ML : « uber » dans un paiement sortant
             # n'est pas une recette. La règle suivante, puis le modèle, prennent
@@ -57,24 +80,24 @@ class RulesAndMlPipeline(CategorizationPipeline):
                     etage=Etage.REGLE,
                     confiance=CONFIANCE_PAR_NIVEAU.get(regle.confiance, 0.5),
                 )
-        return self._via_ml(dossier_id, transaction)
+        return None
 
-    def _via_ml(self, dossier_id: DossierId, transaction: NormalizedTransaction) -> ProposedEntry:
+    def _via_ml(
+        self, dossier_id: DossierId, transactions: Sequence[NormalizedTransaction]
+    ) -> list[ProposedEntry]:
         if self.modele is None:
-            return ProposedEntry(
+            predictions = [(CATEGORIE_PAR_DEFAUT, 0.0)] * len(transactions)
+        else:
+            predictions = predire_lot(
+                self.modele, [(t.libelle, t.montant_cts) for t in transactions]
+            )
+        return [
+            ProposedEntry(
                 dossier_id=dossier_id,
                 transaction_id=transaction.id,
-                categorie=CATEGORIE_PAR_DEFAUT,
+                categorie=categorie if confiance >= SEUIL_PROPOSITION_ML else CATEGORIE_PAR_DEFAUT,
                 etage=Etage.ML,
-                confiance=0.0,
+                confiance=confiance,
             )
-        categorie, confiance = predire(self.modele, transaction.libelle, transaction.montant_cts)
-        if confiance < SEUIL_PROPOSITION_ML:
-            categorie = CATEGORIE_PAR_DEFAUT
-        return ProposedEntry(
-            dossier_id=dossier_id,
-            transaction_id=transaction.id,
-            categorie=categorie,
-            etage=Etage.ML,
-            confiance=confiance,
-        )
+            for transaction, (categorie, confiance) in zip(transactions, predictions, strict=True)
+        ]

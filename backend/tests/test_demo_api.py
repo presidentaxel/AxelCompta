@@ -34,7 +34,7 @@ from axelcompta.demo_api import (
     DossierResume,
     GuideGreffeVue,
     TransactionVue,
-    _avec_propositions_apprises,
+    _avec_propositions,
     _frises,
     create_app,
     get_affectations,
@@ -1545,10 +1545,10 @@ def test_une_operation_semblable_a_une_decision_la_propose() -> None:
     vues = [
         vue("e1", "SOLDE SALAIRE JUIN SEMAINE 1 CAMILLE MARTIN (recettes_plateformes)", "validé"),
         vue("e2", "SOLDE SALAIRE JUIN SEMAINE 2 LEA DUPONT (recettes_plateformes)", "à trancher"),
-        vue("e3", "CB TOTAL ACCESS A6 (non_categorise_a_verifier)", "à trancher"),
+        vue("e3", "XQZW 000 (non_categorise_a_verifier)", "à trancher"),
     ]
     decision = DecisionHumaine(
-        dossier_id=DossierId("d"),
+        dossier_id=DossierId("DEMO_sophie"),
         ecriture_id=EcritureId("e1"),
         categorie="salaires_personnel",
         etage_origine=Etage.ML,
@@ -1556,14 +1556,82 @@ def test_une_operation_semblable_a_une_decision_la_propose() -> None:
         decide_par=UserId("u"),
         decide_le=datetime(2026, 9, 27, tzinfo=UTC),
     )
+    dossier = _dossier_finissant_le(date(2025, 12, 31))
     resultat = {
-        v.ecriture_id: v.proposition_apprise for v in _avec_propositions_apprises(vues, (decision,))
+        v.ecriture_id: (v.proposition, v.origine_proposition)
+        for v in _avec_propositions(dossier, vues, (decision,), None)
     }
-    assert resultat == {"e1": None, "e2": "salaires_personnel", "e3": None}
+    assert resultat == {
+        "e1": (None, None),
+        "e2": ("salaires_personnel", "appris"),
+        "e3": (None, None),
+    }
 
 
-def test_les_transactions_exposent_la_proposition_apprise() -> None:
+def test_les_transactions_a_trancher_portent_une_proposition_a_jour() -> None:
+    """Calculée à la lecture par les règles et le modèle en vigueur : la
+    dépense Zara de Sophie reprend la règle d'usage personnel suspect."""
     transactions = (
         _client().get("/dossiers/DEMO_sophie/transactions", headers=_en_tete("DEMO_sophie")).json()
     )
-    assert all("proposition_apprise" in t for t in transactions)
+    a_trancher = [t for t in transactions if t["statut"] == "à trancher"]
+    assert a_trancher
+    assert any(t["origine_proposition"] == "regle" for t in a_trancher)
+    assert all(t["proposition"] is None for t in transactions if t["statut"] == "validé")
+
+
+def _ids_a_trancher(client: TestClient, dossier_id: str) -> list[str]:
+    transactions = client.get(
+        f"/dossiers/{dossier_id}/transactions", headers=_en_tete(dossier_id)
+    ).json()
+    return [str(t["ecriture_id"]) for t in transactions if t["statut"] == "à trancher"]
+
+
+def test_tout_confirmer_tranche_chaque_operation() -> None:
+    client = _client()
+    ids = _ids_a_trancher(client, "DEMO_sophie")
+    reponse = client.post(
+        "/dossiers/DEMO_sophie/decisions-groupees",
+        json={"categorie": "usage_personnel", "ecriture_ids": ids},
+        headers=_en_tete("DEMO_sophie"),
+    )
+    assert reponse.status_code == 200
+    assert {t["ecriture_id"] for t in reponse.json()} == set(ids)
+    assert all(t["compte"] == "455" for t in reponse.json())
+    assert _ids_a_trancher(client, "DEMO_sophie") == []
+
+
+def test_tout_confirmer_est_tout_ou_rien() -> None:
+    """Une opération déjà tranchée refuse le lot, et les autres ne sont pas
+    écrites."""
+    client = _client()
+    ids = _ids_a_trancher(client, "DEMO_sophie")
+    client.post(
+        f"/dossiers/DEMO_sophie/transactions/{ids[0]}/decision",
+        json={"categorie": "usage_personnel"},
+        headers=_en_tete("DEMO_sophie"),
+    )
+    reponse = client.post(
+        "/dossiers/DEMO_sophie/decisions-groupees",
+        json={"categorie": "usage_personnel", "ecriture_ids": ids},
+        headers=_en_tete("DEMO_sophie"),
+    )
+    assert reponse.status_code == 409
+    assert _ids_a_trancher(client, "DEMO_sophie") == ids[1:]
+
+
+def test_tout_confirmer_refuse_une_liste_vide_et_un_autre_dossier() -> None:
+    client = _client()
+    vide = client.post(
+        "/dossiers/DEMO_sophie/decisions-groupees",
+        json={"categorie": "usage_personnel", "ecriture_ids": []},
+        headers=_en_tete("DEMO_sophie"),
+    )
+    assert vide.status_code == 400
+    ids = _ids_a_trancher(client, "DEMO_sophie")
+    autre = client.post(
+        "/dossiers/DEMO_sophie/decisions-groupees",
+        json={"categorie": "usage_personnel", "ecriture_ids": ids},
+        headers=_en_tete("DEMO_karim"),
+    )
+    assert autre.status_code == 403

@@ -15,6 +15,7 @@ Deux pistes d'audit distinctes, jamais confondues :
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -61,6 +62,12 @@ class DecisionRepository(ABC):
         """Ajoute une décision. Ne remplace jamais une décision existante
         pour la même écriture : `decision_courante` renvoie la plus
         récente, `lister_decisions` garde tout l'historique."""
+
+    def enregistrer_decisions(self, decisions: Sequence[DecisionHumaine]) -> None:
+        """Plusieurs décisions d'un même geste de l'indiv (« tout confirmer »).
+        Tout ou rien là où le stockage le permet (Postgres : une transaction)."""
+        for decision in decisions:
+            self.enregistrer_decision(decision)
 
     @abstractmethod
     def decision_courante(
