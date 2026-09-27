@@ -63,7 +63,11 @@ from axelcompta.categorize.appris import (
     libelle_sans_categorie,
     propositions_apprises,
 )
-from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, charger_modele
+from axelcompta.categorize.ml_fallback import (
+    ModeleMlIndisponible,
+    charger_calibration,
+    charger_modele,
+)
 from axelcompta.categorize.models import Etage
 from axelcompta.categorize.rules_and_ml import CATEGORIE_PAR_DEFAUT, RulesAndMlPipeline
 from axelcompta.closing.affectation import (
@@ -802,7 +806,11 @@ def get_pipeline() -> RulesAndMlPipeline:
             modele = charger_modele()
         except ModeleMlIndisponible:
             modele = None
-        _PIPELINE = RulesAndMlPipeline(regles=charger_regles(), modele=modele)
+        _PIPELINE = RulesAndMlPipeline(
+            regles=charger_regles(),
+            modele=modele,
+            calibration=charger_calibration() if modele is not None else None,
+        )
     return _PIPELINE
 
 

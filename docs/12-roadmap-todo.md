@@ -207,6 +207,15 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   `DIGI_4952`, une décision « SOLDE SALAIRE » en propose 295 autres, toutes
   des salaires. Une seule ligne `DIGI_` reste imputée à tort par l'ancien
   modèle (un encaissement « LOCATION » en 6135, verrouillé).
+- **Calibration et seuils par catégorie** (PR #39) : confiance calibrée
+  (ECE 0,097 -> 0,019), proposition au-dessus de 0,6, imputation
+  automatique au-dessus de 0,95 pour 9 catégories admises seulement
+  (29,8 % des lignes, 98,5 % justes en validation croisée imbriquée). Au
+  seuil global de 0,90, `subventions` s'imputait juste à 63,6 % : exclue,
+  comme les catégories à enjeu et à risque d'usage personnel. Les règles
+  « repas » et « usage personnel suspect » passent en confiance basse : à
+  0,75, elles atteignaient le seuil d'imputation des règles malgré leur
+  mention « pas d'auto-validation ».
 - Restent ouverts : les ventes de services (TVA collectée à trancher avant
   d'en faire une catégorie), le bulletin des salariés (seul le net en 421
   est passé), et les propositions déjà en base des dossiers `DIGI_` (non

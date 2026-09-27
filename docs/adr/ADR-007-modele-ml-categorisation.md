@@ -41,9 +41,13 @@
 > (`_AUDIT_DONNEES/entrainer_modele.py`, PR #35) garde la même famille,
 > étend les étiquettes au compte courant d'associé et pondère les classes en
 > racine de `balanced`. Validation croisée en 5 plis par dossier : 78,9 %
-> (v1 : 76,2 % sur les mêmes plis). La calibration isotonique de la section
-> Justification n'est toujours pas faite : le seuil d'abstention (0,5) est
-> choisi sur la précision mesurée, pas sur des probabilités calibrées.
+> (v1 : 76,2 % sur les mêmes plis).
+>
+> **Mise à jour du 2026-09-27 : calibration faite.** Régression isotone
+> (plutôt que `CalibratedClassifierCV`, pour calibrer sur des plis groupés
+> par dossier) sur les prédictions hors échantillon, écrite à côté du modèle
+> (`tfidf_logreg_v2.calibration.json`) avec la politique d'imputation par
+> catégorie. ECE 0,097 -> 0,019. Détail et chiffres : doc 05 §3.
 
 ## Contexte
 

@@ -17,6 +17,7 @@ from axelcompta.categorize.models import Etage, ProposedEntry
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.core.ids import DossierId, TenantId, TransactionId
 from axelcompta.ingestion.journal import InMemoryJournalIngestion
+from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.ingestion.providers.digifactory import (
     ContactNonMappeError,
     DigifactoryHttpClient,
@@ -305,3 +306,42 @@ def test_politique_dacceptation_automatique(
     compte = choisir_compte(proposition, charger_compte_par_categorie())
 
     assert (compte == "471") is attendu_471
+
+
+def _proposition_ml(categorie: str, confiance: float, seuil: float | None) -> ProposedEntry:
+    return ProposedEntry(
+        dossier_id=DossierId("d"),
+        transaction_id=TransactionId("t"),
+        categorie=categorie,
+        etage=Etage.ML,
+        confiance=confiance,
+        seuil_imputation=seuil,
+    )
+
+
+def test_le_seuil_propre_a_la_categorie_decide_de_l_imputation() -> None:
+    """Modèle calibré : chaque catégorie a son seuil ; `inf`, jamais seule."""
+    comptes = {"carburant": "6061", "subventions": "741"}
+    assert choisir_compte(_proposition_ml("carburant", 0.96, 0.95), comptes) == "6061"
+    assert choisir_compte(_proposition_ml("carburant", 0.94, 0.95), comptes) == "471"
+    assert choisir_compte(_proposition_ml("subventions", 0.99, float("inf")), comptes) == "471"
+    # Sans calibration, le seuil historique de 0,90.
+    assert choisir_compte(_proposition_ml("carburant", 0.91, None), comptes) == "6061"
+
+
+def test_un_repas_reconnu_par_regle_n_est_jamais_impute_seul() -> None:
+    """La règle « repas » signale un usage personnel probable : proposée,
+    jamais imputée sans l'indiv (sa confiance reste sous le seuil des règles)."""
+    pipeline = RulesAndMlPipeline(regles=charger_regles())
+    transaction = NormalizedTransaction(
+        id=TransactionId("t"),
+        dossier_id=DossierId("d"),
+        date=date(2026, 9, 3),
+        montant_cts=-3_000,
+        libelle="CB CARREFOUR MARKET",
+        source_provider="fixture",
+        raw_payload={},
+    )
+    proposition = pipeline.categoriser(DossierId("d"), transaction)
+    assert proposition.categorie == "repas_et_receptions"
+    assert choisir_compte(proposition, charger_compte_par_categorie()) == "471"
