@@ -20,6 +20,7 @@ CATEGORIE_REMUNERATION = "remuneration_dirigeant"
 # Pourquoi une catégorie de statut n'a pas de compte (doc 06 §7).
 _SANS_COMPTE = {
     CATEGORIE_USAGE_PERSONNEL: "pour ce statut, l'usage personnel est signalé sans écriture",
+    "compte_courant_associe": "pour ce statut, il n'y a pas de compte courant d'associé",
     CATEGORIE_REMUNERATION: (
         "pour ce statut, le compte de la rémunération dépend de la situation du gérant "
         "(majoritaire ou non) : à préciser"

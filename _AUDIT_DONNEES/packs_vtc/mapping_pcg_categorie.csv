@@ -11,12 +11,14 @@ prefixe_compte_pcg_normalise,categorie
 2751,immobilisation_vehicule
 2818,immobilisation_vehicule
 418,recettes_plateformes
+421,salaires_personnel
 431,charges_sociales_impots
 437,charges_sociales_impots
 444,etat_taxes_diverses
 448,charges_sociales_impots
 457,dividendes_associes
 467,recettes_plateformes
+580,virement_interne
 602,fournitures_administratives
 604,sous_traitance_chauffeurs
 606,fournitures_administratives
