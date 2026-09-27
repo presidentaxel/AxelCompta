@@ -34,11 +34,11 @@ import dataclasses
 import re
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from collections.abc import Set as AbstractSet
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Protocol
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -115,6 +115,8 @@ from axelcompta.filings.inpi_depot import GuideGreffe, PdfDepotInpiRenderer, gui
 from axelcompta.filings.liasse_fiscale import PdfLiasseFiscaleRenderer
 from axelcompta.filings.liasse_simplifiee import PdfLiasseSimplifieeRenderer
 from axelcompta.filings.pdf_export_comptable import rendre_balance_pdf, rendre_grand_livre_pdf
+from axelcompta.ingestion.consentement import ReleveConsentement, SanteConnexion, classer
+from axelcompta.ingestion.consentement_postgres import PostgresConsentementRepository
 from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.ledger.contrepassation import annulees
 from axelcompta.ledger.memory import InMemoryLedgerService
@@ -135,7 +137,7 @@ from axelcompta.tenants.avenants_postgres import PostgresAvenantRegimeRepository
 from axelcompta.tenants.exercices import ExerciceRepository
 from axelcompta.tenants.exercices_postgres import PostgresExerciceRepository
 from axelcompta.tenants.franchise_tva import MillesimeInconnu, suivre_franchise
-from axelcompta.tenants.models import Dossier
+from axelcompta.tenants.models import MODES_RELANCE, Dossier, Tenant
 from axelcompta.tenants.orm import droits_membre, rappels, regles_rappel
 from axelcompta.tenants.postgres import PostgresDossierRepository
 from axelcompta.tenants.repository import DossierRepository
@@ -152,6 +154,7 @@ from axelcompta.workflow.notifications import NotificationRepository
 from axelcompta.workflow.notifications_postgres import PostgresNotificationRepository
 from axelcompta.workflow.propositions import PropositionRepository
 from axelcompta.workflow.propositions_postgres import PostgresPropositionRepository
+from axelcompta.workflow.relances_consentement import mode_effectif
 from axelcompta.workflow.revue import (
     CategorieInconnueError,
     appliquer_decisions,
@@ -810,6 +813,19 @@ PropositionsDep = Annotated[PropositionRepository, Depends(get_propositions)]
 PipelineDep = Annotated[RulesAndMlPipeline, Depends(get_pipeline)]
 
 
+class LecteurConsentements(Protocol):
+    def lister(self, dossier_ids: Sequence[DossierId]) -> dict[DossierId, ReleveConsentement]: ...
+
+
+def get_consentements() -> LecteurConsentements:
+    """Dépendance FastAPI — le relevé des connexions bancaires (lecture seule
+    côté API : seule la synchro l'écrit)."""
+    return PostgresConsentementRepository(_engine())
+
+
+ConsentementsDep = Annotated[LecteurConsentements, Depends(get_consentements)]
+
+
 _CLIENT_COMPTES: SupabaseCompteRepository | None = None
 
 
@@ -1349,6 +1365,31 @@ class InvitationMembreEntree(BaseModel):
     role: str = "membre"
 
 
+class ConnexionDossierVue(BaseModel):
+    dossier_id: str
+    nom: str
+    statut: str  # actif | a_renouveler | expire | jamais_connecte
+    sante: str  # ok | en_pause | sans_acces | auth_requise | jamais_connecte
+    expire_le: str | None
+    jours_restants: int | None
+    dernier_rafraichissement: str | None
+    relance: str  # mode effectif : auto | manuel
+    relance_propre: bool  # exception au mode du portefeuille
+
+
+class ConnexionsBancairesVue(BaseModel):
+    """doc 14 §2.2 : l'état des connexions bancaires du portefeuille."""
+
+    relance_portefeuille: str
+    compteurs: dict[str, int]
+    a_reconnecter: int  # banque qui demande de confirmer la connexion
+    dossiers: list[ConnexionDossierVue]
+
+
+class RelanceEntree(BaseModel):
+    mode: str | None  # "auto" | "manuel" ; None pour un dossier : suit le portefeuille
+
+
 class NomPortefeuille(BaseModel):
     nom: str
 
@@ -1502,6 +1543,94 @@ def _enregistrer_routes_portefeuille(app: FastAPI) -> None:
         dossiers.retirer(dossier.id)
         _vider_cache_agregats(request.app, str(tenant_id))
         return {"dossier_id": dossier.id}
+
+
+_URGENCE = {"expire": 0, "a_renouveler": 1, "jamais_connecte": 3, "actif": 4}
+
+
+def _connexion_vue(
+    dossier: Dossier, tenant: Tenant | None, releve: ReleveConsentement | None, aujourd_hui: date
+) -> ConnexionDossierVue:
+    expire_le = releve.expire_le if releve else None
+    rafraichi = releve.dernier_rafraichissement if releve else None
+    return ConnexionDossierVue(
+        dossier_id=dossier.id,
+        nom=dossier.nom,
+        statut=classer(expire_le, aujourd_hui).value,
+        sante=(releve.sante if releve else SanteConnexion.JAMAIS_CONNECTE).value,
+        expire_le=expire_le.isoformat() if expire_le else None,
+        jours_restants=(expire_le - aujourd_hui).days if expire_le else None,
+        dernier_rafraichissement=rafraichi.isoformat() if rafraichi else None,
+        relance=mode_effectif(dossier, tenant),
+        relance_propre=dossier.relance_consentement is not None,
+    )
+
+
+def _ordre_urgence(vue: ConnexionDossierVue) -> tuple[int, int, str]:
+    """Connexion cassée et expirée d'abord, puis les échéances les plus proches."""
+    rang = 0 if vue.sante == "auth_requise" else _URGENCE.get(vue.statut, 5)
+    return rang, vue.jours_restants if vue.jours_restants is not None else 10_000, vue.nom
+
+
+def _connexions_bancaires(
+    dossiers: tuple[Dossier, ...],
+    tenant: Tenant | None,
+    releves: dict[DossierId, ReleveConsentement],
+    aujourd_hui: date,
+) -> ConnexionsBancairesVue:
+    vues = sorted(
+        (_connexion_vue(d, tenant, releves.get(d.id), aujourd_hui) for d in dossiers),
+        key=_ordre_urgence,
+    )
+    compteurs = {statut: 0 for statut in _URGENCE}
+    for vue in vues:
+        compteurs[vue.statut] += 1
+    return ConnexionsBancairesVue(
+        relance_portefeuille=tenant.relance_consentement if tenant else "auto",
+        compteurs=compteurs,
+        a_reconnecter=sum(1 for vue in vues if vue.sante == "auth_requise"),
+        dossiers=vues,
+    )
+
+
+def _enregistrer_routes_connexions(app: FastAPI) -> None:
+    @app.get("/portefeuille/connexions-bancaires", response_model=ConnexionsBancairesVue)
+    def lire_connexions(
+        dossiers: DossiersDep, consentements: ConsentementsDep, identite: IdentiteDep
+    ) -> ConnexionsBancairesVue:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        liste = dossiers.lister_par_tenant(tenant_id)
+        return _connexions_bancaires(
+            liste,
+            dossiers.obtenir_tenant(tenant_id),
+            consentements.lister([d.id for d in liste]),
+            date.today(),
+        )
+
+    @app.put("/portefeuille/relance-consentement", response_model=RelanceEntree)
+    def regler_relance_portefeuille(
+        entree: RelanceEntree, dossiers: DossiersDep, identite: IdentiteDep, role: RoleMembreDep
+    ) -> RelanceEntree:
+        tenant_id, identite = _verifier_acces_gestionnaire(identite)
+        if role != "admin":
+            raise HTTPException(status_code=403, detail="Réservé à un administrateur.")
+        if entree.mode not in MODES_RELANCE:
+            raise HTTPException(status_code=400, detail="Mode attendu : auto ou manuel.")
+        dossiers.regler_relance_tenant(tenant_id, entree.mode)
+        return entree
+
+    @app.put("/dossiers/{dossier_id}/relance-consentement", response_model=RelanceEntree)
+    def regler_relance_dossier(
+        entree: RelanceEntree,
+        dossier: DossierPortefeuilleDep,
+        dossiers: DossiersDep,
+        role: RoleMembreDep,
+    ) -> RelanceEntree:
+        _exiger_ecriture(role, "La lecture seule ne change pas les relances.")
+        if entree.mode is not None and entree.mode not in MODES_RELANCE:
+            raise HTTPException(status_code=400, detail="Mode attendu : auto, manuel ou aucun.")
+        dossiers.regler_relance_dossier(dossier.id, entree.mode)
+        return entree
 
 
 def _enregistrer_routes_rappels(app: FastAPI) -> None:
@@ -2414,6 +2543,7 @@ def create_app() -> FastAPI:
     _enregistrer_routes_transactions(app)
     _enregistrer_routes_revue(app)
     _enregistrer_routes_portefeuille(app)
+    _enregistrer_routes_connexions(app)
     _enregistrer_routes_rappels(app)
     _enregistrer_routes_regles(app)
     _enregistrer_routes_membres(app)

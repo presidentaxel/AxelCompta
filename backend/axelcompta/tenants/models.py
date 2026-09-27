@@ -11,6 +11,13 @@ from datetime import date, timedelta
 from axelcompta.core.identite import IdentiteEntreprise
 from axelcompta.core.ids import DossierId, TenantId
 
+MODES_RELANCE = ("auto", "manuel")
+
+
+def verifier_mode_relance(mode: str) -> None:
+    if mode not in MODES_RELANCE:
+        raise ValueError(f"mode de relance inconnu : {mode}")
+
 
 @dataclass(frozen=True, slots=True)
 class Tenant:
@@ -18,6 +25,10 @@ class Tenant:
 
     id: TenantId
     nom: str = ""
+    # Relances de connexion bancaire (doc 14 §2.3) : "auto", AxeLCompta
+    # prévient le chauffeur dans l'application ; "manuel", seul le
+    # gestionnaire est prévenu et contacte ses chauffeurs lui-même.
+    relance_consentement: str = "auto"
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +67,9 @@ class Dossier:
     # Année du premier exercice couvert par l'option IR temporaire (art. 239
     # bis AB CGI). Obligatoire au régime option_IR, vide sinon.
     option_ir_debut: int | None = None
+    # Exception au mode de relance du portefeuille pour ce dossier ; `None`
+    # suit le portefeuille (doc 14 §2.3, « configuration par dossier »).
+    relance_consentement: str | None = None
 
     def fin_exercice(self) -> date:
         if self.exercice_fin is not None:

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import functools
 import io
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
@@ -40,6 +41,7 @@ from axelcompta.demo_api import (
     get_affectations,
     get_avenants,
     get_comptes,
+    get_consentements,
     get_decisions,
     get_dossiers,
     get_exercices,
@@ -54,6 +56,7 @@ from axelcompta.demo_api import (
 from axelcompta.demo_chauffeurs_type import construire_ledger
 from axelcompta.demo_comptes_memory import InMemoryCompteRepository
 from axelcompta.demo_justificatifs import InMemoryJustificatifRepository
+from axelcompta.ingestion.consentement import ReleveConsentement, SanteConnexion
 from axelcompta.ingestion.providers.chauffeurs_demo import PROFILS_DEMO
 from axelcompta.ledger.contrepassation import contrepasser
 from axelcompta.ledger.memory import InMemoryLedgerService
@@ -182,6 +185,7 @@ def _client_et_stubs(
     app.dependency_overrides[get_affectations] = lambda: affectations_stub
     # `droits_membre` est en Postgres : le rôle est fixé ici.
     app.dependency_overrides[get_role_membre] = lambda: role
+    app.dependency_overrides[get_consentements] = lambda: _ConsentementsStub()
     return TestClient(app), decisions_stub, justificatifs_stub, signatures_stub
 
 
@@ -1635,3 +1639,100 @@ def test_tout_confirmer_refuse_une_liste_vide_et_un_autre_dossier() -> None:
         headers=_en_tete("DEMO_karim"),
     )
     assert autre.status_code == 403
+
+
+class _ConsentementsStub:
+    """Karim à renouveler dans 5 jours, Sophie à reconfirmer, Yanis jamais relevé."""
+
+    def lister(self, dossier_ids: Sequence[DossierId]) -> dict[DossierId, ReleveConsentement]:
+        aujourd_hui = date.today()
+        releves = {
+            DossierId("DEMO_karim"): ReleveConsentement(
+                DossierId("DEMO_karim"),
+                aujourd_hui + timedelta(days=5),
+                SanteConnexion.OK,
+                None,
+                datetime(2026, 9, 27, 8, 0),
+            ),
+            DossierId("DEMO_sophie"): ReleveConsentement(
+                DossierId("DEMO_sophie"),
+                aujourd_hui + timedelta(days=60),
+                SanteConnexion.AUTH_REQUISE,
+                None,
+                datetime(2026, 9, 27, 8, 0),
+            ),
+        }
+        return {d: releves[d] for d in dossier_ids if d in releves}
+
+
+def test_connexions_bancaires_du_portefeuille_par_urgence() -> None:
+    reponse = _client().get("/portefeuille/connexions-bancaires", headers=_en_tete_gestionnaire())
+    assert reponse.status_code == 200
+    corps = reponse.json()
+    assert [d["dossier_id"] for d in corps["dossiers"]] == [
+        "DEMO_sophie",
+        "DEMO_karim",
+        "DEMO_yanis",
+    ]
+    assert corps["compteurs"] == {
+        "expire": 0,
+        "a_renouveler": 1,
+        "jamais_connecte": 1,
+        "actif": 1,
+    }
+    assert corps["a_reconnecter"] == 1
+    karim = corps["dossiers"][1]
+    assert (karim["statut"], karim["jours_restants"], karim["relance"]) == (
+        "a_renouveler",
+        5,
+        "auto",
+    )
+
+
+def test_le_mode_de_relance_se_regle_et_se_lit() -> None:
+    client = _client()
+    en_tete = _en_tete_gestionnaire()
+    assert (
+        client.put(
+            "/portefeuille/relance-consentement", json={"mode": "manuel"}, headers=en_tete
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            "/dossiers/DEMO_karim/relance-consentement", json={"mode": "auto"}, headers=en_tete
+        ).status_code
+        == 200
+    )
+    corps = client.get("/portefeuille/connexions-bancaires", headers=en_tete).json()
+    assert corps["relance_portefeuille"] == "manuel"
+    par_id = {d["dossier_id"]: d for d in corps["dossiers"]}
+    assert (par_id["DEMO_karim"]["relance"], par_id["DEMO_karim"]["relance_propre"]) == (
+        "auto",
+        True,
+    )
+    assert (par_id["DEMO_yanis"]["relance"], par_id["DEMO_yanis"]["relance_propre"]) == (
+        "manuel",
+        False,
+    )
+    invalide = client.put(
+        "/portefeuille/relance-consentement", json={"mode": "sms"}, headers=en_tete
+    )
+    assert invalide.status_code == 400
+
+
+def test_seul_un_admin_regle_le_portefeuille_et_la_lecture_ne_regle_rien() -> None:
+    membre = _client_et_stubs(role="membre")[0]
+    refus = membre.put(
+        "/portefeuille/relance-consentement",
+        json={"mode": "manuel"},
+        headers=_en_tete_gestionnaire(),
+    )
+    assert refus.status_code == 403
+    lecture = _client_et_stubs(role="lecture")[0]
+    refus_dossier = lecture.put(
+        "/dossiers/DEMO_karim/relance-consentement",
+        json={"mode": "manuel"},
+        headers=_en_tete_gestionnaire(),
+    )
+    assert refus_dossier.status_code == 403

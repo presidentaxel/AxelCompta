@@ -34,6 +34,30 @@ TYPE_A_TRANCHER = "a_trancher"
 # c'est lui qui clôt, la cloche le lui rappelle.
 TYPE_CLOTURE_A_VALIDER = "cloture_a_valider"
 COMPTE_ATTENTE = "471"
+# Relances de connexion bancaire (`relances_consentement.py`, doc 14 §2.3).
+TYPE_CONNEXION_J14 = "connexion_j14"
+TYPE_CONNEXION_J7 = "connexion_j7"
+TYPE_CONNEXION_EXPIREE = "connexion_expiree"
+TYPE_CONNEXION_A_REFAIRE = "connexion_a_refaire"
+MESSAGES_FIXES = {
+    TYPE_CLOTURE_A_VALIDER: "Votre exercice est terminé : relisez-le et validez sa clôture.",
+    TYPE_CONNEXION_J14: (
+        "Votre connexion bancaire expire dans deux semaines : renouvelez-la pour que "
+        "vos opérations continuent d'arriver."
+    ),
+    TYPE_CONNEXION_J7: (
+        "Votre connexion bancaire expire dans une semaine : renouvelez-la pour que "
+        "vos opérations continuent d'arriver."
+    ),
+    TYPE_CONNEXION_EXPIREE: (
+        "Votre connexion bancaire a expiré : vos opérations ne sont plus synchronisées. "
+        "Renouvelez-la."
+    ),
+    TYPE_CONNEXION_A_REFAIRE: (
+        "Votre banque demande de confirmer la connexion : vos opérations ne sont plus "
+        "synchronisées. Confirmez-la."
+    ),
+}
 INTERVALLE_MIN = timedelta(hours=6)
 RAPPEL = timedelta(days=7)
 
@@ -49,8 +73,8 @@ class NotificationEnvoyee:
 
     @property
     def message(self) -> str:
-        if self.type == TYPE_CLOTURE_A_VALIDER:
-            return "Votre exercice est terminé : relisez-le et validez sa clôture."
+        if self.type in MESSAGES_FIXES:
+            return MESSAGES_FIXES[self.type]
         return message(len(self.ecriture_ids))
 
 
