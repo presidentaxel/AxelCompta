@@ -13,6 +13,7 @@
  */
 
 import { ApiError } from "./api";
+import { appelAuthentifie } from "./session";
 import {
   changerEmailAvecJeton,
   decoderChargeUtileJwt,
@@ -136,26 +137,28 @@ export async function changerEmailGestionnaire(email: string): Promise<void> {
   }
 }
 
-/** Requête authentifiée vers `demo_api`. Sur 401, la session est effacée
- * (jeton expiré) : l'appelant redirige alors vers la connexion via
- * `ErreurAuthGestionnaire`. Un 403 est un refus de rôle (membre, lecture) :
- * la session reste, l'appelant reçoit la réponse et affiche le refus. */
+/** Requête authentifiée vers `demo_api` (`lib/session.ts`) : jeton renouvelé
+ * au besoin, retour à la connexion si la session ne peut plus l'être. Un
+ * 403 est un refus de rôle (membre, lecture) : la session reste, l'appelant
+ * reçoit la réponse et affiche le refus. */
 async function requeteGestionnaire(path: string, init: RequestInit = {}): Promise<Response> {
-  const session = obtenirSessionGestionnaire();
-  if (!session) {
-    throw new ErreurAuthGestionnaire("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}${path}`, {
-    ...init,
-    headers: { ...init.headers, Authorization: `Bearer ${session.accessToken}` },
-    cache: "no-store",
-  });
-  if (reponse.status === 401) {
-    deconnecterGestionnaire();
-    throw new ErreurAuthGestionnaire("Session expirée.");
-  }
-  return reponse;
+  return appelAuthentifie(ESPACE_GESTIONNAIRE, `${baseUrlApi()}${path}`, init);
 }
+
+function enregistrerSessionGestionnaire(session: SessionGestionnaire): void {
+  try {
+    window.localStorage.setItem(CLE_SESSION, JSON.stringify(session));
+  } catch {
+    // Session utilisable pour cette page, simplement pas persistée.
+  }
+}
+
+const ESPACE_GESTIONNAIRE = {
+  lire: obtenirSessionGestionnaire,
+  enregistrer: enregistrerSessionGestionnaire,
+  effacer: deconnecterGestionnaire,
+  pageConnexion: "/connexion",
+};
 
 const CLE_PORTEFEUILLE = "axelcompta_portefeuille";
 

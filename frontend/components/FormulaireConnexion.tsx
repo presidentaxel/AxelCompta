@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { demanderReinitialisation, envoyerLienMagique } from "@/lib/auth-chauffeur";
+import { sessionAExpire } from "@/lib/session";
 
 type Mode = "mot_de_passe" | "lien" | "oubli";
 
@@ -25,6 +26,15 @@ export function FormulaireConnexion({
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Arrivée depuis une page interne dont la session n'a pas pu être
+    // renouvelée (`lib/session.ts`) : on dit pourquoi on est là.
+    if (sessionAExpire(window.location.search)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInfo("Votre session a expiré. Reconnectez-vous pour reprendre où vous en étiez.");
+    }
+  }, []);
 
   async function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
