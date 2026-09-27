@@ -249,6 +249,10 @@ class DossierResume(BaseModel):
     alerte_tva: str | None = None
     # Président assimilé salarié : sa paie se saisit depuis son bulletin.
     paie_par_bulletin: bool = False
+    # Forme et régime lus sur le dossier (SAS, SARL…) : l'écran chauffeur
+    # n'a pas à les deviner, le portefeuille gestionnaire les avait déjà.
+    forme_juridique: str
+    regime_libelle: str
 
 
 class DossierAgregat(BaseModel):
@@ -505,6 +509,8 @@ def _resume(
         guide_greffe=_guide_vue(guide_greffe(liasse)),
         declaration_resultat=_colonne(dossier).formulaires_resultat[0],
         depot_greffe=_colonne(dossier).depot_comptes_inpi,
+        forme_juridique=dossier.forme_juridique,
+        regime_libelle=_colonne(dossier).libelle,
     )
 
 

@@ -35,7 +35,9 @@ export default function ChauffeurLayout({ children }: { children: React.ReactNod
           {espace && session && <Cloche dossierId={session.dossierId} chemin={chemin} />}
         </div>
       </header>
-      <main className={`mx-auto max-w-md px-4 py-6 ${espace ? "pb-24" : ""}`}>{children}</main>
+      <main className={`mx-auto min-w-0 max-w-md overflow-x-clip px-4 py-6 ${espace ? "pb-24" : ""}`}>
+        {children}
+      </main>
       {espace && session && <Barre dossierId={session.dossierId} chemin={chemin} />}
     </div>
   );

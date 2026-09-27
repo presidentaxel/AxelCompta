@@ -37,6 +37,8 @@ export type DossierResume = {
   alerte_tva: string | null;
   // Président assimilé salarié : sa paie se saisit depuis son bulletin.
   paie_par_bulletin: boolean;
+  forme_juridique: string;
+  regime_libelle: string;
 };
 
 export type LignePortail = {

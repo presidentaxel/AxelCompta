@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useDossierChauffeur } from "@/app/chauffeur/use-dossier";
 import { FormulaireCompte } from "@/components/FormulaireCompte";
 import {
   changerEmailAvecJeton,
@@ -15,6 +16,7 @@ export default function CompteChauffeurPage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [jeton, setJeton] = useState<string | null>(null);
+  const [dossierId, setDossierId] = useState<string | null>(null);
 
   useEffect(() => {
     const session = obtenirSession();
@@ -26,6 +28,7 @@ export default function CompteChauffeurPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEmail(session.email);
     setJeton(session.accessToken);
+    setDossierId(session.dossierId);
   }, [router]);
 
   if (!email || !jeton) {
@@ -34,6 +37,7 @@ export default function CompteChauffeurPage() {
 
   return (
     <div>
+      {dossierId && <StatutDossier dossierId={dossierId} />}
       <FormulaireCompte
         email={email}
         onMotDePasse={definirMotDePasse}
@@ -50,5 +54,15 @@ export default function CompteChauffeurPage() {
         Se déconnecter
       </button>
     </div>
+  );
+}
+
+function StatutDossier({ dossierId }: { dossierId: string }) {
+  const { charge } = useDossierChauffeur(dossierId);
+  if (charge.statut !== "pret") return null;
+  return (
+    <p className="mb-6 text-sm text-subtle">
+      {charge.dossier.nom} · {charge.dossier.forme_juridique} · {charge.dossier.regime_libelle}
+    </p>
   );
 }
