@@ -63,10 +63,34 @@ Chaque étape écrit ses résultats dans `sortie/` (CSV + un bloc à coller dans
 `rapport_audit_dataset.md`). Les étapes 1 et 3 laissent des `[À COMPLÉTER]`
 pour la partie humaine (droit RGPD, relecture des 500 lignes).
 
+## Entraîner le modèle de catégorisation (v2, 2026-09-27)
+
+```bash
+# 1. Étiquettes : une ligne par jambe nature, plus les transactions dont la
+#    seule contrepartie est 455, 421 ou 580 (compte courant d'associé, paie
+#    nette, virement interne).
+python construire_taxonomie.py --sortie resultats/fec_ml_taxonomie_v2.csv \
+    --rapport resultats/rapport_taxonomie_v2.txt
+# 2. Modèle : validation croisée en 5 plis par dossier (rapport), puis
+#    modèle final sur tout -> modeles/tfidf_logreg_v2.joblib.
+python entrainer_modele.py
+# 2bis. Avec les décisions prises dans l'application (hors dossiers DEMO_),
+#       lues en base via DATABASE_URL du .env racine, jamais écrites en fichier.
+python entrainer_modele.py --decisions
+```
+
+Comparer `resultats/rapport_modele_v2.txt` au rapport du modèle en place
+avant de remplacer le `.joblib` que charge
+`backend/axelcompta/categorize/ml_fallback.py`. `entrainer_modele_baseline.py`
+reste là pour reproduire le v1.
+
 ## Confidentialité
 
-Ce dossier contiendra des données clients réelles (libellés bancaires,
-montants, éventuellement noms si pas encore pseudonymisés). **Rien dans
-`_AUDIT_DONNEES/` ne doit être commité** à part ce README, `audit_dataset.py`
-et `rapport_audit_dataset_TEMPLATE.md` — voir `.gitignore` mis à jour à la
-racine.
+Ce dossier contient des données clients réelles (libellés bancaires,
+montants, noms). **Seuls le code et les données produit sont commités** :
+les scripts `.py`, ce README, `rapport_audit_dataset_TEMPLATE.md` et
+`packs_vtc/` (taxonomie, mapping PCG, règles). Les extractions (`sortie/`),
+les résultats (`resultats/`), le rapport rempli et les modèles (`modeles/`)
+sont ignorés par le `.gitignore` racine, y compris s'ils sont remplacés par
+un lien symbolique. Un modèle entraîné contient des fragments de libellés
+réels : il ne sort jamais de ce dossier.

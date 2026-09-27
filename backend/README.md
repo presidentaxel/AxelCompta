@@ -112,6 +112,18 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/axelcompta_test"
 .venv/bin/pytest -q -m integration -k "not supabase"
 ```
 
+Appels réels à Digifactory (hors CI, `DIGIFACTORY_TOKEN` dans le `.env`
+racine) : `.venv/bin/pytest -q -m digifactory`. Le test ne garde aucun
+libellé, IBAN ni nom.
+
+Dossiers de démo branchés sur les contacts Digifactory (idempotent ;
+`--formes` ne fait que reprendre la forme juridique depuis Sirene) :
+
+```bash
+set -a && . ../.env && set +a
+.venv/bin/python scripts/ajouter_chauffeurs_digifactory.py
+```
+
 ## Lancer l'API de démo sur Postgres (depuis le 2026-09-21)
 
 L'API lit dossiers, ledger et propositions dans Postgres (elle ne les

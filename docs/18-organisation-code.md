@@ -29,14 +29,14 @@ AxeLCompta/
 │   ├── ingestion/
 │   │   └── providers/ # DataProvider ; démo sur fixtures, synchro Digifactory codée
 │   ├── documents/     # V1 (OCR) ; les justificatifs photo de la démo sont dans demo_justificatifs.py
-│   ├── categorize/    # règles + ML, pas de LLM
+│   ├── categorize/    # règles + ML (garde de sens, abstention) + propositions apprises des décisions, pas de LLM
 │   ├── anomaly/       # V1 seulement
 │   ├── ledger/        # moteur pur, Postgres, écritures validées immuables
 │   ├── closing/       # clôture fiscale : TVA, IS (si la colonne est à l'IS), liasse 2033
 │   ├── filings/       # CERFA 2065, 2031 et 2033 officiels, FEC légal, PDF (V1 : EDI/INPI)
 │   ├── workflow/      # décisions humaines, signatures démo, journal d'audit, notifications internes
-│   ├── api/           # V1 ; la démo passe par demo_api.py (Supabase Auth, exception ADR-003)
-│   └── ml/            # modèle déjà entraîné, réutilisé tel quel
+│   ├── api/           # V1 ; la démo passe par demo_api.py (Supabase Auth, gardé en V1 : ADR-003)
+│   └── ml/            # V1 ; le modèle (v2) s'entraîne dans _AUDIT_DONNEES/entrainer_modele.py
 ├── frontend/          # Next.js : écrans gestionnaire (web) et chauffeur (mobile), auth Supabase
 └── _AUDIT_DONNEES/    # audit du dataset historique, source pour packs/ et categorize/
 ```
@@ -113,7 +113,9 @@ paquet : `demo_api.py` (l'API), `synchro_digifactory.py`, `notifier.py`,
 `taches.py` (les tâches planifiées, lancées par
 `scripts/taches_planifiees.sh` depuis un cron), `exercices.py` (le
 passage d'un dossier à l'exercice suivant) et `affectations.py`
-(l'affectation du résultat décidée par le chauffeur).
+(l'affectation du résultat décidée par le chauffeur). `demo_digifactory.py`
+porte le mapping contact Digifactory → dossier de démo, appelé par
+`scripts/ajouter_chauffeurs_digifactory.py`.
 
 ## État
 

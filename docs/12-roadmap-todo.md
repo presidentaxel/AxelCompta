@@ -162,14 +162,54 @@ traitement, jamais cochée d'office (doc 19 §2.1).
   paiement de la 2777 « Impôts sur mes dividendes » (4423). Pas produit :
   le formulaire 2777 lui-même.
 
+**Fait le 2026-09-27 (PR #33 à #35) :**
+- Dossiers de démo branchés sur les contacts Digifactory réels
+  (`scripts/ajouter_chauffeurs_digifactory.py`) : un dossier `DIGI_<nr>` et un
+  compte fictif par contact, forme juridique reprise de Sirene quand le
+  contact a un SIREN, puis synchro. Les 6 dossiers existent ; 2 ont des
+  transactions (338 et 2 049), et **aucun des deux n'est un chauffeur VTC**
+  (un employeur qui verse la paie de sa flotte, une activité de services).
+  La remise à neuf de la démo ne touche pas ces dossiers.
+- Écran chauffeur : forme et régime affichés, proposition du modèle
+  confirmable en un geste (« Oui, c'est ça »).
+- **ML, enquête sur ces deux dossiers** : presque aucune ligne bien traitée.
+  Causes trouvées et corrigées :
+  - bug de signe : le modèle, entraîné en convention FEC (charge positive),
+    recevait des montants bancaires (encaissement positif) ; chaque
+    encaissement lui arrivait comme une dépense ;
+  - aucune garde de sens : 40 % et 69 % des propositions proposaient une
+    charge pour un encaissement ou l'inverse. Plus aucune, pour les règles
+    comme pour le modèle ;
+  - aucune abstention : sous 0,5 de confiance, l'écran dit « pas de
+    proposition automatique » ;
+  - taxonomie trop étroite : `compte_courant_associe` (455, 108 en EI),
+    `virement_interne` (580) et `salaires_personnel` (421) ajoutés ; 1 302
+    mouvements de compte courant d'associé du jeu d'audit étaient jetés de
+    l'entraînement.
+- **Modèle v2** (`_AUDIT_DONNEES/entrainer_modele.py`, pondération en racine,
+  validation croisée en 5 plis par dossier) : 78,9 % d'exactitude, 72,6 % des
+  lignes proposées à 0,5 et justes à 91,1 % (v1 sur les mêmes plis : 76,2 %,
+  64 %, 91,6 %).
+- **Le ML apprend des décisions** : une opération semblable à une opération
+  déjà tranchée par l'indiv reprend sa catégorie en proposition
+  (`categorize/appris.py`), et `entrainer_modele.py --decisions` réentraîne
+  sur les décisions en base. Aucune décision en base au 2026-09-27.
+- Tous les seuils sont choisis sur le jeu d'audit, jamais sur les dossiers
+  réels. Karim, Sophie et Yanis ne passent que par les règles : la démo
+  n'exerce pas l'étage ML, et leurs 310 écritures n'ont pas bougé.
+- Restent ouverts : les ventes de services (TVA collectée à trancher avant
+  d'en faire une catégorie), le bulletin des salariés (seul le net en 421
+  est passé), et les propositions déjà en base des dossiers `DIGI_` (non
+  recalculées ; il faut effacer ces dossiers et resynchroniser).
+
 **Jalons recalés** (proposition à confirmer ; tant qu'aucune date externe
 n'est imposée, on suit l'ordre plutôt que les dates) :
 
 | Jalon | Cible | Pourquoi dans cet ordre |
 |---|---|---|
-| J1. 500 lignes relues (~2 h avec la pré-passe), **week-end uniquement** | 2026-09-26/27 | Débloque la vraie mesure ML et le premier jeu de test gelé |
+| J1. 500 lignes relues (~2 h avec la pré-passe), **week-end uniquement**. **7/500 au 2026-09-27** | 2026-09-26/27 | Débloque la vraie mesure ML et le premier jeu de test gelé |
 | ~~J2. Liste pilote statut/régime/TVA par chauffeur~~ **Annulé le 2026-09-26** (décision de Louis) : on code tous les formats (SASU, SAS, EURL, SARL, EI, IS, IR, franchise ou réel de TVA), le mélange exact du pilote n'a plus à être collecté à l'avance. Le statut de chaque dossier reste à renseigner, dossier par dossier, quand il est créé | annulé | |
-| J3. Digifactory branché, synchro idempotente avec curseur, archive brute et quarantaine (**code fait le 2026-09-22**, doc 18) ; reste : un vrai dossier de bout en bout. Digifactory n'a que 6 contacts au 2026-09-26, c'est attendu : la démo sert à obtenir l'engagement du pilote, les chauffeurs y seront ajoutés ensuite. Le vrai dossier de bout en bout peut se faire sur l'un des 6 | 2026-10-02 | Premier flux réel, remplace les fixtures |
+| J3. Digifactory branché, synchro idempotente avec curseur, archive brute et quarantaine (**code fait le 2026-09-22**, doc 18) ; reste : un vrai dossier de bout en bout. Digifactory n'a que 6 contacts au 2026-09-26, c'est attendu : la démo sert à obtenir l'engagement du pilote, les chauffeurs y seront ajoutés ensuite. Le vrai dossier de bout en bout peut se faire sur l'un des 6. **Au 2026-09-27** : les 6 dossiers `DIGI_` existent, 2 ont des transactions, aucun n'est un chauffeur VTC ; reste à dérouler l'un d'eux de bout en bout (trancher, clôturer) | 2026-10-02 | Premier flux réel, remplace les fixtures |
 | J4. Auth gestionnaire réelle + Postgres branché dans l'API + migrations (**fait le 2026-09-21**, doc 18) | fait | Aujourd'hui tout est en mémoire, `UTILISATEUR_DEMO` en dur |
 | J5. Notifications + invitations en masse (**code fait le 2026-09-22**). **Notifications internes depuis le 2026-09-26** (cloche de l'espace chauffeur, plus d'e-mail : e-mail et SMS sont des intégrations du gestionnaire) et **cron installé** (`axelcompta.taches`, toutes les heures sur le poste de démo, même script sur le futur serveur). SMTP de Supabase Auth configuré le 2026-09-26 (invitations plus plafonnées) | fait | |
 | J6. Premier échange expert-comptable (taxonomie, templates, question CCA/FNP). **Reporté tout à la fin le 2026-09-26** (décision de Louis) : aucun expert-comptable disponible aujourd'hui, pas de moyen de le lancer. Ne pas le relancer d'ici là | tout à la fin | Reste un prérequis de la V1 |
