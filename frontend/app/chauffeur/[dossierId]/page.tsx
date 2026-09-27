@@ -149,16 +149,22 @@ function Arriere({
       )}
       <ul className="mt-2">
         {aVerifier.map((transaction) => {
-          const { nom, detail, proposition, sansProposition } = presenter(transaction.libelle);
+          const presente = presenter(transaction.libelle);
+          const apprise = propositionApprise(transaction.proposition_apprise);
           return (
             <li key={transaction.ecriture_id} className="min-w-0 border-b border-hairline py-4">
-              <LigneMontant nom={nom} detail={detail} transaction={transaction} />
+              <LigneMontant
+                nom={presente.nom}
+                detail={apprise?.libelle ?? presente.detail}
+                transaction={transaction}
+              />
               <div className="mt-3">
                 <QuestionCategorisation
                   dossierId={dossierId}
                   ecritureId={transaction.ecriture_id}
-                  proposition={proposition}
-                  sansProposition={sansProposition}
+                  proposition={apprise ?? presente.proposition}
+                  apprise={apprise !== null}
+                  sansProposition={apprise === null && presente.sansProposition}
                   onResolu={onChange}
                 />
               </div>
@@ -381,7 +387,23 @@ const DETAILS: Record<string, string> = {
   charges_sociales_impots: "Charges",
   honoraires_comptable_juridique: "Honoraires",
   recettes_plateformes: "Courses",
+  remuneration_dirigeant: "Ma rémunération",
+  compte_courant_associe: "Compte courant d'associé",
+  virement_interne: "Virement entre mes comptes",
+  salaires_personnel: "Salaire d'un salarié",
+  frais_bancaires: "Frais bancaires",
+  abonnements_logiciels: "Abonnement",
+  fournitures_administratives: "Fournitures",
+  amendes_infractions: "Amende",
+  subventions: "Aide publique",
 };
+
+/** Une proposition tirée des choix du chauffeur se confirme toujours : c'est
+ * sa propre catégorie, même quand elle a aussi son bouton. */
+function propositionApprise(code: string | null): { code: string; libelle: string } | null {
+  if (!code) return null;
+  return { code, libelle: DETAILS[code] ?? code.replaceAll("_", " ") };
+}
 
 function presenter(libelle: string): {
   nom: string;

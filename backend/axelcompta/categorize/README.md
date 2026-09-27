@@ -49,15 +49,37 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
   était vu comme une dépense.
 - **Sens** : une catégorie de charge n'est jamais proposée pour un
   encaissement, un produit jamais pour un décaissement
-  (`ENCAISSEMENTS_SEULEMENT` / `DECAISSEMENTS_SEULEMENT`).
+  (`ENCAISSEMENTS_SEULEMENT` / `DECAISSEMENTS_SEULEMENT`). Vaut pour les
+  règles comme pour le modèle.
 - **Abstention** : sous 0,5 de confiance, `non_categorise_a_verifier`
-  (« pas de proposition automatique » à l'écran). Mesuré en validation
-  croisée par dossier sur le jeu d'audit : 64 % des lignes proposées, 92 %
-  justes. L'imputation automatique reste à 0,90 (`workflow/synchro.py`).
-- **Limite connue** : le jeu d'entraînement ne contient que des chauffeurs
-  VTC. Un compte d'une autre activité (paie d'employés, ventes de
-  services, virements internes, compte courant d'associé) tombe surtout en
-  abstention : ces catégories n'existent pas encore dans la taxonomie.
+  (« pas de proposition automatique » à l'écran). L'imputation automatique
+  reste à 0,90 (`workflow/synchro.py`).
+- **Modèle v2** (`_AUDIT_DONNEES/entrainer_modele.py`) : étiquettes étendues
+  au compte courant d'associé (1 302 exemples jusque-là jetés), pondération
+  des classes en racine. Validation croisée en 5 plis par dossier : 78,9 %
+  d'exactitude ; à 0,5, 72,6 % des lignes proposées, 91,1 % justes (v1 : 64 %
+  proposées, 91,6 % justes). Le v1 reste à côté pour revenir en arrière.
+- **Propositions apprises** (`appris.py`) : une opération semblable à une
+  opération déjà tranchée par l'indiv, dans le même sens, reprend sa
+  catégorie en proposition (calculée à la lecture, `demo_api`). Mesuré sur le
+  jeu d'audit en simulant un indiv qui tranche dans l'ordre : 81 % des
+  lignes couvertes, 92 % justes.
+- **Réentraînement sur les décisions** : `entrainer_modele.py --decisions`
+  ajoute chaque décision humaine (hors dossiers `DEMO_`) comme exemple, lue en
+  base, jamais écrite dans un fichier ; chaque dossier reste un groupe de la
+  validation croisée.
+
+## Catégories ajoutées le 2026-09-27
+
+| Catégorie | Compte | Origine |
+|---|---|---|
+| `compte_courant_associe` | 455, 108 en EI (matrice des statuts) | modèle + règle générique |
+| `virement_interne` | 580 | règle générique |
+| `salaires_personnel` | 421 (le bulletin, 641/645/431, n'est pas produit) | décision de l'indiv |
+
+Les règles ajoutées sont en confiance basse : elles proposent, l'indiv
+tranche. `compte_courant_associe` n'a pas de compte dans le pack : même à
+haute confiance, il reste à trancher, parce que son compte dépend du statut.
 
 ## Statuts
 

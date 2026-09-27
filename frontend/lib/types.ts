@@ -127,6 +127,8 @@ export type TransactionVue = {
   compte: string;
   statut: StatutTransaction;
   a_justificatif: boolean; // doc 17 §9 Semaine 3 : photo jointe (contenu non lu)
+  // Catégorie d'une opération semblable déjà tranchée par le chauffeur.
+  proposition_apprise: string | null;
 };
 
 /** Clôture de l'exercice, préparée par l'API et validée par le chauffeur

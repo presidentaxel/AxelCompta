@@ -56,7 +56,7 @@ warn_unused_configs = true
 # joblib n'a ni py.typed ni stubs publiés (types-joblib n'existe pas) —
 # justification requise pour toute suppression de type (doc 08 §3).
 [[tool.mypy.overrides]]
-module = "joblib"
+module = ["joblib", "sklearn.*"]
 ignore_missing_imports = true
 
 # --- Lint + format : ruff (doc 08 §3) ---

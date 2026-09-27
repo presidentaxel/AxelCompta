@@ -27,11 +27,14 @@ from pypdf import PdfReader
 
 import axelcompta.demo_auth as demo_auth
 import axelcompta.demo_seed as demo_seed
+from axelcompta.categorize.models import Etage
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.core.money import Money
 from axelcompta.demo_api import (
     DossierResume,
     GuideGreffeVue,
+    TransactionVue,
+    _avec_propositions_apprises,
     _frises,
     create_app,
     get_affectations,
@@ -60,6 +63,7 @@ from axelcompta.tenants.avenants import InMemoryAvenantRegimeRepository, program
 from axelcompta.tenants.exercices import InMemoryExerciceRepository
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
+from axelcompta.workflow.decisions import DecisionHumaine
 from axelcompta.workflow.decisions_memory import InMemoryDecisionRepository
 from axelcompta.workflow.notifications import InMemoryNotificationRepository, NotificationEnvoyee
 from axelcompta.workflow.propositions import InMemoryPropositionRepository
@@ -1521,3 +1525,45 @@ def test_le_president_de_sasu_saisit_ses_bulletins_le_gerant_d_eurl_non() -> Non
     assert client.get("/dossiers/DEMO_sophie", headers=sophie).json()["paie_par_bulletin"] is False
     refus = client.post("/dossiers/DEMO_sophie/bulletins", headers=sophie, json=bulletin)
     assert refus.status_code == 409
+
+
+def test_une_operation_semblable_a_une_decision_la_propose() -> None:
+    """categorize/appris.py : l'indiv tranche une fois, les opérations
+    semblables et encore à trancher reprennent sa catégorie en proposition."""
+
+    def vue(ecriture_id: str, libelle: str, statut: str) -> TransactionVue:
+        return TransactionVue(
+            ecriture_id=ecriture_id,
+            date="2025-06-30",
+            libelle=libelle,
+            montant_cts=-100_000,
+            compte="471" if statut == "à trancher" else "421",
+            statut=statut,
+            a_justificatif=False,
+        )
+
+    vues = [
+        vue("e1", "SOLDE SALAIRE JUIN SEMAINE 1 CAMILLE MARTIN (recettes_plateformes)", "validé"),
+        vue("e2", "SOLDE SALAIRE JUIN SEMAINE 2 LEA DUPONT (recettes_plateformes)", "à trancher"),
+        vue("e3", "CB TOTAL ACCESS A6 (non_categorise_a_verifier)", "à trancher"),
+    ]
+    decision = DecisionHumaine(
+        dossier_id=DossierId("d"),
+        ecriture_id=EcritureId("e1"),
+        categorie="salaires_personnel",
+        etage_origine=Etage.ML,
+        confiance_origine=0.2,
+        decide_par=UserId("u"),
+        decide_le=datetime(2026, 9, 27, tzinfo=UTC),
+    )
+    resultat = {
+        v.ecriture_id: v.proposition_apprise for v in _avec_propositions_apprises(vues, (decision,))
+    }
+    assert resultat == {"e1": None, "e2": "salaires_personnel", "e3": None}
+
+
+def test_les_transactions_exposent_la_proposition_apprise() -> None:
+    transactions = (
+        _client().get("/dossiers/DEMO_sophie/transactions", headers=_en_tete("DEMO_sophie")).json()
+    )
+    assert all("proposition_apprise" in t for t in transactions)
