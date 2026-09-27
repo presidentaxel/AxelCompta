@@ -59,6 +59,12 @@ chauffeur (mobile) est cadré dans [doc 19](../docs/19-parcours-utilisateur.md).
   revue réelle sur la dépense de Sophie (bloc C), invitation chauffeur
   (bloc B). Interface chauffeur : connexion réelle via Supabase Auth
   (appels REST directs, pas le SDK JS), session en `localStorage`.
+  **Depuis le 2026-09-27**, chaque appel à l'API passe par `lib/session.ts` :
+  le jeton d'accès (une heure environ) est renouvelé avant son expiration
+  avec le jeton de rafraîchissement, et une fois de plus sur un 401. Si ce
+  n'est plus possible, la session est effacée et l'utilisateur renvoyé vers
+  sa page de connexion (« votre session a expiré »), puis ramené sur la
+  page qu'il quittait. Serveur injoignable : message clair, session gardée.
   Routage restructuré en groupe `app/(gestionnaire)/` pour que la
   Sidebar/TopBar ne s'applique qu'aux routes gestionnaire (doc 19 §7 :
   « même socle, deux habillages ») — sans effet sur les URLs.

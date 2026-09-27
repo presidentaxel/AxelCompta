@@ -15,6 +15,7 @@
  */
 
 import { ApiError } from "./api";
+import { appelAuthentifie, erreurApi, lireCorps } from "./session";
 import type {
   AffectationVue,
   BulletinVue,
@@ -241,20 +242,26 @@ function baseUrlApi(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 }
 
+const ESPACE_CHAUFFEUR = {
+  lire: obtenirSession,
+  enregistrer: enregistrerSessionChauffeur,
+  effacer: deconnecter,
+  pageConnexion: "/chauffeur/login",
+};
+
+/** Toute requête chauffeur vers l'API : jeton renouvelé au besoin, retour à
+ * la connexion si la session ne peut plus l'être (`lib/session.ts`). */
+function appelChauffeur(path: string, init: RequestInit = {}): Promise<Response> {
+  return appelAuthentifie(ESPACE_CHAUFFEUR, `${baseUrlApi()}${path}`, init);
+}
+
 /** Requête brute avec le jeton chauffeur — factorisé pour `fetchAvecAuthChauffeur`
  * (JSON) et `telechargerAvecAuthChauffeur` (fichier binaire), doc 19 §8bis :
  * toutes les routes de niveau dossier exigent désormais ce jeton. */
 async function requeteAvecAuthChauffeur(path: string): Promise<Response> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}${path}`, {
-    headers: { Authorization: `Bearer ${session.accessToken}` },
-    cache: "no-store",
-  });
+  const reponse = await appelChauffeur(path);
   if (!reponse.ok) {
-    throw new ErreurAuthChauffeur(`API démo (${path}) : HTTP ${reponse.status}`);
+    throw erreurApi(await lireCorps(reponse), reponse);
   }
   return reponse;
 }
@@ -307,21 +314,16 @@ export async function trancherEnGroupeChauffeur(
   ecritureIds: string[],
   categorie: string,
 ): Promise<TransactionVue[]> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/decisions-groupees`, {
+  const reponse = await appelChauffeur(`/dossiers/${dossierId}/decisions-groupees`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${session.accessToken}`,
     },
     body: JSON.stringify({ categorie, ecriture_ids: ecritureIds }),
   });
-  const corps = await reponse.json();
+  const corps = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(corps, reponse);
   }
   return corps as TransactionVue[];
 }
@@ -331,25 +333,19 @@ export async function trancherTransactionChauffeur(
   ecritureId: string,
   categorie: string,
 ): Promise<TransactionVue> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const baseUrl = baseUrlApi();
-  const reponse = await fetch(
-    `${baseUrl}/dossiers/${dossierId}/transactions/${ecritureId}/decision`,
+  const reponse = await appelChauffeur(
+    `/dossiers/${dossierId}/transactions/${ecritureId}/decision`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session.accessToken}`,
       },
       body: JSON.stringify({ categorie }),
     },
   );
-  const corps = await reponse.json();
+  const corps = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(corps, reponse);
   }
   return corps as TransactionVue;
 }
@@ -361,18 +357,12 @@ export async function trancherTransactionChauffeur(
  * 2026-09-11 : cet écran quitte le gestionnaire (doc 19 §2.1/§2.4), donc
  * la version anonyme n'a plus de raison d'être appelée. */
 export async function signerGreffeInpiChauffeur(dossierId: string): Promise<SignatureGreffeVue> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const baseUrl = baseUrlApi();
-  const reponse = await fetch(`${baseUrl}/dossiers/${dossierId}/greffe-inpi/signature`, {
+  const reponse = await appelChauffeur(`/dossiers/${dossierId}/greffe-inpi/signature`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${session.accessToken}` },
   });
-  const corps = await reponse.json();
+  const corps = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(corps, reponse);
   }
   return corps as SignatureGreffeVue;
 }
@@ -384,24 +374,18 @@ export async function joindreJustificatifChauffeur(
   ecritureId: string,
   fichier: File,
 ): Promise<TransactionVue> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const baseUrl = baseUrlApi();
   const corpsFormulaire = new FormData();
   corpsFormulaire.append("fichier", fichier);
-  const reponse = await fetch(
-    `${baseUrl}/dossiers/${dossierId}/transactions/${ecritureId}/justificatif`,
+  const reponse = await appelChauffeur(
+    `/dossiers/${dossierId}/transactions/${ecritureId}/justificatif`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${session.accessToken}` },
-      body: corpsFormulaire,
+        body: corpsFormulaire,
     },
   );
-  const corps = await reponse.json();
+  const corps = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(corps, reponse);
   }
   return corps as TransactionVue;
 }
@@ -413,13 +397,8 @@ export async function listerNotificationsChauffeur(dossierId: string): Promise<N
 
 /** Ouvrir la cloche vaut lecture : tout ce qui n'était pas lu le devient. */
 export async function marquerNotificationsLuesChauffeur(dossierId: string): Promise<void> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/notifications/lues`, {
+  const reponse = await appelChauffeur(`/dossiers/${dossierId}/notifications/lues`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${session.accessToken}` },
   });
   if (!reponse.ok) {
     throw new ApiError(`HTTP ${reponse.status}`, reponse.status);
@@ -432,21 +411,16 @@ export async function validerClotureChauffeur(
   dossierId: string,
   attestation: string,
 ): Promise<ClotureExerciceVue> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/cloture-exercice`, {
+  const reponse = await appelChauffeur(`/dossiers/${dossierId}/cloture-exercice`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${session.accessToken}`,
     },
     body: JSON.stringify({ attestation }),
   });
-  const corps = await reponse.json();
+  const corps = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(corps, reponse);
   }
   return corps as ClotureExerciceVue;
 }
@@ -458,21 +432,16 @@ export async function deciderAffectationChauffeur(
   scenario: string,
   dividendesCts: number,
 ): Promise<AffectationVue> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/affectation`, {
+  const reponse = await appelChauffeur(`/dossiers/${dossierId}/affectation`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${session.accessToken}`,
     },
     body: JSON.stringify({ scenario, dividendes_cts: dividendesCts }),
   });
-  const corps = await reponse.json();
+  const corps = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(corps, reponse);
   }
   return corps as AffectationVue;
 }
@@ -480,21 +449,16 @@ export async function deciderAffectationChauffeur(
 /** POST JSON authentifié : factorise les envois du chauffeur qui renvoient
  * une vue, avec le message d'erreur de l'API. */
 async function envoyerChauffeur<T>(path: string, corps: unknown): Promise<T> {
-  const session = obtenirSession();
-  if (!session) {
-    throw new ErreurAuthChauffeur("Aucune session active.");
-  }
-  const reponse = await fetch(`${baseUrlApi()}${path}`, {
+  const reponse = await appelChauffeur(`${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${session.accessToken}`,
     },
     body: JSON.stringify(corps),
   });
-  const donnees = await reponse.json();
+  const donnees = await lireCorps(reponse);
   if (!reponse.ok) {
-    throw new ApiError(donnees.detail ?? `HTTP ${reponse.status}`, reponse.status);
+    throw erreurApi(donnees, reponse);
   }
   return donnees as T;
 }
