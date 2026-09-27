@@ -197,6 +197,16 @@ traitement, jamais cochée d'office (doc 19 §2.1).
 - Tous les seuils sont choisis sur le jeu d'audit, jamais sur les dossiers
   réels. Karim, Sophie et Yanis ne passent que par les règles : la démo
   n'exerce pas l'étage ML, et leurs 310 écritures n'ont pas bougé.
+- **Confirmation groupée** (PR #37) : une décision, et les opérations
+  semblables du dossier sont proposées ensemble (« N opérations
+  ressemblent… », liste consultable, « Tout classer »), écrites en une
+  seule transaction, tout ou rien. La proposition de chaque opération à
+  trancher est désormais calculée à la lecture (décisions de l'indiv, puis
+  règles et modèle en vigueur) et affiche son origine (« Proposition du
+  modèle (72 %) »), ce qui rafraîchit d'office les dossiers `DIGI_`. Sur
+  `DIGI_4952`, une décision « SOLDE SALAIRE » en propose 295 autres, toutes
+  des salaires. Une seule ligne `DIGI_` reste imputée à tort par l'ancien
+  modèle (un encaissement « LOCATION » en 6135, verrouillé).
 - Restent ouverts : les ventes de services (TVA collectée à trancher avant
   d'en faire une catégorie), le bulletin des salariés (seul le net en 421
   est passé), et les propositions déjà en base des dossiers `DIGI_` (non

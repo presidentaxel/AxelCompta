@@ -34,6 +34,9 @@ from axelcompta.workflow.signature_postgres import PostgresSignatureRepository
 NOM_PORTEFEUILLE_DEMO = "Portefeuille démo"
 
 _DOSSIERS_DU_TENANT = "SELECT id FROM dossiers WHERE tenant_id = :tenant AND contact_nr IS NULL"
+_DOSSIERS_DIGIFACTORY = (
+    "SELECT id FROM dossiers WHERE tenant_id = :tenant AND contact_nr IS NOT NULL"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +51,12 @@ PARTIES: tuple[Partie, ...] = (
         "decisions",
         "Dépenses tranchées",
         "Les dépenses déjà tranchées repassent « à trancher ».",
+    ),
+    Partie(
+        "decisions_digifactory",
+        "Dépenses tranchées des dossiers Digifactory",
+        "Seulement les décisions des dossiers branchés à Digifactory : leurs opérations "
+        "repassent « à trancher ». Les opérations elles-mêmes ne sont pas touchées.",
     ),
     Partie(
         "jalons",
@@ -71,18 +80,24 @@ PARTIES: tuple[Partie, ...] = (
 CLES_PARTIES = frozenset(partie.cle for partie in PARTIES)
 
 
-def _effacer_verrouillee(connexion: Connection, table: str, parametres: dict[str, str]) -> None:
+def _effacer_verrouillee(
+    connexion: Connection,
+    table: str,
+    parametres: dict[str, str],
+    dossiers: str = _DOSSIERS_DU_TENANT,
+) -> None:
     connexion.execute(text(f"ALTER TABLE {table} DISABLE TRIGGER {table}_immuables"))
-    connexion.execute(
-        text(f"DELETE FROM {table} WHERE dossier_id IN ({_DOSSIERS_DU_TENANT})"), parametres
-    )
+    connexion.execute(text(f"DELETE FROM {table} WHERE dossier_id IN ({dossiers})"), parametres)
     connexion.execute(text(f"ALTER TABLE {table} ENABLE TRIGGER {table}_immuables"))
 
 
-def _effacer(connexion: Connection, table: str, parametres: dict[str, str]) -> None:
-    connexion.execute(
-        text(f"DELETE FROM {table} WHERE dossier_id IN ({_DOSSIERS_DU_TENANT})"), parametres
-    )
+def _effacer(
+    connexion: Connection,
+    table: str,
+    parametres: dict[str, str],
+    dossiers: str = _DOSSIERS_DU_TENANT,
+) -> None:
+    connexion.execute(text(f"DELETE FROM {table} WHERE dossier_id IN ({dossiers})"), parametres)
 
 
 def _remettre_en_base(connexion: Connection, parties: frozenset[str], tenant: str) -> None:
@@ -91,6 +106,11 @@ def _remettre_en_base(connexion: Connection, parties: frozenset[str], tenant: st
         # `annotations_dev` recopie les décisions pour le réentraînement ML.
         _effacer(connexion, "annotations_dev", parametres)
         _effacer_verrouillee(connexion, "decisions_humaines", parametres)
+    if "decisions_digifactory" in parties:
+        # Pour rejouer « tout confirmer » sur des données réelles : sans ça,
+        # une répétition laisse le dossier entièrement tranché.
+        _effacer(connexion, "annotations_dev", parametres, _DOSSIERS_DIGIFACTORY)
+        _effacer_verrouillee(connexion, "decisions_humaines", parametres, _DOSSIERS_DIGIFACTORY)
     if "jalons" in parties:
         _effacer_verrouillee(connexion, "documents_signes", parametres)
     if "rappels" in parties:

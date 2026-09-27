@@ -301,6 +301,31 @@ function nomDepuisContentDisposition(reponse: Response): string | null {
  * de catégorisation, doc 19 §5.6) — même endpoint que le gestionnaire
  * (`trancherTransaction`, lib/api.ts), avec le jeton en plus pour que le
  * serveur attribue la décision à la vraie identité (decide_par). */
+/** « Tout confirmer » : tout ou rien côté API. */
+export async function trancherEnGroupeChauffeur(
+  dossierId: string,
+  ecritureIds: string[],
+  categorie: string,
+): Promise<TransactionVue[]> {
+  const session = obtenirSession();
+  if (!session) {
+    throw new ErreurAuthChauffeur("Aucune session active.");
+  }
+  const reponse = await fetch(`${baseUrlApi()}/dossiers/${dossierId}/decisions-groupees`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.accessToken}`,
+    },
+    body: JSON.stringify({ categorie, ecriture_ids: ecritureIds }),
+  });
+  const corps = await reponse.json();
+  if (!reponse.ok) {
+    throw new ApiError(corps.detail ?? `HTTP ${reponse.status}`, reponse.status);
+  }
+  return corps as TransactionVue[];
+}
+
 export async function trancherTransactionChauffeur(
   dossierId: string,
   ecritureId: string,

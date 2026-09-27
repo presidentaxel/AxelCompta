@@ -127,8 +127,12 @@ export type TransactionVue = {
   compte: string;
   statut: StatutTransaction;
   a_justificatif: boolean; // doc 17 §9 Semaine 3 : photo jointe (contenu non lu)
-  // Catégorie d'une opération semblable déjà tranchée par le chauffeur.
-  proposition_apprise: string | null;
+  // Proposition pour une opération à trancher, calculée à chaque lecture :
+  // une opération semblable déjà classée par le chauffeur (« appris »), sinon
+  // les règles (« regle ») ou le modèle (« modele »). null : pas de proposition.
+  proposition: string | null;
+  origine_proposition: "appris" | "regle" | "modele" | null;
+  confiance_proposition: number | null;
 };
 
 /** Clôture de l'exercice, préparée par l'API et validée par le chauffeur

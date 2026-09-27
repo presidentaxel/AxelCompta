@@ -6,6 +6,7 @@ endroit du module qui fait de l'I/O — `decisions.py` reste pur, comme
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.engine import Engine, Row
@@ -24,29 +25,35 @@ class PostgresDecisionRepository(DecisionRepository):
         self._engine = engine
 
     def enregistrer_decision(self, decision: DecisionHumaine) -> None:
+        self.enregistrer_decisions([decision])
+
+    def enregistrer_decisions(self, decisions: Sequence[DecisionHumaine]) -> None:
+        """Une seule transaction : toutes les décisions et leurs lignes de
+        journal d'audit, ou aucune."""
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
-            identifiant = str(uuid.uuid4())
-            connexion.execute(
-                decisions_humaines.insert().values(
-                    id=identifiant,
-                    dossier_id=decision.dossier_id,
-                    ecriture_id=decision.ecriture_id,
-                    categorie=decision.categorie,
-                    etage_origine=decision.etage_origine.name,
-                    confiance_origine=decision.confiance_origine,
-                    decide_par=decision.decide_par,
-                    decide_le=decision.decide_le,
+            for decision in decisions:
+                identifiant = str(uuid.uuid4())
+                connexion.execute(
+                    decisions_humaines.insert().values(
+                        id=identifiant,
+                        dossier_id=decision.dossier_id,
+                        ecriture_id=decision.ecriture_id,
+                        categorie=decision.categorie,
+                        etage_origine=decision.etage_origine.name,
+                        confiance_origine=decision.confiance_origine,
+                        decide_par=decision.decide_par,
+                        decide_le=decision.decide_le,
+                    )
                 )
-            )
-            noter(
-                connexion,
-                decision.dossier_id,
-                "decision",
-                identifiant,
-                decision.decide_par,
-                decision.decide_le,
-            )
+                noter(
+                    connexion,
+                    decision.dossier_id,
+                    "decision",
+                    identifiant,
+                    decision.decide_par,
+                    decision.decide_le,
+                )
 
     def decision_courante(
         self, dossier_id: DossierId, ecriture_id: EcritureId

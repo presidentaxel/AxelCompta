@@ -20,6 +20,7 @@ au modèle comme une dépense.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -108,21 +109,34 @@ def charger_modele(chemin: Path | None = None) -> ModeleSklearn:
 
 
 def predire(modele: ModeleSklearn, libelle: str, montant_cts: int) -> tuple[str, float]:
-    """`montant_cts` en convention bancaire (argent reçu positif).
+    """Une seule transaction ; voir `predire_lot`."""
+    return predire_lot(modele, [(libelle, montant_cts)])[0]
+
+
+def predire_lot(
+    modele: ModeleSklearn, transactions: Sequence[tuple[str, int]]
+) -> list[tuple[str, float]]:
+    """(catégorie, confiance) par `(libelle, montant_cts)`, montants en
+    convention bancaire (argent reçu positif), en un seul appel au modèle.
 
     Les catégories de sens contraire au flux sont écartées. La confiance
     reste la probabilité brute de la catégorie retenue, sans renormaliser :
     si le modèle misait surtout sur une catégorie impossible, la confiance
     baisse et l'étage suivant s'abstient."""
-    texte = texte_pour_modele(libelle, -montant_cts)
-    probabilites = [float(p) for p in modele.predict_proba([texte])[0]]
+    if not transactions:
+        return []
+    textes = [texte_pour_modele(libelle, -montant) for libelle, montant in transactions]
     classes = [str(c) for c in modele.classes_]
-    candidates = [
-        (probabilite, categorie)
-        for probabilite, categorie in zip(probabilites, classes, strict=True)
-        if sens_compatible(categorie, montant_cts)
-    ]
-    if not candidates:
-        return "non_categorise_a_verifier", 0.0
-    confiance, categorie = max(candidates)
-    return categorie, confiance
+    resultat: list[tuple[str, float]] = []
+    for probabilites, (_, montant) in zip(modele.predict_proba(textes), transactions, strict=True):
+        candidates = [
+            (float(probabilite), categorie)
+            for probabilite, categorie in zip(probabilites, classes, strict=True)
+            if sens_compatible(categorie, montant)
+        ]
+        if not candidates:
+            resultat.append(("non_categorise_a_verifier", 0.0))
+            continue
+        confiance, categorie = max(candidates)
+        resultat.append((categorie, confiance))
+    return resultat

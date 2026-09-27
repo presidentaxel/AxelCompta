@@ -112,3 +112,27 @@ def test_decision_sur_une_ecriture_inexistante_est_refusee_par_la_base(
         repo.enregistrer_decision(
             _decision(id_unique, "fantome", "usage_personnel", datetime(2026, 9, 7, 10, 0))
         )
+
+
+def test_des_decisions_groupees_sont_ecrites_toutes_ou_aucune(
+    engine: Engine,
+    id_unique: str,
+    creer_dossier: Callable[[str], None],
+    creer_ecriture: Callable[[str, str], None],
+) -> None:
+    """« Tout confirmer » : une décision qui échoue (écriture inconnue, clé
+    étrangère) annule celles qui la précèdent dans le même lot."""
+    creer_dossier(id_unique)
+    creer_ecriture(id_unique, "e1")
+    creer_ecriture(id_unique, "e2")
+    repo = PostgresDecisionRepository(engine)
+    a = _decision(id_unique, "e1", "salaires_personnel", datetime(2026, 9, 27, 10, 0))
+    b = _decision(id_unique, "e2", "salaires_personnel", datetime(2026, 9, 27, 10, 0))
+    fantome = _decision(id_unique, "inconnue", "salaires_personnel", datetime(2026, 9, 27, 10, 0))
+
+    with pytest.raises(IntegrityError):
+        repo.enregistrer_decisions([a, fantome])
+    assert repo.lister_decisions(DossierId(id_unique)) == ()
+
+    repo.enregistrer_decisions([a, b])
+    assert repo.lister_decisions(DossierId(id_unique)) == (a, b)

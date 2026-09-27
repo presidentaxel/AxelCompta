@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { use, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmationGroupee } from "@/components/ConfirmationGroupee";
 import { QuestionCategorisation } from "@/components/QuestionCategorisation";
 import { StationTickets } from "@/components/StationTickets";
 import { useDossierChauffeur } from "@/app/chauffeur/use-dossier";
@@ -23,7 +24,7 @@ export default function DossierChauffeurPage({
   params: Promise<{ dossierId: string }>;
 }) {
   const { dossierId } = use(params);
-  const { charge, remplacer } = useDossierChauffeur(dossierId);
+  const { charge, remplacer, recharger } = useDossierChauffeur(dossierId);
   const [vue, setVue] = useState<"traiter" | "mouvements">("traiter");
   const [moisChoisi, setMoisChoisi] = useState<string | null>(null);
 
@@ -85,6 +86,11 @@ export default function DossierChauffeurPage({
               : []
           }
           onChange={remplacer}
+          onTranche={(transaction) => {
+            remplacer(transaction);
+            recharger();
+          }}
+          onGroupeTranche={recharger}
         />
       ) : (
         <Mouvements
@@ -131,12 +137,16 @@ function Arriere({
   mois,
   depenses,
   onChange,
+  onTranche,
+  onGroupeTranche,
 }: {
   aVerifier: TransactionVue[];
   dossierId: string;
   mois: string | undefined;
   depenses: TransactionVue[];
   onChange: (transaction: TransactionVue) => void;
+  onTranche: (transaction: TransactionVue) => void;
+  onGroupeTranche: () => void;
 }) {
   const ticketsManquants = depenses.some((depense) => !depense.a_justificatif);
   if (aVerifier.length === 0 && !ticketsManquants) {
@@ -147,25 +157,46 @@ function Arriere({
       {mois && ticketsManquants && (
         <StationTickets dossierId={dossierId} mois={mois} depenses={depenses} onJointe={onChange} />
       )}
+      {groupesSemblables(aVerifier).map(([categorie, operations]) => (
+        <ConfirmationGroupee
+          key={categorie}
+          dossierId={dossierId}
+          categorie={categorie}
+          libelle={libelleCategorie(categorie)}
+          operations={operations.map((operation) => ({
+            ecritureId: operation.ecriture_id,
+            nom: presenter(operation.libelle).nom,
+            montantCts: operation.montant_cts,
+          }))}
+          onConfirme={onGroupeTranche}
+        />
+      ))}
       <ul className="mt-2">
         {aVerifier.map((transaction) => {
-          const presente = presenter(transaction.libelle);
-          const apprise = propositionApprise(transaction.proposition_apprise);
+          const { nom } = presenter(transaction.libelle);
+          const proposition = transaction.proposition
+            ? { code: transaction.proposition, libelle: libelleCategorie(transaction.proposition) }
+            : null;
           return (
             <li key={transaction.ecriture_id} className="min-w-0 border-b border-hairline py-4">
               <LigneMontant
-                nom={presente.nom}
-                detail={apprise?.libelle ?? presente.detail}
+                nom={nom}
+                detail={proposition?.libelle ?? null}
                 transaction={transaction}
               />
               <div className="mt-3">
                 <QuestionCategorisation
                   dossierId={dossierId}
                   ecritureId={transaction.ecriture_id}
-                  proposition={apprise ?? presente.proposition}
-                  apprise={apprise !== null}
-                  sansProposition={apprise === null && presente.sansProposition}
-                  onResolu={onChange}
+                  proposition={
+                    proposition && confirmable(proposition.code, transaction.origine_proposition)
+                      ? proposition
+                      : null
+                  }
+                  origine={transaction.origine_proposition}
+                  confiance={transaction.confiance_proposition}
+                  sansProposition={proposition === null}
+                  onResolu={onTranche}
                 />
               </div>
             </li>
@@ -174,6 +205,20 @@ function Arriere({
       </ul>
     </div>
   );
+}
+
+/** Opérations à trancher qui ressemblent à une opération déjà classée, par
+ * catégorie. Un groupe d'une seule opération n'a pas besoin de raccourci. */
+function groupesSemblables(aVerifier: TransactionVue[]): [string, TransactionVue[]][] {
+  const groupes = new Map<string, TransactionVue[]>();
+  for (const transaction of aVerifier) {
+    if (transaction.origine_proposition !== "appris" || !transaction.proposition) continue;
+    groupes.set(transaction.proposition, [
+      ...(groupes.get(transaction.proposition) ?? []),
+      transaction,
+    ]);
+  }
+  return [...groupes.entries()].filter(([, operations]) => operations.length >= 2);
 }
 
 function Mouvements({
@@ -398,49 +443,28 @@ const DETAILS: Record<string, string> = {
   subventions: "Aide publique",
 };
 
-/** Une proposition tirée des choix du chauffeur se confirme toujours : c'est
- * sa propre catégorie, même quand elle a aussi son bouton. */
-function propositionApprise(code: string | null): { code: string; libelle: string } | null {
-  if (!code) return null;
-  return { code, libelle: DETAILS[code] ?? code.replaceAll("_", " ") };
+function libelleCategorie(code: string): string {
+  return DETAILS[code] ?? code.replaceAll("_", " ");
 }
 
-function presenter(libelle: string): {
-  nom: string;
-  detail: string | null;
-  proposition: { code: string; libelle: string } | null;
-  sansProposition: boolean;
-} {
-  const trouve = libelle.match(/^(.*)\s+\(([a-z0-9_]+)\)$/);
-  if (!trouve?.[1] || !trouve[2]) {
-    return { nom: libelle, detail: null, proposition: null, sansProposition: true };
-  }
-  const code = trouve[2];
-  const libelleHumain = DETAILS[code] ?? code.replaceAll("_", " ");
-  return {
-    nom: trouve[1],
-    detail: libelleHumain,
-    proposition: propositionConfirmable(code, libelleHumain),
-    sansProposition: code === "non_categorise_a_verifier",
-  };
-}
-
-/** Une proposition nommée se confirme en un geste. Rien à confirmer quand
- * le modèle n'a pas tranché, ou quand la réponse est déjà un des trois boutons. */
-function propositionConfirmable(
-  code: string,
-  libelle: string,
-): { code: string; libelle: string } | null {
-  if (
+/** Une proposition se confirme en un geste, sauf quand la réponse est déjà
+ * l'un des boutons ou que la catégorie elle-même demande de vérifier. Une
+ * proposition tirée des choix du chauffeur se confirme toujours. */
+function confirmable(code: string, origine: TransactionVue["origine_proposition"]): boolean {
+  if (origine === "appris") return true;
+  return !(
     code === "non_categorise_a_verifier" ||
     code === "usage_personnel" ||
     code === "usage_personnel_suspect" ||
     code === "remuneration_dirigeant" ||
     code.startsWith("a_verifier")
-  ) {
-    return null;
-  }
-  return { code, libelle };
+  );
+}
+
+function presenter(libelle: string): { nom: string; detail: string | null } {
+  const trouve = libelle.match(/^(.*)\s+\(([a-z0-9_]+)\)$/);
+  if (!trouve?.[1] || !trouve[2]) return { nom: libelle, detail: null };
+  return { nom: trouve[1], detail: libelleCategorie(trouve[2]) };
 }
 
 function grouperParJour(transactions: TransactionVue[]): [string, TransactionVue[]][] {
