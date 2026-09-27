@@ -15,7 +15,7 @@ from axelcompta.core.ids import DossierId, TenantId
 from axelcompta.core.rls import appliquer_rls
 
 from .identite_json import identite_depuis_json, identite_vers_json
-from .models import Dossier, Tenant
+from .models import Dossier, Tenant, verifier_mode_relance
 from .orm import dossiers, tenants
 from .repository import DossierRepository
 from .statuts import configuration_de
@@ -29,7 +29,13 @@ class PostgresDossierRepository(DossierRepository):
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
             connexion.execute(
-                insert(tenants).values(id=tenant.id, nom=tenant.nom).on_conflict_do_nothing()
+                insert(tenants)
+                .values(
+                    id=tenant.id,
+                    nom=tenant.nom,
+                    relance_consentement=tenant.relance_consentement,
+                )
+                .on_conflict_do_nothing()
             )
 
     def enregistrer(self, dossier: Dossier) -> None:
@@ -55,6 +61,7 @@ class PostgresDossierRepository(DossierRepository):
                     retire_le=dossier.retire_le,
                     pack_metier=dossier.pack_metier,
                     option_ir_debut=dossier.option_ir_debut,
+                    relance_consentement=dossier.relance_consentement,
                 )
                 .on_conflict_do_nothing(index_elements=[dossiers.c.id])
             )
@@ -81,7 +88,7 @@ class PostgresDossierRepository(DossierRepository):
             ligne = connexion.execute(select(tenants).where(tenants.c.id == tenant_id)).first()
         if ligne is None:
             return None
-        return Tenant(id=TenantId(ligne.id), nom=ligne.nom)
+        return _vers_tenant(ligne)
 
     def poser_forme_juridique(self, dossier_id: DossierId, forme: str) -> None:
         dossier = self.obtenir(dossier_id)
@@ -115,12 +122,31 @@ class PostgresDossierRepository(DossierRepository):
         with self._engine.connect() as connexion:
             appliquer_rls(connexion)
             lignes = connexion.execute(select(tenants).order_by(tenants.c.id)).all()
-        return tuple(Tenant(id=TenantId(ligne.id), nom=ligne.nom) for ligne in lignes)
+        return tuple(_vers_tenant(ligne) for ligne in lignes)
 
     def renommer_tenant(self, tenant_id: TenantId, nom: str) -> None:
         with self._engine.begin() as connexion:
             appliquer_rls(connexion)
             connexion.execute(update(tenants).where(tenants.c.id == tenant_id).values(nom=nom))
+
+    def regler_relance_tenant(self, tenant_id: TenantId, mode: str) -> None:
+        verifier_mode_relance(mode)
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                update(tenants).where(tenants.c.id == tenant_id).values(relance_consentement=mode)
+            )
+
+    def regler_relance_dossier(self, dossier_id: DossierId, mode: str | None) -> None:
+        if mode is not None:
+            verifier_mode_relance(mode)
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                update(dossiers)
+                .where(dossiers.c.id == dossier_id)
+                .values(relance_consentement=mode)
+            )
 
     def retirer(self, dossier_id: DossierId) -> None:
         with self._engine.begin() as connexion:
@@ -160,4 +186,11 @@ def _vers_dossier(ligne: Any) -> Dossier:
         retire_le=ligne.retire_le,
         pack_metier=ligne.pack_metier,
         option_ir_debut=ligne.option_ir_debut,
+        relance_consentement=ligne.relance_consentement,
+    )
+
+
+def _vers_tenant(ligne: Any) -> Tenant:
+    return Tenant(
+        id=TenantId(ligne.id), nom=ligne.nom, relance_consentement=ligne.relance_consentement
     )

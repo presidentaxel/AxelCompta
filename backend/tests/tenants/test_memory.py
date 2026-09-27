@@ -58,3 +58,20 @@ def test_correspondance_contact_digifactory() -> None:
 
     assert repo.par_contact_nr("42") is not None
     assert repo.par_contact_nr("43") is None
+
+
+def test_le_mode_de_relance_se_regle_par_portefeuille_et_par_dossier() -> None:
+    repo = InMemoryDossierRepository()
+    repo.enregistrer_tenant(Tenant(id=TenantId("t"), nom="t"))
+    repo.enregistrer(_dossier("d1", "t"))
+    repo.regler_relance_tenant(TenantId("t"), "manuel")
+    repo.regler_relance_dossier(DossierId("d1"), "auto")
+    tenant = repo.obtenir_tenant(TenantId("t"))
+    dossier = repo.obtenir(DossierId("d1"))
+    assert tenant is not None and tenant.relance_consentement == "manuel"
+    assert tenant.nom == "t"
+    assert dossier is not None and dossier.relance_consentement == "auto"
+    repo.regler_relance_dossier(DossierId("d1"), None)
+    assert repo.obtenir(DossierId("d1")).relance_consentement is None  # type: ignore[union-attr]
+    with pytest.raises(ValueError):
+        repo.regler_relance_tenant(TenantId("t"), "sms")

@@ -143,9 +143,11 @@ enregistre le statut du dossier (`consentements_bancaires`) —
 `actif` / `a_renouveler` (14 jours ou moins) / `expire` /
 `jamais_connecte`. **Fait le 2026-09-25** : la même ligne porte la santé
 de connexion (`ok` / `en_pause` / `sans_acces` / `auth_requise` /
-`jamais_connecte`) et le rafraîchissement le plus ancien. L'écran, la
-liste des dossiers et les relances (§2.3) ne sont pas construits.
-Rollee n'est pas couvert.
+`jamais_connecte`) et le rafraîchissement le plus ancien. **Fait le
+2026-09-27** : l'écran « Connexions bancaires » du gestionnaire (deuxième
+entrée du menu, compteurs, dossiers triés par urgence, statut recalculé à la
+lecture), et un encart sur la page Entreprises dès qu'une connexion expire
+ou doit être confirmée. Rollee n'est pas couvert.
 
 ### 2.3 Modes de relance (configurables par tenant)
 
@@ -158,6 +160,16 @@ Rollee n'est pas couvert.
 **Mode manuel :** le gestionnaire reçoit les alertes dans son dashboard et choisit quand/comment contacter ses chauffeurs. Aucune communication n'est envoyée directement au chauffeur par AxeLCompta.
 
 **Configuration par dossier :** un dossier peut être en mode auto pendant que la flotte est en mode manuel (cas : chauffeur qui préfère être contacté directement).
+
+**Fait le 2026-09-27** (`workflow/relances_consentement.py`, migration
+`e2b9d7c41f05`) : mode du portefeuille (`auto` par défaut, réglé par un
+admin) et exception par dossier (membre ou admin, jamais la lecture seule).
+Canal : la cloche de l'espace chauffeur, pas d'e-mail ni de SMS (décision
+du 2026-09-26). Paliers : J-14, J-7, à l'expiration puis tous les 3 jours,
+une seule notification par palier même si la tâche horaire repasse. Une
+connexion que la banque demande de confirmer (SCA à refaire) est relancée
+tous les 3 jours, même loin de l'expiration. Pas de rattrapage : un premier
+relevé à J-3 envoie le J-7, pas le J-14.
 
 ### 2.4 Transactions manquantes pendant un trou de consentement
 

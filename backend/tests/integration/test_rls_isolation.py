@@ -30,6 +30,8 @@ from axelcompta.categorize.models import Etage
 from axelcompta.core.ids import DossierId, EcritureId, TenantId, UserId
 from axelcompta.core.money import Money
 from axelcompta.core.rls import appliquer_rls, contexte_identite
+from axelcompta.ingestion.consentement import ReleveSante, SanteConnexion, StatutConsentement
+from axelcompta.ingestion.consentement_postgres import PostgresConsentementRepository
 from axelcompta.ledger.models import Ecriture, Journal, LigneEcriture, Sens
 from axelcompta.ledger.repository import PostgresLedgerService
 from axelcompta.tenants.affectations import AffectationDejaDecidee, DecisionAffectation
@@ -401,3 +403,36 @@ def test_le_role_administrateur_nest_jamais_soumis_aux_policies(
     poser — sinon `demo_seed` casserait au prochain amorçage."""
     with engine.connect() as connexion:
         assert connexion.execute(text("SELECT count(*) FROM dossiers")).scalar_one() == 3
+
+
+def test_relances_de_connexion_reglees_par_le_gestionnaire_de_son_portefeuille(
+    engine: Engine, engine_web: Engine, deux_tenants_trois_dossiers: None
+) -> None:
+    """Migration `e2b9d7c41f05` : le rôle web règle le mode de son portefeuille
+    et de ses dossiers, pas celui d'un autre ; une valeur inconnue est refusée
+    par la base elle-même ; le relevé des connexions reste isolé."""
+    PostgresConsentementRepository(engine).enregistrer(
+        DossierId("karim"),
+        date(2026, 10, 31),
+        StatutConsentement.A_RENOUVELER,
+        datetime(2026, 9, 27, 8, 0, tzinfo=UTC),
+        ReleveSante(SanteConnexion.OK, False, True, None),
+    )
+    with contexte_identite(dossier_id=None, tenant_id="tenant-a"):
+        depot = PostgresDossierRepository(engine_web)
+        depot.regler_relance_tenant(TenantId("tenant-a"), "manuel")
+        depot.regler_relance_dossier(DossierId("karim"), "auto")
+        depot.regler_relance_dossier(DossierId("yanis"), "manuel")  # hors portefeuille : sans effet
+        releves = PostgresConsentementRepository(engine_web).lister(
+            [DossierId("karim"), DossierId("yanis")]
+        )
+        assert set(releves) == {DossierId("karim")}
+        assert releves[DossierId("karim")].expire_le == date(2026, 10, 31)
+    admin = PostgresDossierRepository(engine)
+    tenant = admin.obtenir_tenant(TenantId("tenant-a"))
+    assert tenant is not None and tenant.relance_consentement == "manuel"
+    karim, yanis = admin.obtenir(DossierId("karim")), admin.obtenir(DossierId("yanis"))
+    assert karim is not None and karim.relance_consentement == "auto"
+    assert yanis is not None and yanis.relance_consentement is None
+    with engine.begin() as connexion, pytest.raises((ProgrammingError, DBAPIError)):
+        connexion.execute(text("UPDATE tenants SET relance_consentement = 'sms'"))

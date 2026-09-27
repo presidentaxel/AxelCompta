@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import {
   declencherRappel,
   ErreurAuthGestionnaire,
+  lireConnexionsBancaires,
   lirePortefeuilleSession,
   listerDossiers,
   listerRegles,
@@ -107,6 +108,7 @@ export default function PortefeuillePage() {
           Invitations
         </Link>
       </div>
+      <AlerteConnexions />
       {dossiers && (
         <dl className="mt-8 flex flex-wrap gap-x-12 gap-y-4">
           <Total libelle="Entreprises" valeur={String(totaux.nombre)} />
@@ -474,5 +476,37 @@ function Ligne({ libelle, valeur }: { libelle: string; valeur: string }) {
       <dt className="text-subtle">{libelle}</dt>
       <dd className="text-right text-ink">{valeur}</dd>
     </div>
+  );
+}
+
+/** doc 14 §2.2 : les connexions qui demandent une action se voient dès
+ * l'arrivée, sans aller les chercher. */
+function AlerteConnexions() {
+  const [nombre, setNombre] = useState(0);
+  useEffect(() => {
+    lireConnexionsBancaires()
+      .then((donnees) =>
+        setNombre(
+          donnees.dossiers.filter(
+            (dossier) =>
+              dossier.statut === "expire" ||
+              dossier.statut === "a_renouveler" ||
+              dossier.sante === "auth_requise",
+          ).length,
+        ),
+      )
+      .catch(() => undefined);
+  }, []);
+  if (nombre === 0) return null;
+  return (
+    <Link
+      href="/connexions-bancaires"
+      className="mt-6 block rounded-md border border-warning/40 bg-pending-subtle px-4 py-3 text-sm text-ink hover:border-warning"
+    >
+      {nombre === 1
+        ? "Une connexion bancaire expire ou doit être confirmée."
+        : `${nombre} connexions bancaires expirent ou doivent être confirmées.`}{" "}
+      <span className="font-medium text-primary">Voir</span>
+    </Link>
   );
 }
