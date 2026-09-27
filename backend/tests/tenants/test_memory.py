@@ -7,6 +7,7 @@ import pytest
 from axelcompta.core.ids import DossierId, TenantId
 from axelcompta.tenants.memory import InMemoryDossierRepository
 from axelcompta.tenants.models import Dossier, Tenant
+from axelcompta.tenants.statuts import ConfigurationInvalide
 
 
 def _dossier(dossier_id: str, tenant_id: str, contact_nr: str | None = None) -> Dossier:
@@ -21,6 +22,17 @@ def _dossier(dossier_id: str, tenant_id: str, contact_nr: str | None = None) -> 
         exercice_debut=date(2025, 1, 1),
         contact_nr=contact_nr,
     )
+
+
+def test_poser_forme_valide_la_matrice_avant_d_ecrire() -> None:
+    repo = InMemoryDossierRepository()
+    repo.enregistrer_tenant(Tenant(id=TenantId("t"), nom="t"))
+    repo.enregistrer(_dossier("d1", "t"))
+    repo.poser_forme_juridique(DossierId("d1"), "SARL")
+    relu = repo.obtenir(DossierId("d1"))
+    assert relu is not None and relu.forme_juridique == "SARL"
+    with pytest.raises(ConfigurationInvalide):
+        repo.poser_forme_juridique(DossierId("d1"), "SCOP")
 
 
 def test_un_dossier_dun_tenant_inconnu_est_refuse() -> None:

@@ -48,6 +48,9 @@ export default function DossierChauffeurPage({
   return (
     <div>
       <h1 className="text-[28px] font-bold tracking-tight text-ink">{dossier.nom}</h1>
+      <p className="mt-1 text-sm text-subtle">
+        {dossier.forme_juridique} · {dossier.regime_libelle}
+      </p>
       <p
         className={`mt-6 text-[28px] font-bold tabular-nums tracking-tight ${
           dossier.resultat_cts < 0 ? "text-amount-negative" : "text-amount-positive"
@@ -146,14 +149,16 @@ function Arriere({
       )}
       <ul className="mt-2">
         {aVerifier.map((transaction) => {
-          const { nom, detail } = presenter(transaction.libelle);
+          const { nom, detail, proposition, sansProposition } = presenter(transaction.libelle);
           return (
-            <li key={transaction.ecriture_id} className="border-b border-hairline py-4">
+            <li key={transaction.ecriture_id} className="min-w-0 border-b border-hairline py-4">
               <LigneMontant nom={nom} detail={detail} transaction={transaction} />
               <div className="mt-3">
                 <QuestionCategorisation
                   dossierId={dossierId}
                   ecritureId={transaction.ecriture_id}
+                  proposition={proposition}
+                  sansProposition={sansProposition}
                   onResolu={onChange}
                 />
               </div>
@@ -378,11 +383,42 @@ const DETAILS: Record<string, string> = {
   recettes_plateformes: "Courses",
 };
 
-function presenter(libelle: string): { nom: string; detail: string | null } {
+function presenter(libelle: string): {
+  nom: string;
+  detail: string | null;
+  proposition: { code: string; libelle: string } | null;
+  sansProposition: boolean;
+} {
   const trouve = libelle.match(/^(.*)\s+\(([a-z0-9_]+)\)$/);
-  if (!trouve?.[1] || !trouve[2]) return { nom: libelle, detail: null };
+  if (!trouve?.[1] || !trouve[2]) {
+    return { nom: libelle, detail: null, proposition: null, sansProposition: true };
+  }
   const code = trouve[2];
-  return { nom: trouve[1], detail: DETAILS[code] ?? code.replaceAll("_", " ") };
+  const libelleHumain = DETAILS[code] ?? code.replaceAll("_", " ");
+  return {
+    nom: trouve[1],
+    detail: libelleHumain,
+    proposition: propositionConfirmable(code, libelleHumain),
+    sansProposition: code === "non_categorise_a_verifier",
+  };
+}
+
+/** Une proposition nommée se confirme en un geste. Rien à confirmer quand
+ * le modèle n'a pas tranché, ou quand la réponse est déjà un des trois boutons. */
+function propositionConfirmable(
+  code: string,
+  libelle: string,
+): { code: string; libelle: string } | null {
+  if (
+    code === "non_categorise_a_verifier" ||
+    code === "usage_personnel" ||
+    code === "usage_personnel_suspect" ||
+    code === "remuneration_dirigeant" ||
+    code.startsWith("a_verifier")
+  ) {
+    return null;
+  }
+  return { code, libelle };
 }
 
 function grouperParJour(transactions: TransactionVue[]): [string, TransactionVue[]][] {

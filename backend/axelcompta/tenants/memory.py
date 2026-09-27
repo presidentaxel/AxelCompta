@@ -45,6 +45,14 @@ class InMemoryDossierRepository(DossierRepository):
     def obtenir_tenant(self, tenant_id: TenantId) -> Tenant | None:
         return self._tenants.get(tenant_id)
 
+    def poser_forme_juridique(self, dossier_id: DossierId, forme: str) -> None:
+        dossier = self._dossiers.get(dossier_id)
+        if dossier is None:
+            raise ValueError(f"dossier inconnu : {dossier_id}")
+        nouveau = replace(dossier, forme_juridique=forme)
+        configuration_de(nouveau)
+        self._dossiers[dossier_id] = nouveau
+
     def ouvrir_exercice(self, dossier: Dossier) -> None:
         if dossier.id not in self._dossiers:
             raise ValueError(f"dossier inconnu : {dossier.id}")
