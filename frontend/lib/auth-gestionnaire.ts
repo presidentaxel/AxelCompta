@@ -459,3 +459,58 @@ export async function reinitialiserDemo(parties: string[]): Promise<string[]> {
   window.sessionStorage.removeItem(CLE_PORTEFEUILLE);
   return corps.dossiers as string[];
 }
+
+export type ModeRelance = "auto" | "manuel";
+
+export type ConnexionDossier = {
+  dossier_id: string;
+  nom: string;
+  statut: "actif" | "a_renouveler" | "expire" | "jamais_connecte";
+  sante: "ok" | "en_pause" | "sans_acces" | "auth_requise" | "jamais_connecte";
+  expire_le: string | null;
+  jours_restants: number | null;
+  dernier_rafraichissement: string | null;
+  relance: ModeRelance;
+  relance_propre: boolean;
+};
+
+export type ConnexionsBancaires = {
+  relance_portefeuille: ModeRelance;
+  compteurs: Record<"actif" | "a_renouveler" | "expire" | "jamais_connecte", number>;
+  a_reconnecter: number;
+  dossiers: ConnexionDossier[];
+};
+
+/** doc 14 §2.2 : l'état des connexions bancaires du portefeuille. */
+export async function lireConnexionsBancaires(): Promise<ConnexionsBancaires> {
+  const reponse = await requeteGestionnaire("/portefeuille/connexions-bancaires");
+  if (!reponse.ok) {
+    throw new ApiError("Impossible de charger les connexions bancaires.", reponse.status);
+  }
+  return (await reponse.json()) as ConnexionsBancaires;
+}
+
+export async function reglerRelancePortefeuille(mode: ModeRelance): Promise<void> {
+  const reponse = await requeteGestionnaire("/portefeuille/relance-consentement", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (!reponse.ok) {
+    const corps = (await reponse.json().catch(() => ({}))) as { detail?: string };
+    throw new ApiError(corps.detail ?? "Réglage refusé.", reponse.status);
+  }
+}
+
+/** `null` : le dossier suit le mode du portefeuille. */
+export async function reglerRelanceDossier(dossierId: string, mode: ModeRelance | null): Promise<void> {
+  const reponse = await requeteGestionnaire(`/dossiers/${dossierId}/relance-consentement`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (!reponse.ok) {
+    const corps = (await reponse.json().catch(() => ({}))) as { detail?: string };
+    throw new ApiError(corps.detail ?? "Réglage refusé.", reponse.status);
+  }
+}

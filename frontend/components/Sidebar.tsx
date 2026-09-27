@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, FlaskConical, LayoutGrid, Plug, Users } from "lucide-react";
+import { Bell, FlaskConical, Landmark, LayoutGrid, Plug, Users } from "lucide-react";
 
 import { Marque } from "@/components/Marque";
 import {
@@ -16,6 +16,7 @@ import {
 
 const LIENS = [
   { href: "/portefeuille", libelle: "Entreprises", Icone: LayoutGrid },
+  { href: "/connexions-bancaires", libelle: "Connexions bancaires", Icone: Landmark },
   { href: "/rappels", libelle: "Rappels", Icone: Bell },
   { href: "/equipe", libelle: "Équipe", Icone: Users },
   { href: "/integrations", libelle: "Intégrations", Icone: Plug },

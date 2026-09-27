@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from axelcompta.core.ids import DossierId
+
 DELAI_RENOUVELLEMENT = timedelta(days=14)
 _SENTINELLE = "0000-00-00"
 
@@ -134,3 +136,19 @@ def _horodatage_rafraichissement(valeur: object) -> datetime | None:
         return datetime.strptime(valeur, "%Y-%m-%d %H:%M:%S")
     except ValueError:
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class ReleveConsentement:
+    """Ce que la dernière synchro a relevé pour un dossier. Le statut n'est
+    pas stocké ici : il se recalcule à la lecture (`classer`), sinon il
+    vieillirait entre deux synchros."""
+
+    dossier_id: DossierId
+    expire_le: date | None
+    sante: SanteConnexion
+    dernier_rafraichissement: datetime | None
+    releve_le: datetime
+
+    def statut(self, aujourd_hui: date) -> StatutConsentement:
+        return classer(self.expire_le, aujourd_hui)

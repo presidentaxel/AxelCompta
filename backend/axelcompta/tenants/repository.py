@@ -45,6 +45,14 @@ class DossierRepository(ABC):
         """Le nom affiché du portefeuille, choisi par l'organisation."""
 
     @abstractmethod
+    def regler_relance_tenant(self, tenant_id: TenantId, mode: str) -> None:
+        """Mode de relance des connexions bancaires du portefeuille."""
+
+    @abstractmethod
+    def regler_relance_dossier(self, dossier_id: DossierId, mode: str | None) -> None:
+        """Exception pour un dossier ; `None` le remet sur le portefeuille."""
+
+    @abstractmethod
     def poser_forme_juridique(self, dossier_id: DossierId, forme: str) -> None:
         """Remplace la forme juridique après validation par la matrice.
         Sert au rapprochement Sirene : le code INSEE dit SAS ou SARL, pas

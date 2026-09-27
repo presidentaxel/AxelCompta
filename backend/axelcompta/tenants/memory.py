@@ -8,7 +8,7 @@ from datetime import date
 
 from axelcompta.core.ids import DossierId, TenantId
 
-from .models import Dossier, Tenant
+from .models import Dossier, Tenant, verifier_mode_relance
 from .repository import DossierRepository
 from .statuts import configuration_de
 
@@ -66,7 +66,22 @@ class InMemoryDossierRepository(DossierRepository):
         tenant = self._tenants.get(tenant_id)
         if tenant is None:
             raise ValueError(f"tenant inconnu : {tenant_id}")
-        self._tenants[tenant_id] = Tenant(id=tenant.id, nom=nom)
+        self._tenants[tenant_id] = replace(tenant, nom=nom)
+
+    def regler_relance_tenant(self, tenant_id: TenantId, mode: str) -> None:
+        tenant = self._tenants.get(tenant_id)
+        if tenant is None:
+            raise ValueError(f"tenant inconnu : {tenant_id}")
+        verifier_mode_relance(mode)
+        self._tenants[tenant_id] = replace(tenant, relance_consentement=mode)
+
+    def regler_relance_dossier(self, dossier_id: DossierId, mode: str | None) -> None:
+        dossier = self._dossiers.get(dossier_id)
+        if dossier is None:
+            raise ValueError(f"dossier inconnu : {dossier_id}")
+        if mode is not None:
+            verifier_mode_relance(mode)
+        self._dossiers[dossier_id] = replace(dossier, relance_consentement=mode)
 
     def retirer(self, dossier_id: DossierId) -> None:
         dossier = self._dossiers.get(dossier_id)
