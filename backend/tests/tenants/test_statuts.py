@@ -142,3 +142,13 @@ def test_une_matrice_incoherente_est_refusee_au_chargement(tmp_path: Path) -> No
     )
     with pytest.raises(ValueError, match="matrice incohérente"):
         charger_matrice(fichier)
+
+
+def test_le_compte_courant_d_associe_suit_le_compte_de_l_usage_personnel() -> None:
+    """455 en société, 108 pour l'exploitant d'EI : mêmes comptes que
+    l'usage personnel, lus dans la matrice."""
+    for dossier in (_avec(), _avec(forme_juridique="EI", regime_imposition="IR")):
+        comptes = configuration_de(dossier).comptes_categories_statut()
+        assert comptes["compte_courant_associe"] == comptes["usage_personnel"]
+    ei = configuration_de(_avec(forme_juridique="EI", regime_imposition="IR"))
+    assert ei.comptes_categories_statut()["compte_courant_associe"] == "108"

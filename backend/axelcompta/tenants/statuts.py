@@ -170,6 +170,9 @@ class ConfigurationDossier:
         societe_is = self.colonne.soumis_is
         return {
             "usage_personnel": self.colonne.compte_usage_personnel,
+            # Apport, remboursement ou dépense de l'associé : même compte que
+            # l'usage personnel (455 en société, 108 pour l'exploitant d'EI).
+            "compte_courant_associe": self.colonne.compte_usage_personnel,
             "remuneration_dirigeant": self.compte_remuneration_dirigeant,
             "cotisations_dirigeant": self.compte_cotisations_dirigeant,
             "prelevement_source_paie": COMPTE_PAS if self.paie_par_bulletin else None,

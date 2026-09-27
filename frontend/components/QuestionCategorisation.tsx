@@ -13,6 +13,9 @@ const RACCOURCIS = [
   ["impots_dividendes", "Impôts sur mes dividendes"],
   ["cotisations_dirigeant", "Mes cotisations sociales"],
   ["prelevement_source_paie", "Impôt prélevé sur ma paie"],
+  ["compte_courant_associe", "Apport ou remboursement d'associé"],
+  ["virement_interne", "Virement entre mes comptes"],
+  ["salaires_personnel", "Salaire d'un salarié"],
 ] as const;
 
 /** doc 19 §5.6 : « petites questions de catégorisation ... présentée
@@ -24,12 +27,15 @@ export function QuestionCategorisation({
   dossierId,
   ecritureId,
   proposition,
+  apprise = false,
   sansProposition = false,
   onResolu,
 }: {
   dossierId: string;
   ecritureId: string;
   proposition: { code: string; libelle: string } | null;
+  /** Vrai quand la proposition vient d'une opération semblable déjà tranchée. */
+  apprise?: boolean;
   /** Vrai quand le libellé ne porte aucune catégorie : le modèle n'a pas tourné. */
   sansProposition?: boolean;
   onResolu: (transaction: TransactionVue) => void;
@@ -61,7 +67,9 @@ export function QuestionCategorisation({
     <div className="rounded-md border border-warning/40 bg-pending-subtle p-3">
       <p className="mb-2 text-sm font-medium text-ink">
         {proposition
-          ? `Proposition : ${proposition.libelle}`
+          ? apprise
+            ? `Comme une opération déjà classée : ${proposition.libelle}`
+            : `Proposition : ${proposition.libelle}`
           : sansProposition
             ? "Pas de proposition automatique. À quoi correspond cette dépense ?"
             : "À quoi correspond cette dépense ?"}

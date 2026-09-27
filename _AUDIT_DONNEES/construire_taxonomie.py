@@ -182,6 +182,36 @@ def est_financier(compte_norm: str) -> bool:
     return compte_norm.startswith(PREFIXES_FINANCIERS)
 
 
+# Une transaction bancaire dont l'unique contrepartie est l'un de ces comptes
+# de tiers a quand même un sens métier net (ajout du 2026-09-27). Avant, elle
+# était jetée faute de jambe 6/7 : 1 310 mouvements de compte courant
+# d'associé (63 dossiers sur 74) manquaient à l'entraînement. 401 et 411
+# restent exclus : le règlement d'une facture ne dit rien de sa nature.
+BANQUES = ("512", "531", "511")
+CATEGORIE_PAR_CONTREPARTIE_SEULE = {
+    "455": "compte_courant_associe",
+    # Dossiers de chauffeurs en société : la paie nette versée est celle du
+    # dirigeant (421 soldé par la banque).
+    "421": "remuneration_dirigeant",
+    "580": "virement_interne",
+}
+
+
+def jambe_contrepartie_seule(rows: list[dict]) -> tuple[str, str, str] | None:
+    """(compte, catégorie, montant) si la transaction ne touche que la banque
+    et un seul compte de `CATEGORIE_PAR_CONTREPARTIE_SEULE`, sinon None."""
+    autres = [
+        r for r in rows if not normaliser_compte(r["compte_pcg"]).startswith(BANQUES)
+    ]
+    if len(autres) != 1 or len(autres) == len(rows):
+        return None
+    compte = normaliser_compte(autres[0]["compte_pcg"])
+    categorie = CATEGORIE_PAR_CONTREPARTIE_SEULE.get(compte[:3])
+    if categorie is None:
+        return None
+    return compte, categorie, autres[0]["montant"]
+
+
 def meilleur_libelle(libelles: list[str]) -> str:
     """Heuristique : le libellé le plus long/informatif parmi les jambes."""
     return max(libelles, key=lambda s: len(s.strip()))
@@ -248,7 +278,10 @@ def main() -> int:
             jambes_nature.append((compte_norm, cat, r["montant"]))
 
         if not jambes_nature:
-            continue  # transaction 100% financière (ex. juste 512<->531), rien à catégoriser
+            seule = jambe_contrepartie_seule(rows)
+            if seule is None:
+                continue  # transaction 100% financière (ex. juste 512<->531), rien à catégoriser
+            jambes_nature.append(seule)
 
         categories_distinctes = {cat for _, cat, _ in jambes_nature}
         type_transaction = "composite" if len(categories_distinctes) > 1 else "simple"

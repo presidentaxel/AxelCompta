@@ -57,6 +57,11 @@ from axelcompta.affectations import (
     enregistrer_bulletin,
     proposer,
 )
+from axelcompta.categorize.appris import (
+    OperationTranchee,
+    libelle_sans_categorie,
+    propositions_apprises,
+)
 from axelcompta.closing.affectation import (
     MillesimeDividendesInconnu,
     disponible,
@@ -295,6 +300,10 @@ class TransactionVue(BaseModel):
     compte: str
     statut: str  # "validé" | "à trancher" — vocabulaire unique de badge (doc 11 §4)
     a_justificatif: bool  # doc 17 §9 Semaine 3 : une photo a été jointe (contenu non lu)
+    # Catégorie reprise d'une opération semblable que l'indiv a déjà tranchée
+    # (`categorize/appris.py`). Prime sur la proposition du pipeline, collée
+    # au libellé au moment de la synchro.
+    proposition_apprise: str | None = None
 
 
 class DecisionEntree(BaseModel):
@@ -604,14 +613,47 @@ def _agregat(resume: DossierResume, dossier: Dossier, preuves: set[str]) -> Doss
 
 
 def _transactions_dossier(
-    dossier: Dossier, ledger: InMemoryLedgerService, justificatifs: JustificatifRepository
+    dossier: Dossier,
+    ledger: InMemoryLedgerService,
+    justificatifs: JustificatifRepository,
+    decisions: tuple[DecisionHumaine, ...] = (),
 ) -> list[TransactionVue]:
     """Extrait de la route (doc 08 §2 : longueur de fonction)."""
     ecritures = ledger.grand_livre(dossier.id)
     exclues = annulees(ecritures)
-    return [
+    vues = [
         _transaction_vue(e, justificatifs.a_un_justificatif(dossier.id, e.id), e.id in exclues)
         for e in ecritures
+    ]
+    return _avec_propositions_apprises(vues, decisions)
+
+
+def _avec_propositions_apprises(
+    vues: list[TransactionVue], decisions: tuple[DecisionHumaine, ...]
+) -> list[TransactionVue]:
+    """Les opérations à trancher reprennent la catégorie d'une opération
+    semblable déjà tranchée par l'indiv (dernière décision de chaque écriture)."""
+    categories = {decision.ecriture_id: decision.categorie for decision in decisions}
+    par_id = {vue.ecriture_id: vue for vue in vues}
+    tranchees = [
+        OperationTranchee(libelle_sans_categorie(vue.libelle), vue.montant_cts, categorie)
+        for ecriture_id, categorie in categories.items()
+        if (vue := par_id.get(ecriture_id)) is not None
+    ]
+    a_trancher = [vue for vue in vues if vue.statut == "à trancher"]
+    propositions = propositions_apprises(
+        tranchees, [(libelle_sans_categorie(v.libelle), v.montant_cts) for v in a_trancher]
+    )
+    apprises = {
+        vue.ecriture_id: proposition.categorie
+        for vue, proposition in zip(a_trancher, propositions, strict=True)
+        if proposition is not None
+    }
+    return [
+        vue.model_copy(update={"proposition_apprise": apprises[vue.ecriture_id]})
+        if vue.ecriture_id in apprises
+        else vue
+        for vue in vues
     ]
 
 
@@ -1056,9 +1098,14 @@ def _enregistrer_routes_dossiers(app: FastAPI) -> None:
 def _enregistrer_routes_transactions(app: FastAPI) -> None:
     @app.get("/dossiers/{dossier_id}/transactions", response_model=list[TransactionVue])
     def lister_transactions(
-        dossier: DossierDep, ledger: LedgerDossierDep, justificatifs: JustificatifsDep
+        dossier: DossierDep,
+        ledger: LedgerDossierDep,
+        justificatifs: JustificatifsDep,
+        decisions: DecisionsDep,
     ) -> list[TransactionVue]:
-        return _transactions_dossier(dossier, ledger, justificatifs)
+        return _transactions_dossier(
+            dossier, ledger, justificatifs, decisions.lister_decisions(dossier.id)
+        )
 
     @app.post(
         "/dossiers/{dossier_id}/transactions/{ecriture_id}/decision",
