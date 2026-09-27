@@ -8,6 +8,12 @@ Reproduit exactement le featurizing de
 `_AUDIT_DONNEES/entrainer_modele_baseline.py` (`texte_avec_montant`,
 `bucket_montant`) : le modèle a été entraîné sur ce format précis, un
 featurizing différent donnerait des prédictions incohérentes.
+
+**Signe.** Le modèle a appris sur des montants FEC (charge positive, recette
+négative). Une `NormalizedTransaction` suit la convention bancaire (argent
+reçu positif, doc 13 §4.1) : le montant est retourné avant le featurizing.
+Jusqu'au 2026-09-27 il ne l'était pas, et chaque encaissement était présenté
+au modèle comme une dépense.
 """
 
 from __future__ import annotations
@@ -34,8 +40,37 @@ class ModeleSklearn(Protocol):
     concret dans le reste du code (doc 08 §2.6 : pas d'alias mutable partagé,
     ici on type le strict nécessaire)."""
 
+    classes_: Any
+
     def predict(self, x: list[str]) -> Any: ...
     def predict_proba(self, x: list[str]) -> Any: ...
+
+
+# Sens possibles d'une catégorie, lus sur le jeu d'entraînement (plus de 95 %
+# des lignes dans un seul sens) et conformes au plan comptable : un produit
+# n'est jamais un décaissement, une charge jamais un encaissement. Les autres
+# catégories (frais bancaires remboursés, cession de véhicule, remboursement
+# d'assurance ou de cotisations…) acceptent les deux sens.
+ENCAISSEMENTS_SEULEMENT = frozenset({"recettes_plateformes", "subventions"})
+DECAISSEMENTS_SEULEMENT = frozenset(
+    {
+        "a_verifier_location_materiel",
+        "abonnements_logiciels",
+        "amendes_infractions",
+        "assurance_vehicule",
+        "carburant",
+        "entretien_reparation_vehicule",
+        "fournitures_administratives",
+        "honoraires_comptable_juridique",
+        "interets_emprunts",
+        "peage_stationnement",
+        "remuneration_dirigeant",
+        "repas_et_receptions",
+        "sous_traitance_chauffeurs",
+        "telecommunications",
+        "visite_medicale_vtc",
+    }
+)
 
 
 def _bucket_montant(montant_cts: int) -> str:
@@ -49,7 +84,16 @@ def _bucket_montant(montant_cts: int) -> str:
 
 
 def texte_pour_modele(libelle: str, montant_cts: int) -> str:
+    """`montant_cts` en convention FEC (charge positive), celle de l'entraînement."""
     return f"{libelle} {_bucket_montant(montant_cts)}"
+
+
+def sens_compatible(categorie: str, montant_bancaire_cts: int) -> bool:
+    if montant_bancaire_cts > 0:
+        return categorie not in DECAISSEMENTS_SEULEMENT
+    if montant_bancaire_cts < 0:
+        return categorie not in ENCAISSEMENTS_SEULEMENT
+    return True
 
 
 def charger_modele(chemin: Path | None = None) -> ModeleSklearn:
@@ -63,7 +107,21 @@ def charger_modele(chemin: Path | None = None) -> ModeleSklearn:
 
 
 def predire(modele: ModeleSklearn, libelle: str, montant_cts: int) -> tuple[str, float]:
-    texte = texte_pour_modele(libelle, montant_cts)
-    categorie = str(modele.predict([texte])[0])
-    confiance = float(max(modele.predict_proba([texte])[0]))
+    """`montant_cts` en convention bancaire (argent reçu positif).
+
+    Les catégories de sens contraire au flux sont écartées. La confiance
+    reste la probabilité brute de la catégorie retenue, sans renormaliser :
+    si le modèle misait surtout sur une catégorie impossible, la confiance
+    baisse et l'étage suivant s'abstient."""
+    texte = texte_pour_modele(libelle, -montant_cts)
+    probabilites = [float(p) for p in modele.predict_proba([texte])[0]]
+    classes = [str(c) for c in modele.classes_]
+    candidates = [
+        (probabilite, categorie)
+        for probabilite, categorie in zip(probabilites, classes, strict=True)
+        if sens_compatible(categorie, montant_cts)
+    ]
+    if not candidates:
+        return "non_categorise_a_verifier", 0.0
+    confiance, categorie = max(candidates)
     return categorie, confiance

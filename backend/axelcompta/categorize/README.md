@@ -41,6 +41,24 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
   (première règle du pack qui matche) puis étage 2 (ML si aucune règle ne
   matche, ou catégorie par défaut à confiance nulle si le modèle est absent).
 
+## Étage ML : ce qui est garanti (2026-09-27)
+
+- **Signe** : le modèle a appris en convention FEC (charge positive), la
+  transaction arrive en convention bancaire (encaissement positif) ;
+  `predire()` retourne le montant. Avant cette date, chaque encaissement
+  était vu comme une dépense.
+- **Sens** : une catégorie de charge n'est jamais proposée pour un
+  encaissement, un produit jamais pour un décaissement
+  (`ENCAISSEMENTS_SEULEMENT` / `DECAISSEMENTS_SEULEMENT`).
+- **Abstention** : sous 0,5 de confiance, `non_categorise_a_verifier`
+  (« pas de proposition automatique » à l'écran). Mesuré en validation
+  croisée par dossier sur le jeu d'audit : 64 % des lignes proposées, 92 %
+  justes. L'imputation automatique reste à 0,90 (`workflow/synchro.py`).
+- **Limite connue** : le jeu d'entraînement ne contient que des chauffeurs
+  VTC. Un compte d'une autre activité (paie d'employés, ventes de
+  services, virements internes, compte courant d'associé) tombe surtout en
+  abstention : ces catégories n'existent pas encore dans la taxonomie.
+
 ## Statuts
 
 - **Démo (doc 17 §3, semaine 2, fait)** : étages 1 et 2 seulement (règles +

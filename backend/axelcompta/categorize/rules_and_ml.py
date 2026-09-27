@@ -17,11 +17,22 @@ from .pipeline import CategorizationPipeline
 CONFIANCE_PAR_NIVEAU = {"haute": 0.95, "moyenne": 0.75, "basse": 0.5}
 CATEGORIE_PAR_DEFAUT = "non_categorise_a_verifier"
 
+# Sous ce seuil, le modèle ne propose rien : l'indiv voit « pas de proposition
+# automatique » plutôt qu'une catégorie fausse à confirmer d'un geste. Choisi
+# sur des dossiers jamais vus à l'entraînement (validation croisée en 5 plis
+# par dossier sur le jeu d'audit, 2026-09-27) : à 0,5, 64 % des lignes
+# reçoivent une proposition, juste dans 92 % des cas, contre 76 % sans seuil.
+# Réglé sur ce jeu seulement, jamais sur les dossiers réels à qui on
+# l'applique. Distinct
+# du seuil d'imputation automatique (`workflow/synchro.py`, 0,90).
+SEUIL_PROPOSITION_ML = 0.5
+
 
 @dataclass
 class RulesAndMlPipeline(CategorizationPipeline):
     """Étage 1 : première règle du pack qui matche le libellé.
-    Étage 2 : modèle ML si aucune règle ne matche. Modèle absent
+    Étage 2 : modèle ML si aucune règle ne matche, qui s'abstient sous
+    `SEUIL_PROPOSITION_ML`. Modèle absent
     (`modele=None`, ex. fichier gitignoré manquant sur ce poste) → dégradation
     explicite en catégorie par défaut à confiance nulle, pas un plantage
     (doc 08 §5)."""
@@ -53,6 +64,8 @@ class RulesAndMlPipeline(CategorizationPipeline):
                 confiance=0.0,
             )
         categorie, confiance = predire(self.modele, transaction.libelle, transaction.montant_cts)
+        if confiance < SEUIL_PROPOSITION_ML:
+            categorie = CATEGORIE_PAR_DEFAUT
         return ProposedEntry(
             dossier_id=dossier_id,
             transaction_id=transaction.id,
