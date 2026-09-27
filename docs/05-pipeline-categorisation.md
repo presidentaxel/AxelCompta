@@ -101,10 +101,16 @@ Détails d'entraînement dans doc 07. Ici, le contrat d'intégration :
 > - **Garde de sens** : une charge n'est jamais proposée pour un
 >   encaissement, un produit jamais pour un décaissement, pour les règles
 >   comme pour le modèle.
-> - **Seuil global, pas encore par classe** : sous 0,5, pas de proposition
->   (72,6 % des lignes proposées, 91,1 % justes, validation croisée par
->   dossier) ; imputation automatique à 0,90 seulement (`workflow/synchro.py`).
->   Pas de calibration isotonique à ce jour.
+> - **Calibration et seuils par catégorie (2026-09-27)** : régression
+>   isotone sur les prédictions hors échantillon, erreur de calibration
+>   (ECE) de 0,097 à 0,019 ; la confiance affichée est une chance réelle
+>   d'avoir raison. Proposition au-dessus de 0,6 calibré (75,7 % des lignes,
+>   90,0 % justes). Imputation automatique au-dessus de 0,95 calibré, pour
+>   les seules catégories qui y atteignent 95 % de justesse sur au moins 30
+>   lignes, jamais les catégories à enjeu ni à risque d'usage personnel
+>   (fournitures, repas) : 29,8 % des lignes, 98,5 % justes. Mesures en
+>   validation croisée imbriquée par dossier. Sans fichier de calibration,
+>   les seuils bruts historiques (0,5 et 0,90) s'appliquent.
 > - **Propositions apprises** : une opération semblable à une opération déjà
 >   tranchée par l'indiv, dans le même sens, reprend sa catégorie
 >   (`appris.py`). Proposée seulement, jamais imputée.

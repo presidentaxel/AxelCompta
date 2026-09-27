@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import dataclasses
 import re
 from datetime import date
 
 import pytest
 
+from axelcompta.categorize.ml_fallback import Calibration
 from axelcompta.categorize.models import Etage
 from axelcompta.categorize.rules_and_ml import (
     CATEGORIE_PAR_DEFAUT,
@@ -97,3 +99,23 @@ def test_une_regle_de_sens_contraire_est_sautee() -> None:
     assert sortie.categorie == CATEGORIE_PAR_DEFAUT
     entree = pipeline.categoriser(DossierId("d1"), _transaction("BOLT OPERATIONS", 42_000))
     assert entree.categorie == "recettes_plateformes"
+
+
+def test_un_modele_calibre_propose_et_fixe_le_seuil_par_categorie() -> None:
+    """Sous le seuil de proposition calibré, rien ; au-dessus, la proposition
+    porte le seuil d'imputation de sa catégorie."""
+    calibration = Calibration(
+        x=(0.0, 1.0),
+        y=(0.0, 1.0),
+        seuil_proposition=0.9,
+        seuil_imputation=0.95,
+        classes_imputables=frozenset({"peage_stationnement"}),
+    )
+    pipeline = RulesAndMlPipeline(regles=(), modele=_ModeleBidon(), calibration=calibration)
+    proposition = pipeline.categoriser(DossierId("d1"), _transaction("SANEF A10"))
+    assert proposition.categorie == CATEGORIE_PAR_DEFAUT  # 0,87 < 0,9
+    calibration_basse = dataclasses.replace(calibration, seuil_proposition=0.5)
+    pipeline = RulesAndMlPipeline(regles=(), modele=_ModeleBidon(), calibration=calibration_basse)
+    proposition = pipeline.categoriser(DossierId("d1"), _transaction("SANEF A10"))
+    assert proposition.categorie == "peage_stationnement"
+    assert proposition.seuil_imputation == 0.95

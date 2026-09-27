@@ -31,4 +31,8 @@ class ProposedEntry:
     transaction_id: TransactionId
     categorie: str
     etage: Etage
-    confiance: float  # [0.0, 1.0]
+    confiance: float  # [0.0, 1.0] ; calibrée (chance d'avoir raison) si le modèle l'est
+    # Confiance à partir de laquelle cette proposition peut s'imputer sans
+    # regard humain, propre à sa catégorie (`ml_fallback.Calibration`) ;
+    # `inf` : jamais ; `None` : seuils historiques de `workflow/synchro.py`.
+    seuil_imputation: float | None = None

@@ -79,6 +79,10 @@ python entrainer_modele.py
 python entrainer_modele.py --decisions
 ```
 
+Le script écrit aussi `modeles/tfidf_logreg_v2.calibration.json` : courbe de
+calibration et politique d'imputation automatique par catégorie, lues par le
+backend à côté du modèle. Les deux fichiers se remplacent ensemble.
+
 Comparer `resultats/rapport_modele_v2.txt` au rapport du modèle en place
 avant de remplacer le `.joblib` que charge
 `backend/axelcompta/categorize/ml_fallback.py`. `entrainer_modele_baseline.py`

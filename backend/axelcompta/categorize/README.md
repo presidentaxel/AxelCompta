@@ -69,6 +69,12 @@ entrée, doc 13 §2.2), `documents` (matching pièce, V1 seulement).
   nouveau modèle vaut donc tout de suite pour les opérations en attente. La
   proposition d'origine, figée à la synchro, reste en base comme trace
   (`etage_origine` des décisions).
+- **Calibration** (`ml_fallback.Calibration`, fichier
+  `<modèle>.calibration.json` écrit par `entrainer_modele.py`) : confiance
+  calibrée, seuil de proposition, et seuil d'imputation propre à chaque
+  catégorie, porté par la proposition (`ProposedEntry.seuil_imputation`)
+  jusqu'à `workflow/synchro.choisir_compte`. Une catégorie non admise porte
+  `inf` : jamais imputée seule. Chiffres : doc 05 §3.
 - **Réentraînement sur les décisions** : `entrainer_modele.py --decisions`
   ajoute chaque décision humaine (hors dossiers `DEMO_`) comme exemple, lue en
   base, jamais écrite dans un fichier ; chaque dossier reste un groupe de la

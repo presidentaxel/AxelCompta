@@ -22,7 +22,11 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.engine import Engine
 
-from axelcompta.categorize.ml_fallback import ModeleMlIndisponible, charger_modele
+from axelcompta.categorize.ml_fallback import (
+    ModeleMlIndisponible,
+    charger_calibration,
+    charger_modele,
+)
 from axelcompta.categorize.pipeline import CategorizationPipeline
 from axelcompta.categorize.rules_and_ml import RulesAndMlPipeline
 from axelcompta.core.db import engine_depuis_env
@@ -133,7 +137,11 @@ def synchroniser_portefeuille(
         modele = charger_modele()
     except ModeleMlIndisponible:
         modele = None
-    pipeline = RulesAndMlPipeline(regles=charger_regles(), modele=modele)
+    pipeline = RulesAndMlPipeline(
+        regles=charger_regles(),
+        modele=modele,
+        calibration=charger_calibration() if modele is not None else None,
+    )
 
     async def lancer() -> list[ResultatDossier]:
         client = DigifactoryHttpClient.depuis_env()

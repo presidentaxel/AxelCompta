@@ -42,10 +42,11 @@ COMPTE_ATTENTE = "471"
 # relevé de la plateforme, pas de la banque. En attente, jamais en produit.
 CATEGORIES_EN_ATTENTE_DE_SETTLEMENT = frozenset({"recettes_plateformes", "commissions_plateformes"})
 
-# Seuils PROVISOIRES d'acceptation automatique. Les probabilités du modèle ne
-# sont pas calibrées (ADR-007) et sa précision n'est mesurée que contre le
-# mapping (79,5 %), donc le seuil ML est volontairement haut. Tout ce qui est
-# en dessous va au compte d'attente, donc dans la file de revue de l'indiv.
+# Seuils d'acceptation automatique. Tout ce qui est en dessous va au compte
+# d'attente, donc dans la file de revue de l'indiv. Depuis le 2026-09-27, une
+# proposition ML d'un modèle calibré porte son propre seuil, propre à sa
+# catégorie (`ProposedEntry.seuil_imputation`) ; `SEUIL_ML` ne vaut plus que
+# pour un modèle sans fichier de calibration.
 SEUIL_REGLE = 0.75
 SEUIL_ML = 0.90
 
@@ -70,7 +71,12 @@ def choisir_compte(proposition: ProposedEntry, comptes: dict[str, str]) -> str:
     confiance sans regard humain."""
     if proposition.categorie in CATEGORIES_EN_ATTENTE_DE_SETTLEMENT:
         return COMPTE_ATTENTE
-    seuil = SEUIL_REGLE if proposition.etage is Etage.REGLE else SEUIL_ML
+    if proposition.etage is Etage.REGLE:
+        seuil = SEUIL_REGLE
+    elif proposition.seuil_imputation is not None:
+        seuil = proposition.seuil_imputation
+    else:
+        seuil = SEUIL_ML
     if proposition.etage not in (Etage.REGLE, Etage.ML) or proposition.confiance < seuil:
         return COMPTE_ATTENTE
     return comptes.get(proposition.categorie, COMPTE_ATTENTE)

@@ -11,7 +11,7 @@ from axelcompta.core.ids import DossierId
 from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.packs.vtc_demo import RegleCategorisation
 
-from .ml_fallback import ModeleSklearn, predire_lot, sens_compatible
+from .ml_fallback import Calibration, ModeleSklearn, predire_lot, sens_compatible
 from .models import Etage, ProposedEntry
 from .pipeline import CategorizationPipeline
 
@@ -40,6 +40,8 @@ class RulesAndMlPipeline(CategorizationPipeline):
 
     regles: tuple[RegleCategorisation, ...]
     modele: ModeleSklearn | None = None
+    # Sans calibration, confiance brute et seuils historiques.
+    calibration: Calibration | None = None
 
     def categoriser(
         self, dossier_id: DossierId, transaction: NormalizedTransaction
@@ -89,15 +91,27 @@ class RulesAndMlPipeline(CategorizationPipeline):
             predictions = [(CATEGORIE_PAR_DEFAUT, 0.0)] * len(transactions)
         else:
             predictions = predire_lot(
-                self.modele, [(t.libelle, t.montant_cts) for t in transactions]
+                self.modele,
+                [(t.libelle, t.montant_cts) for t in transactions],
+                self.calibration,
             )
+        seuil = (
+            self.calibration.seuil_proposition
+            if self.calibration is not None
+            else SEUIL_PROPOSITION_ML
+        )
         return [
             ProposedEntry(
                 dossier_id=dossier_id,
                 transaction_id=transaction.id,
-                categorie=categorie if confiance >= SEUIL_PROPOSITION_ML else CATEGORIE_PAR_DEFAUT,
+                categorie=categorie if confiance >= seuil else CATEGORIE_PAR_DEFAUT,
                 etage=Etage.ML,
                 confiance=confiance,
+                seuil_imputation=(
+                    self.calibration.seuil_imputation_de(categorie)
+                    if self.calibration is not None
+                    else None
+                ),
             )
             for transaction, (categorie, confiance) in zip(transactions, predictions, strict=True)
         ]

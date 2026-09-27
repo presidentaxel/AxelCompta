@@ -19,8 +19,11 @@ au modèle comme une dépense.
 
 from __future__ import annotations
 
+import json
 import math
+from bisect import bisect_right
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -108,13 +111,61 @@ def charger_modele(chemin: Path | None = None) -> ModeleSklearn:
     return modele
 
 
+@dataclass(frozen=True, slots=True)
+class Calibration:
+    """Écrite par `_AUDIT_DONNEES/entrainer_modele.py` à côté du modèle
+    (`<modèle>.calibration.json`) : la courbe qui transforme la probabilité
+    brute en chance réelle d'avoir raison (régression isotone sur les
+    prédictions hors échantillon), le seuil de proposition et la politique
+    d'imputation automatique, catégorie par catégorie (doc 07 §3.4, §4)."""
+
+    x: tuple[float, ...]
+    y: tuple[float, ...]
+    seuil_proposition: float
+    seuil_imputation: float
+    classes_imputables: frozenset[str]
+
+    def confiance(self, brute: float) -> float:
+        """Interpolation linéaire entre les paliers de la courbe, bornée."""
+        if not self.x:
+            return brute
+        if brute <= self.x[0]:
+            return self.y[0]
+        if brute >= self.x[-1]:
+            return self.y[-1]
+        i = bisect_right(self.x, brute)
+        x0, x1, y0, y1 = self.x[i - 1], self.x[i], self.y[i - 1], self.y[i]
+        return y0 if x1 == x0 else y0 + (y1 - y0) * (brute - x0) / (x1 - x0)
+
+    def seuil_imputation_de(self, categorie: str) -> float:
+        """`inf` : cette catégorie ne s'impute jamais sans regard humain."""
+        return self.seuil_imputation if categorie in self.classes_imputables else math.inf
+
+
+def charger_calibration(chemin_modele: Path | None = None) -> Calibration | None:
+    """`None` si le fichier manque : les seuils bruts historiques s'appliquent."""
+    chemin = (chemin_modele or CHEMIN_MODELE_PAR_DEFAUT).with_suffix(".calibration.json")
+    if not chemin.is_file():
+        return None
+    donnees = json.loads(chemin.read_text(encoding="utf-8"))
+    return Calibration(
+        x=tuple(float(v) for v in donnees["calibration"]["x"]),
+        y=tuple(float(v) for v in donnees["calibration"]["y"]),
+        seuil_proposition=float(donnees["seuil_proposition"]),
+        seuil_imputation=float(donnees["seuil_imputation"]),
+        classes_imputables=frozenset(donnees["classes_imputables"]),
+    )
+
+
 def predire(modele: ModeleSklearn, libelle: str, montant_cts: int) -> tuple[str, float]:
     """Une seule transaction ; voir `predire_lot`."""
     return predire_lot(modele, [(libelle, montant_cts)])[0]
 
 
 def predire_lot(
-    modele: ModeleSklearn, transactions: Sequence[tuple[str, int]]
+    modele: ModeleSklearn,
+    transactions: Sequence[tuple[str, int]],
+    calibration: Calibration | None = None,
 ) -> list[tuple[str, float]]:
     """(catégorie, confiance) par `(libelle, montant_cts)`, montants en
     convention bancaire (argent reçu positif), en un seul appel au modèle.
@@ -138,5 +189,7 @@ def predire_lot(
             resultat.append(("non_categorise_a_verifier", 0.0))
             continue
         confiance, categorie = max(candidates)
+        if calibration is not None:
+            confiance = calibration.confiance(confiance)
         resultat.append((categorie, confiance))
     return resultat
