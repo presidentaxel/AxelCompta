@@ -1,12 +1,13 @@
 """Fallback ML — étage 2 (doc 05 §3). Charge le modèle déjà entraîné
-(`_AUDIT_DONNEES/modeles/tfidf_logreg_v1.joblib`, gitignoré, présent
-seulement sur les postes qui ont fait tourner l'audit), **aucun
-réentraînement** (doc 17 §4bis). Ne l'importe jamais comme code — chargé
+(`_AUDIT_DONNEES/modeles/tfidf_logreg_v2.joblib`, gitignoré, présent
+seulement sur les postes qui ont fait tourner l'audit ; produit par
+`_AUDIT_DONNEES/entrainer_modele.py`, le v1 reste à côté pour revenir en
+arrière). Ne l'importe jamais comme code — chargé
 comme artefact (doc 03 §3, « personne n'importe ml au runtime »).
 
 Reproduit exactement le featurizing de
-`_AUDIT_DONNEES/entrainer_modele_baseline.py` (`texte_avec_montant`,
-`bucket_montant`) : le modèle a été entraîné sur ce format précis, un
+`_AUDIT_DONNEES/entrainer_modele.py` (`texte`, `bucket_montant`, identiques
+à ceux du v1) : le modèle a été entraîné sur ce format précis, un
 featurizing différent donnerait des prédictions incohérentes.
 
 **Signe.** Le modèle a appris sur des montants FEC (charge positive, recette
@@ -26,7 +27,7 @@ from axelcompta.core.errors import DomaineError
 
 # backend/axelcompta/categorize/ml_fallback.py -> racine du repo
 CHEMIN_MODELE_PAR_DEFAUT = (
-    Path(__file__).resolve().parents[3] / "_AUDIT_DONNEES" / "modeles" / "tfidf_logreg_v1.joblib"
+    Path(__file__).resolve().parents[3] / "_AUDIT_DONNEES" / "modeles" / "tfidf_logreg_v2.joblib"
 )
 
 

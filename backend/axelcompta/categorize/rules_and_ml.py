@@ -10,7 +10,7 @@ from axelcompta.core.ids import DossierId
 from axelcompta.ingestion.providers.base import NormalizedTransaction
 from axelcompta.packs.vtc_demo import RegleCategorisation
 
-from .ml_fallback import ModeleSklearn, predire
+from .ml_fallback import ModeleSklearn, predire, sens_compatible
 from .models import Etage, ProposedEntry
 from .pipeline import CategorizationPipeline
 
@@ -44,6 +44,11 @@ class RulesAndMlPipeline(CategorizationPipeline):
         self, dossier_id: DossierId, transaction: NormalizedTransaction
     ) -> ProposedEntry:
         for regle in self.regles:
+            # Même garde que l'étage ML : « uber » dans un paiement sortant
+            # n'est pas une recette. La règle suivante, puis le modèle, prennent
+            # le relais.
+            if not sens_compatible(regle.categorie, transaction.montant_cts):
+                continue
             if regle.motif.search(transaction.libelle):
                 return ProposedEntry(
                     dossier_id=dossier_id,

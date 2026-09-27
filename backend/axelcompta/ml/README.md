@@ -10,11 +10,13 @@ chargé (`.joblib`), jamais par import direct.
 ## Ce qui existe déjà et sera réutilisé
 
 Le travail d'entraînement de la baseline a déjà été fait dans l'audit :
-[`_AUDIT_DONNEES/entrainer_modele_baseline.py`](../../../_AUDIT_DONNEES/entrainer_modele_baseline.py)
-→ [`_AUDIT_DONNEES/modeles/tfidf_logreg_v1.joblib`](../../../_AUDIT_DONNEES/modeles/)
-(79,5% d'exactitude sur dossiers jamais vus, mesurée contre les labels du
-mapping ; le 94,4% d'ADR-007 utilisait le compte PCG, indisponible à
-l'inférence, voir l'amendement du 2026-09-21). Ce module sera la version *packagée et réentraînable en
+[`_AUDIT_DONNEES/entrainer_modele.py`](../../../_AUDIT_DONNEES/entrainer_modele.py) (v2, 2026-09-27 ; le v1 reste reproductible par `entrainer_modele_baseline.py`)
+→ [`_AUDIT_DONNEES/modeles/tfidf_logreg_v2.joblib`](../../../_AUDIT_DONNEES/modeles/)
+(78,9 % d'exactitude en validation croisée par dossier, mesurée contre les
+labels du mapping, avec le compte courant d'associé en plus ; le v1 faisait
+76,2 % sur les mêmes plis, 79,5 % sur son seul découpage d'origine ; le
+94,4 % d'ADR-007 utilisait le compte PCG, indisponible à l'inférence, voir
+l'amendement du 2026-09-21). Ce module sera la version *packagée et réentraînable en
 continu* de ce script.
 
 ## Statuts

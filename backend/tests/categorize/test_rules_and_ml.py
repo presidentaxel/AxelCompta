@@ -85,3 +85,15 @@ def test_sous_le_seuil_le_modele_ne_propose_rien() -> None:
     assert proposition.categorie == CATEGORIE_PAR_DEFAUT
     assert proposition.etage is Etage.ML
     assert proposition.confiance == pytest.approx(SEUIL_PROPOSITION_ML - 0.01)
+
+
+def test_une_regle_de_sens_contraire_est_sautee() -> None:
+    """« BOLT » sur un paiement sortant n'est pas une recette plateforme."""
+    regles = (
+        RegleCategorisation(re.compile(r"bolt", re.IGNORECASE), "recettes_plateformes", "haute"),
+    )
+    pipeline = RulesAndMlPipeline(regles=regles)
+    sortie = pipeline.categoriser(DossierId("d1"), _transaction("BOLT.EU/O/2603", -1_500))
+    assert sortie.categorie == CATEGORIE_PAR_DEFAUT
+    entree = pipeline.categoriser(DossierId("d1"), _transaction("BOLT OPERATIONS", 42_000))
+    assert entree.categorie == "recettes_plateformes"
