@@ -444,6 +444,13 @@ de sortie de la plateforme doivent être fixes et connues avant toute demande.
    refuse (`ContactNonMappeError`) un dossier sans contact plutôt que d'en
    deviner un. **Reste les données** : les ~200 chauffeurs du pilote
    doivent d'abord exister chez Digifactory (6 contacts au 2026-09-26).
+   **2026-09-26/27** : les 6 contacts ont chacun un dossier de démo
+   (`DIGI_<nr>`, `scripts/ajouter_chauffeurs_digifactory.py`, forme reprise
+   de Sirene quand le contact a un SIREN ; SAS et SASU partagent le code
+   5710, on ne devine pas). Deux ont des transactions. Constaté sur ces
+   données : `operation_type` vaut `unknown` presque partout et
+   `category_id` est le plus souvent générique ; ni l'un ni l'autre ne sert
+   de feature au modèle aujourd'hui.
 6. Monitoring de fraîcheur et de santé de connexion par compte — **relevé
    fait le 2026-09-25** (une ligne par dossier, le plus mauvais compte :
    `sante`, `en_pause`, `acces_donnees`, `dernier_rafraichissement`,

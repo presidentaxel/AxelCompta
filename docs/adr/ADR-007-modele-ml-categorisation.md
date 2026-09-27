@@ -34,6 +34,17 @@
 > bucket de montant, pas de token PCG. La section « Décision » plus bas décrit
 > le modèle d'origine (n-grammes 2-5 avec token PCG), pas celui-là.
 
+> **Amendement du 2026-09-27 : modèle v2, et un bug de signe corrigé.**
+> Le modèle recevait les montants en convention bancaire alors qu'il avait
+> appris en convention FEC : chaque encaissement lui arrivait comme une
+> dépense (corrigé dans `categorize/ml_fallback.py`, PR #34). Le v2
+> (`_AUDIT_DONNEES/entrainer_modele.py`, PR #35) garde la même famille,
+> étend les étiquettes au compte courant d'associé et pondère les classes en
+> racine de `balanced`. Validation croisée en 5 plis par dossier : 78,9 %
+> (v1 : 76,2 % sur les mêmes plis). La calibration isotonique de la section
+> Justification n'est toujours pas faite : le seuil d'abstention (0,5) est
+> choisi sur la précision mesurée, pas sur des probabilités calibrées.
+
 ## Contexte
 
 Le pipeline de catégorisation (doc 05) requiert un modèle ML capable de mapper

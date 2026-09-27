@@ -94,6 +94,21 @@ Détails d'entraînement dans doc 07. Ici, le contrat d'intégration :
 - Le modèle est un **artefact versionné** (registry, doc 07 §6) chargé au démarrage.
   Pas d'entraînement dans le runtime API, jamais.
 
+> **Ce qui est codé au 2026-09-27** (`backend/axelcompta/categorize/`, détail
+> dans son README) :
+> - **Signe** : le montant bancaire est retourné en convention FEC avant le
+>   modèle, qui a appris sur des FEC (charge positive).
+> - **Garde de sens** : une charge n'est jamais proposée pour un
+>   encaissement, un produit jamais pour un décaissement, pour les règles
+>   comme pour le modèle.
+> - **Seuil global, pas encore par classe** : sous 0,5, pas de proposition
+>   (72,6 % des lignes proposées, 91,1 % justes, validation croisée par
+>   dossier) ; imputation automatique à 0,90 seulement (`workflow/synchro.py`).
+>   Pas de calibration isotonique à ce jour.
+> - **Propositions apprises** : une opération semblable à une opération déjà
+>   tranchée par l'indiv, dans le même sens, reprend sa catégorie
+>   (`appris.py`). Proposée seulement, jamais imputée.
+
 ## 4. Étage 3 — LLM arbitre
 
 - **Quand** : confiance ML < τ_ml, ou catégorie à enjeu, ou libellé jamais vu.

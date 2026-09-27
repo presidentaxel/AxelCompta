@@ -6,7 +6,7 @@
 > [archive/17-plan-demo-journal-2026-09.md](archive/17-plan-demo-journal-2026-09.md).
 > Les renvois « doc 17 §9 », « §12 », « §14 à 16 » du code et des autres docs
 > pointent vers cette archive. L'état d'avancement du projet est dans le
-> [doc 12](12-roadmap-todo.md). Dernière mise à jour : 2026-09-25.
+> [doc 12](12-roadmap-todo.md). Dernière mise à jour : 2026-09-27.
 
 ## 1. But
 
@@ -29,6 +29,13 @@ branché sur le vrai calcul, jamais sur des données figées.
 | **Karim** | SASU à l'IS, TVA taux réduit 10 %, Uber | Le cas nominal : aucune fausse alerte |
 | **Sophie** | EURL à l'IS, TVA, Uber et Bolt, une dépense Zara ambiguë | L'autoliquidation Bolt, et une dépense que le chauffeur tranche lui-même (471 vers 455) |
 | **Yanis** | Franchise de TVA, Uber, véhicule en LOA | Le régime franchise, le loyer passé en 613 |
+
+**Dossiers réels (depuis le 2026-09-26/27)** : un dossier `DIGI_<nr>` par
+contact Digifactory, compte fictif `demo-digi-<nr>@axelcompta.fr`
+(`scripts/ajouter_chauffeurs_digifactory.py`). Leurs transactions viennent de
+l'API, jamais du dépôt. Ce ne sont pas des chauffeurs VTC : ils montrent le
+produit sur des données bancaires vraies, pas le parcours type. La remise à
+neuf (§6) ne les touche pas.
 
 Exercice déclaré : 06/01/2025 au 31/12/2025. Identités légales fictives
 (SIREN à clé valide, non attribués). Génération :
@@ -59,6 +66,10 @@ et balance en PDF, dossier de dépôt greffe/INPI.
 - Détection d'anomalies statistique : la dépense de Sophie est écrite à la
   main, pas détectée.
 - Signature qualifiée : simulateur, aucun prestataire (ADR-004).
+- L'étage ML sur les trois profils : Karim, Sophie et Yanis sont entièrement
+  catégorisés par les règles. Le ML (modèle v2, abstention sous 0,5,
+  propositions apprises des décisions) ne se voit que sur les dossiers
+  `DIGI_`.
 - Envoi réel des rappels (SMS, e-mail, appel) : les règles s'enregistrent,
   rien ne part. La page Intégrations annonce ce qui est prévu.
 - Matrice complète statut × pack : seulement les trois profils.
@@ -109,7 +120,7 @@ livre, le journal d'audit et les comptes Supabase ne sont jamais touchés
 | Une répétition abîme l'état de départ | §6. Tant que la remise à neuf n'existe pas, répéter sur Karim ou Yanis et garder Sophie intacte |
 | Aucune répétition complète depuis le 11/09 (base, auth et écran gestionnaire ont changé depuis) | Une répétition entière en navigateur avant la vraie |
 | Le parcours chauffeur n'est pas prêt | Refonte en cours ; à défaut, montrer Sophie seulement |
-| Supabase Auth est une exception à ADR-003 | Assumée pour la démo, à remplacer avant la V1 |
+| Supabase Auth gardé en V1 (ADR-003, mise à jour du 2026-09-08) | En sortir plus tard est une vraie réécriture de l'auth, pas un `pg_dump` : le déclencheur CLOUD Act de l'ADR couvre aussi l'auth |
 | Digifactory tombe ou change | La démo tourne sur les fixtures, jamais sur l'API réelle |
 
 ## 8. Tests de référence

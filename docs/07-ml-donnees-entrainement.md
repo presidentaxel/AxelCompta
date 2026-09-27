@@ -69,6 +69,17 @@ C'est l'actif le plus précieux du projet — et le chantier le plus sous-estim�
 > sont invérifiables (spike perdu) et n'étaient pas comparables si eux aussi
 > recevaient le token. Les étapes 2, 3, 4 ci-dessous redeviennent d'actualité
 > si les 500 lignes relues confirment une précision insuffisante.
+>
+> **Modèle v2, 2026-09-27** (`_AUDIT_DONNEES/entrainer_modele.py`) : même
+> famille (TF-IDF char 2-4 + LogReg), étiquettes étendues au compte courant
+> d'associé, `class_weight` en racine de `balanced` (`balanced` gonflait les
+> classes rares : un gros virement Uber sortait en subventions ; sans
+> pondération, les classes rares disparaissent). Évalué en **validation
+> croisée en 5 plis groupés par dossier** : 78,9 % d'exactitude, rappel moyen
+> par classe 47,3 % ; à 0,5 de confiance, 72,6 % des lignes proposées, justes
+> à 91,1 %. Le v1, sur les mêmes plis : 76,2 %, et 64 % proposées pour 91,6 %
+> justes (son 79,5 % venait d'un seul découpage de 14 dossiers). Toujours
+> contre les labels du mapping, pas une relecture humaine.
 
 1. **Baseline obligatoire** : régression logistique sur TF-IDF. Simple, rapide,
    explicable. C'est la barre à battre — et elle est souvent dure à battre sur du
@@ -170,6 +181,19 @@ flowchart LR
     P --> M[Monitoring dérive :<br/>distribution des confiances,<br/>taux d'escalade LLM,<br/>taux de correction humaine]
     M -- dérive détectée --> T
 ```
+
+**Codé au 2026-09-27**, deux boucles sur les décisions de l'indiv :
+- **Immédiate, niveau dossier (§3.3)** : une opération à trancher semblable à
+  une opération déjà tranchée du même dossier, dans le même sens, reprend sa
+  catégorie en proposition (`categorize/appris.py`, plus proche voisin sur
+  n-grammes de caractères). Simulé sur le jeu d'audit, chaque ligne
+  comparée aux seules lignes antérieures de son dossier : à 0,6 de
+  similarité, 81 % des lignes couvertes, 92 % justes.
+- **Réentraînement** : `entrainer_modele.py --decisions` ajoute chaque
+  décision humaine (hors dossiers `DEMO_`, fabriqués) comme exemple, lue en
+  base et jamais écrite dans un fichier. Chaque dossier reste un groupe de la
+  validation croisée : aucune ligne n'est évaluée par un modèle qui a vu son
+  dossier. La promotion reste manuelle (comparer le rapport au champion).
 
 Alertes de dérive : hausse du taux de correction humaine par classe, baisse de la
 confiance moyenne, apparition de libellés-types inconnus en volume (nouvelle
