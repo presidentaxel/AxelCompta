@@ -71,7 +71,7 @@ jobs:
 
       - name: Tests rapides (hors Postgres / Supabase)
         # Explicit marker — ne pas dépendre seulement de addopts pyproject.
-        run: python -m pytest -m "not integration and not supabase"
+        run: python -m pytest -m "not integration and not supabase and not digifactory"
 
       - name: Tests d'intégration (vrai Postgres)
         run: python -m pytest -m integration

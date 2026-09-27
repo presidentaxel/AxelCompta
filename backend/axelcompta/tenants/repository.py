@@ -45,6 +45,12 @@ class DossierRepository(ABC):
         """Le nom affiché du portefeuille, choisi par l'organisation."""
 
     @abstractmethod
+    def poser_forme_juridique(self, dossier_id: DossierId, forme: str) -> None:
+        """Remplace la forme juridique après validation par la matrice.
+        Sert au rapprochement Sirene : le code INSEE dit SAS ou SARL, pas
+        la valeur posée par défaut à la création."""
+
+    @abstractmethod
     def ouvrir_exercice(self, dossier: Dossier) -> None:
         """Seule mise à jour de configuration admise : à l'ouverture de
         l'exercice suivant (`axelcompta.exercices`), les bornes et les

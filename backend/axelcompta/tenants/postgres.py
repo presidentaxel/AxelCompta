@@ -3,6 +3,7 @@ qui fait de l'I/O)."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
@@ -81,6 +82,17 @@ class PostgresDossierRepository(DossierRepository):
         if ligne is None:
             return None
         return Tenant(id=TenantId(ligne.id), nom=ligne.nom)
+
+    def poser_forme_juridique(self, dossier_id: DossierId, forme: str) -> None:
+        dossier = self.obtenir(dossier_id)
+        if dossier is None:
+            raise ValueError(f"dossier inconnu : {dossier_id}")
+        configuration_de(replace(dossier, forme_juridique=forme))
+        with self._engine.begin() as connexion:
+            appliquer_rls(connexion)
+            connexion.execute(
+                update(dossiers).where(dossiers.c.id == dossier_id).values(forme_juridique=forme)
+            )
 
     def ouvrir_exercice(self, dossier: Dossier) -> None:
         configuration_de(dossier)
