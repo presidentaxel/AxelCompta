@@ -1,12 +1,12 @@
 ---
-version: 1.0
+version: 2.0
 name: AxeLCompta-design-system
 description: |
   AxeLCompta est un outil B2B de production comptable : interface de
   professionnels (gestionnaire de portefeuille, comptable), pas du grand public.
-  Le parti pris est le calme visuel — fond blanc, blancs généreux, une seule
-  couleur d'accent (bleu professionnel), Inter partout, coins arrondis discrets,
-  ombres légères. Les chiffres ont leur propre traitement typographique
+  Le parti pris est le calme visuel - fond blanc chaud, blancs généreux, une
+  seule couleur d'accent (rouille), Inter partout en poids 400 et 500, coins
+  serrés, aucune ombre. Les chiffres ont leur propre traitement typographique
   (tabular-nums, alignement à droite, codage couleur positif/négatif).
   L'interface s'adapte à deux modes (portefeuille N dossiers vs mono-entreprise)
   et au statut de chaque dossier — sans jamais afficher de fonctions grisées.
@@ -14,44 +14,44 @@ description: |
 
 colors:
   # --- Marque ---
-  primary: "#2563EB"
-  primary-bright: "#3B82F6"
-  primary-deep: "#1D4ED8"
-  primary-subtle: "#EFF6FF"
+  primary: "#9C4A22"
+  primary-bright: "#B15A2E"
+  primary-deep: "#7E3B1A"
+  primary-subtle: "#F8EFE8"
   on-primary: "#FFFFFF"
 
-  # --- Neutres (Slate) ---
-  ink: "#0F172A"
-  body: "#1E293B"
-  subtle: "#475569"
-  muted: "#94A3B8"
-  faint: "#CBD5E1"
+  # --- Neutres (chauds) ---
+  ink: "#121A25"
+  body: "#121A25"
+  subtle: "#4A5461"
+  muted: "#667080"
+  faint: "#D9D3C9"
   on-dark: "#F8FAFC"
   on-dark-mute: "rgba(248,250,252,0.65)"
 
   # --- Canvas et surfaces ---
   canvas: "#FFFFFF"
-  canvas-app: "#F8FAFC"
+  canvas-app: "#FBFAF8"
   surface-raised: "#FFFFFF"
-  surface-soft: "#F1F5F9"
+  surface-soft: "#F4F1EC"
   surface-overlay: "#FFFFFF"
   surface-dark: "#0F172A"
   surface-dark-raised: "#1E293B"
 
   # --- Bordures ---
-  border: "#E2E8F0"
-  border-strong: "#CBD5E1"
-  border-focus: "#2563EB"
-  hairline: "#F1F5F9"
+  border: "#E9E5DE"
+  border-strong: "#D9D3C9"
+  border-focus: "#9C4A22"
+  hairline: "#EFEBE4"
 
   # --- Sémantiques générales ---
-  success: "#16A34A"
+  success: "#157347"
   success-subtle: "#F0FDF4"
   success-border: "#86EFAC"
   warning: "#D97706"
   warning-subtle: "#FFFBEB"
   warning-border: "#FCD34D"
-  danger: "#DC2626"
+  danger: "#C0262B"
   danger-subtle: "#FEF2F2"
   danger-border: "#FCA5A5"
   info: "#0284C7"
@@ -59,10 +59,10 @@ colors:
   info-border: "#7DD3FC"
 
   # --- Sémantiques comptables ---
-  amount-positive: "#16A34A"
-  amount-negative: "#DC2626"
-  amount-neutral: "#0F172A"
-  validated: "#16A34A"
+  amount-positive: "#157347"
+  amount-negative: "#C0262B"
+  amount-neutral: "#121A25"
+  validated: "#157347"
   validated-subtle: "#F0FDF4"
   pending: "#D97706"
   pending-subtle: "#FFFBEB"
@@ -72,11 +72,11 @@ colors:
   auto-ml-subtle: "#F5F3FF"
   auto-llm: "#9333EA"
   auto-llm-subtle: "#FAF5FF"
-  alert-anomaly: "#DC2626"
+  alert-anomaly: "#C0262B"
   alert-anomaly-subtle: "#FEF2F2"
   missing: "#94A3B8"
   closed: "#475569"
-  closed-subtle: "#F8FAFC"
+  closed-subtle: "#FBFAF8"
 
 typography:
   # --- Titres de pages et dashboard ---
@@ -255,7 +255,7 @@ components:
     typography: "{typography.button-md}"
     rounded: "{rounded.md}"
     padding: 7px 16px
-    height: 36px
+    height: 34px
     hoverBackground: "{colors.primary-bright}"
     activeBackground: "{colors.primary-deep}"
     transition: "{transition.base}"
@@ -266,7 +266,7 @@ components:
     border: "1px solid {colors.border-strong}"
     rounded: "{rounded.md}"
     padding: 6px 15px
-    height: 36px
+    height: 34px
     hoverBackground: "{colors.canvas-app}"
     transition: "{transition.base}"
   button-ghost:
@@ -275,7 +275,7 @@ components:
     typography: "{typography.button-md}"
     rounded: "{rounded.md}"
     padding: 7px 12px
-    height: 36px
+    height: 34px
     hoverBackground: "{colors.surface-soft}"
     hoverTextColor: "{colors.ink}"
     transition: "{transition.base}"
@@ -285,7 +285,7 @@ components:
     typography: "{typography.button-md}"
     rounded: "{rounded.md}"
     padding: 7px 16px
-    height: 36px
+    height: 34px
     transition: "{transition.base}"
   button-sm:
     backgroundColor: "{colors.primary}"
@@ -314,7 +314,7 @@ components:
     border: "1px solid {colors.border}"
     rounded: "{rounded.md}"
     padding: 7px 12px
-    height: 36px
+    height: 34px
     focusBorder: "{colors.border-focus}"
     focusRing: "0 0 0 3px rgba(37,99,235,0.12)"
     transition: "{transition.fast}"
@@ -336,7 +336,7 @@ components:
     border: "1px solid {colors.border}"
     rounded: "{rounded.md}"
     padding: 7px 12px
-    height: 36px
+    height: 34px
     focusBorder: "{colors.border-focus}"
     focusRing: "0 0 0 3px rgba(37,99,235,0.12)"
 
@@ -499,7 +499,7 @@ components:
     textColor: "{colors.subtle}"
     typography: "{typography.caption-strong}"
     borderBottom: "1px solid {colors.border}"
-    height: 36px
+    height: 34px
     padding: 0 16px
     letterSpacing: 0.3px
     textTransform: uppercase
@@ -524,41 +524,41 @@ components:
     fontVariantNumeric: tabular-nums
     paddingRight: 16px
 
-  # --- Navigation (sidebar sombre) ---
+  # --- Navigation (sidebar claire, v2) ---
   sidebar:
-    backgroundColor: "{colors.surface-dark}"
-    textColor: "{colors.on-dark}"
-    width: 240px
-    padding: 12px 8px
+    backgroundColor: "{colors.canvas-app}"
+    textColor: "{colors.subtle}"
+    borderRight: "1px solid {colors.border}"
+    width: 232px
+    padding: 16px 12px
   sidebar-header:
-    backgroundColor: "{colors.surface-dark}"
-    textColor: "{colors.on-dark}"
-    typography: "{typography.heading-sm}"
-    padding: 12px 12px 8px 12px
-    borderBottom: "1px solid rgba(248,250,252,0.08)"
-  sidebar-section-label:
-    textColor: "rgba(248,250,252,0.40)"
-    typography: "{typography.caption-strong}"
-    letterSpacing: 0.6px
-    textTransform: uppercase
-    padding: 14px 12px 4px 12px
+    backgroundColor: "{colors.canvas-app}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label-md}"
+    padding: 16px 8px
+    borderBottom: "1px solid {colors.border}"
   sidebar-item:
     backgroundColor: "transparent"
-    textColor: "{colors.on-dark-mute}"
+    textColor: "{colors.subtle}"
     typography: "{typography.label-md}"
     rounded: "{rounded.md}"
-    padding: 7px 12px
+    padding: 0 10px
     height: 34px
-    hoverBackground: "rgba(248,250,252,0.07)"
-    hoverTextColor: "{colors.on-dark}"
+    hoverBackground: "{colors.surface-soft}"
+    hoverTextColor: "{colors.ink}"
     transition: "{transition.fast}"
   sidebar-item-active:
-    backgroundColor: "rgba(37,99,235,0.25)"
-    textColor: "{colors.on-dark}"
+    backgroundColor: "{colors.surface-soft}"
+    textColor: "{colors.ink}"
     typography: "{typography.label-md}"
     rounded: "{rounded.md}"
-    padding: 7px 12px
+    padding: 0 10px
     height: 34px
+  sidebar-badge:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.full}"
+    height: 17px
 
   # --- En-tête de page (top bar) ---
   top-bar:
@@ -683,38 +683,38 @@ et le code ajoutés : uniquement "-".
 ## Vue d'ensemble
 
 AxeLCompta adopte un **système canvas clair** : le fond de l'application est
-`{colors.canvas-app}` (`#F8FAFC`), les cards et surfaces en relief sont en
-`{colors.canvas}` (`#FFFFFF`) avec une bordure `{colors.border}` légère et
-une ombre `{shadow.xs}`. Le contraste se joue en douceur — jamais de noir
-pur sur blanc pur, toujours le `{colors.ink}` (`#0F172A`) légèrement chaud.
+`{colors.canvas-app}` (`#FBFAF8`), les cards et surfaces en relief sont en
+`{colors.canvas}` (`#FFFFFF`) avec une bordure `{colors.border}` d'1 px et
+**sans ombre**. Le contraste se joue en douceur - jamais de noir pur sur
+blanc pur, toujours le `{colors.ink}` (`#121A25`), un bleu nuit chaud.
 
-L'exception est la **sidebar** : fond `{colors.surface-dark}` (`#0F172A`)
-avec texte `{colors.on-dark-mute}`, qui ancre l'interface sans agressivité.
-C'est le seul endroit sombre de l'app en V1 (le mode sombre global est en
-phase 2).
+La **sidebar** est claire aussi (v2) : même fond que l'application, séparée
+par un filet, entrée active en aplat doux `{colors.surface-soft}`. Il n'y a plus
+de zone sombre dans l'app (le mode sombre global reste à faire).
 
-L'**accent bleu** (`{colors.primary}` — `#2563EB`) apparaît exclusivement
-sur les boutons d'action primaires, les bordures de focus, les éléments
-sélectionnés, et l'item actif de la sidebar. Partout ailleurs : neutres.
+L'**accent rouille** (`{colors.primary}` - `#9C4A22`) ne sert que pour **un
+bouton d'action par écran** (classe `cta`), les focus, le badge de la sidebar
+et les liens. Le bouton principal par défaut est noir (`{colors.ink}`).
+Partout ailleurs : neutres.
 
 ## Couleurs
 
 ### Marque
 
-- **Primary** (`{colors.primary}` — `#2563EB`) : bleu professionnel. Bouton
-  d'action principal, focus ring, item sidebar actif, lien. Un seul accent —
+- **Primary** (`{colors.primary}` - `#9C4A22`) : rouille, distinct du rouge des
+  sorties. Action principale d'un écran (`cta`), focus ring, badge, lien. Un seul accent —
   ne jamais en introduire un second sans décision explicite (ADR).
-- **Primary Bright** (`{colors.primary-bright}` — `#3B82F6`) : état hover sur
-  les éléments bleus.
-- **Primary Deep** (`{colors.primary-deep}` — `#1D4ED8`) : état pressed/active.
-- **Primary Subtle** (`{colors.primary-subtle}` — `#EFF6FF`) : fond de
+- **Primary Bright** (`{colors.primary-bright}` - `#B15A2E`) : état hover sur
+  les éléments rouille.
+- **Primary Deep** (`{colors.primary-deep}` - `#7E3B1A`) : état pressed/active.
+- **Primary Subtle** (`{colors.primary-subtle}` - `#F8EFE8`) : fond de
   transaction sélectionnée, highlight de focus contextuel.
 
 ### Neutrals
 
-Toute la gamme est issue du continuum **Slate** (froid, précis) :
+Toute la gamme est chaude (v2), un bleu nuit pour l'encre et des beiges pour les surfaces :
 
-- `{colors.ink}` (`#0F172A`) : titres, texte principal.
+- `{colors.ink}` (`#121A25`) : titres, texte principal.
 - `{colors.body}` (`#1E293B`) : corps de texte long.
 - `{colors.subtle}` (`#475569`) : labels, métadonnées, en-têtes de colonnes.
 - `{colors.muted}` (`#94A3B8`) : placeholders, texte désactivé, états vides.
@@ -722,7 +722,7 @@ Toute la gamme est issue du continuum **Slate** (froid, précis) :
 
 ### Surfaces
 
-- **Canvas App** (`{colors.canvas-app}` — `#F8FAFC`) : fond de l'application
+- **Canvas App** (`{colors.canvas-app}` - `#FBFAF8`) : fond de l'application
   (body). Ne jamais poser du blanc pur sur blanc pur.
 - **Canvas** (`{colors.canvas}` — `#FFFFFF`) : cards, panneaux, tableaux.
 - **Surface Soft** (`{colors.surface-soft}` — `#F1F5F9`) : fond de l'en-tête
@@ -797,8 +797,8 @@ recettes, `{colors.amount-neutral}` dans un formulaire de saisie neutre.
 ├────────────────┬────────────────────────────────────────────┤
 │                │                                            │
 │  Sidebar       │  Zone de contenu principale                │
-│  240px         │  canvas-app (#F8FAFC)                      │
-│  surface-dark  │  padding : 24px                            │
+│  232px         │  canvas-app (#FBFAF8)                      │
+│  claire, filet │  padding : 28px 36px, largeur utile 1100px │
 │                │                                            │
 └────────────────┴────────────────────────────────────────────┘
 ```
@@ -833,10 +833,10 @@ canvas-app / canvas :
 | Niveau | Traitement | Usage |
 |---|---|---|
 | 0 — fond app | `{colors.canvas-app}` sans ombre | Body, fond de page |
-| 1 — surface | `{colors.canvas}` + `{shadow.xs}` + bordure | Cards, tableaux |
+| 1 — surface | `{colors.canvas}` + bordure, **sans ombre** (v2) | Cards, tableaux |
 | 2 — panneau flottant | `{colors.canvas}` + `{shadow.md}` + bordure | Dropdowns, popovers |
 | 3 — overlay | `{colors.canvas}` + `{shadow.overlay}` + bordure | Modales |
-| S — sidebar | `{colors.surface-dark}` — ancrage, sans ombre | Navigation principale |
+| S — sidebar | `{colors.canvas-app}` + filet - sans ombre | Navigation principale |
 
 Pas de gradient, pas d'effet glassmorphism, pas de fond flouté.
 
@@ -854,7 +854,7 @@ Pas de gradient, pas d'effet glassmorphism, pas de fond flouté.
 ### Boutons
 
 **`button-primary`** — action principale de la page
-- Bleu primaire, texte blanc, `rounded.md`, 36px de haut.
+- Noir par défaut (rouille avec la classe `cta`, un seul par écran), texte blanc, `rounded.md`, 34px de haut sur PC, 40px sur mobile.
 - Un seul par écran au maximum (parfois zéro — la file de revue fonctionne au
   clavier, les boutons sont secondaires).
 
@@ -946,7 +946,7 @@ Règles distinctes :
   doc 11 §4 définit ces termes, ils sont contrats avec l'utilisateur.
 - Afficher les raccourcis clavier dans la file de revue — les pros vivent au
   clavier.
-- Utiliser `{shadow.xs}` ou `{shadow.sm}` pour les cards, pas au-delà (sauf
+- Pas d'ombre sur les cards (v2) ; `{shadow.*}` reste réservé aux modales (sauf
   modales).
 - Tout état vide a une action — jamais de page blanche sans invitation.
 - Transitions à 150ms (`{transition.base}`) maximum — l'interface doit sembler
@@ -954,7 +954,7 @@ Règles distinctes :
 
 ### Don't
 
-- Ne pas introduire de deuxième couleur d'accent sans ADR. Le bleu primary est
+- Ne pas introduire de deuxième couleur d'accent sans ADR. La rouille primary est
   le seul stamp de marque.
 - Ne pas utiliser `{colors.amount-positive}` ou `{colors.amount-negative}` pour
   autre chose que des montants — la couleur verte ne signifie pas « succès » sur
@@ -994,7 +994,7 @@ signature, qui est une page publique autonome sans sidebar.
 - Contrastes WCAG AA obligatoires sur tous les textes. Vérifier avec Radix
   Colors ou Tailwind Contrast Checker avant tout nouveau token de couleur.
 - Focus ring visible sur tous les éléments interactifs : `{colors.border-focus}`
-  avec `focusRing` à 3px (`box-shadow: 0 0 0 3px rgba(37,99,235,0.12)`).
+  avec un anneau `outline: 2px solid` rouille (décalé de 2px) et un halo `box-shadow: 0 0 0 3px rgba(156,74,34,0.15)`.
 - Navigation clavier complète — les professionnels vivent au clavier, notamment
   dans la file de revue.
 - Touch targets minimum 44px sur les éléments mobiles (page de signature).
@@ -1021,10 +1021,10 @@ neutre — toujours l'écraser, jamais la garder telle quelle) :
 
 ```css
 :root {
-  --background: #f8fafc;   /* canvas-app */
-  --foreground: #0f172a;   /* ink */
+  --background: #fbfaf8;   /* canvas-app */
+  --foreground: #121a25;   /* ink */
   --card: #ffffff;         /* canvas */
-  --primary: #2563eb;      /* primary */
+  --primary: #9c4a22;      /* primary (rouille) */
   --primary-foreground: #ffffff; /* on-primary */
   --secondary: #ffffff;    /* canvas — button-secondary */
   --muted: #f1f5f9;        /* surface-soft */
@@ -1032,7 +1032,7 @@ neutre — toujours l'écraser, jamais la garder telle quelle) :
   --destructive: #dc2626;  /* danger */
   --border: #e2e8f0;       /* border */
   --input: #e2e8f0;        /* border, text-input */
-  --ring: #2563eb;         /* border-focus */
+  --ring: #9c4a22;         /* border-focus */
   --radius: 0.5rem;        /* rounded.md, 8px */
 }
 ```
@@ -1087,8 +1087,7 @@ les colonnes numériques.
   directes (pas de composant `ui/sidebar` shadcn installé) mais tokens
   corrigés (`on-dark`/`on-dark-mute` au lieu de `white/*` en dur). Plus
   aucun écran du produit n'a de bouton, carte ou champ de saisie en
-  classes Tailwind ad hoc. La passe UX/UI proprement dite (revue visuelle,
-  pas juste la conformité aux tokens) reste à faire — pas commencée.
+  classes Tailwind ad hoc. La passe UX/UI proprement dite a été faite le 2026-09-29 (thème "minimal chaud", mobile puis gestionnaire, voir la section en tête).
   `review-card`, `table-*`, `sidebar-*` (le composant shadcn, pas les
   tokens), `toast-*`, `modal` restent des tokens DESIGN.md sans composant
   React, aucun écran actuel n'en a besoin pour l'instant.
@@ -1098,7 +1097,7 @@ les colonnes numériques.
   seulement mal stylé. Discussion UI + psychologie utilisateur à part
   entière prévue, avant toute nouvelle proposition d'écran — ne pas
   assumer un design ici en attendant.
-- Thème sombre (dark mode global) — prévu en phase 5. La sidebar sombre n'est
+- Thème sombre (dark mode global) — prévu en phase 5. La sidebar est claire depuis la v2 ; l'ancienne sidebar sombre n'était
   pas un dark mode, c'est un choix délibéré de contraste de navigation.
 - États disabled non documentés sur les boutons et inputs — à ajouter quand
   les premiers formulaires sont implémentés.
