@@ -8,7 +8,7 @@ export function Marque({ surFondSombre = false }: { surFondSombre?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <rect width="28" height="28" rx="8" fill="#2563EB" />
+        <rect width="28" height="28" rx="8" className="fill-primary" />
         <path
           d="M8 20.5 L14 7.5 L20 20.5"
           fill="none"

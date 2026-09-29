@@ -61,7 +61,7 @@ export function Cloche({ dossierId, chemin }: { dossierId: string; chemin: strin
         )}
       </button>
       {ouvert && (
-        <div className="absolute right-0 top-12 w-72 rounded-lg border border-border bg-canvas p-2 shadow-lg">
+        <div className="absolute right-0 top-12 w-80 rounded-lg border border-border bg-canvas p-1">
           {notifications.length === 0 ? (
             <p className="p-3 text-sm text-subtle">Aucune notification.</p>
           ) : (
@@ -71,7 +71,7 @@ export function Cloche({ dossierId, chemin }: { dossierId: string; chemin: strin
                   <Link
                     href={`/chauffeur/${dossierId}`}
                     onClick={() => setOuvert(false)}
-                    className="block rounded-md p-3 hover:bg-canvas-app"
+                    className="block border-b border-hairline p-3 hover:bg-surface-soft"
                   >
                     <p className={`text-sm ${notification.lue ? "text-subtle" : "font-medium text-ink"}`}>
                       {notification.message}

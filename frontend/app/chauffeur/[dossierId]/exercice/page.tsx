@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 
@@ -32,19 +33,19 @@ export default function ExerciceChauffeurPage({
   const { dossier } = charge;
   const periode =
     dossier.exercice_debut && dossier.exercice_fin
-      ? `${formatDate(dossier.exercice_debut)} – ${formatDate(dossier.exercice_fin)}`
+      ? `${formatDate(dossier.exercice_debut)} - ${formatDate(dossier.exercice_fin)}`
       : null;
 
   return (
     <div>
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Exercice</h1>
-      {periode && <p className="mt-2 text-sm text-subtle">{periode}</p>}
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Exercice</h1>
+      {periode && <p className="mt-1 text-xs text-muted">{periode}</p>}
       {[dossier.alerte_regime, dossier.alerte_tva]
         .filter((alerte): alerte is string => alerte !== null)
         .map((alerte) => (
           <p
             key={alerte}
-            className="mt-4 rounded-md border border-border bg-canvas p-3 text-sm text-ink"
+            className="mt-4 rounded-lg bg-surface-soft p-3 text-sm text-ink"
           >
             {alerte}
           </p>
@@ -58,11 +59,13 @@ export default function ExerciceChauffeurPage({
           ))}
         </ul>
       )}
-      <div className="mt-8">
-        <ClotureSection dossier={dossier} />
+      <div className="mt-6">
+        <ClotureSection
+          dossier={dossier}
+          apresChiffres={<LienAffectation dossierId={dossierId} />}
+        />
         {dossier.depot_greffe && <GreffeInpiSection dossier={dossier} />}
         <ClotureExerciceSection dossierId={dossierId} onClos={() => window.location.reload()} />
-        <LienAffectation dossierId={dossierId} />
         {dossier.paie_par_bulletin && <PaieSection dossierId={dossierId} />}
       </div>
     </div>
@@ -87,9 +90,13 @@ function LienAffectation({ dossierId }: { dossierId: string }) {
   return (
     <Link
       href={`/chauffeur/${dossierId}/resultat`}
-      className="mt-8 block rounded-md border border-border bg-canvas p-3 text-sm text-ink"
+      className="mt-3 flex items-center justify-between rounded-lg border border-border bg-canvas p-4 text-sm"
     >
-      Décider de l&apos;affectation de mon résultat {vue.annee_exercice} →
+      <span>
+        <span className="block font-medium text-ink">Que faire du résultat {vue.annee_exercice} ?</span>
+        <span className="mt-0.5 block text-xs text-muted">Dividendes, réserves : vous choisissez</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
     </Link>
   );
 }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { useDossierChauffeur } from "@/app/chauffeur/use-dossier";
 import { FormulaireCompte } from "@/components/FormulaireCompte";
 import {
@@ -43,16 +44,17 @@ export default function CompteChauffeurPage() {
         onMotDePasse={definirMotDePasse}
         onEmail={(adresse) => changerEmailAvecJeton(jeton, adresse)}
       />
-      <button
+      <Button
         type="button"
-        className="mt-10 text-sm font-medium text-danger"
+        variant="secondary"
+        className="mt-10 w-full text-danger"
         onClick={() => {
           deconnecter();
           router.push("/chauffeur/login");
         }}
       >
         Se déconnecter
-      </button>
+      </Button>
     </div>
   );
 }

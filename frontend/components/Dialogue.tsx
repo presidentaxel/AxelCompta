@@ -24,17 +24,18 @@ export function Dialogue({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 px-4 pb-6"
+      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/35"
       onClick={onFermer}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titreId}
-        className="w-full max-w-md rounded-lg bg-canvas p-5"
+        className="w-full max-w-md rounded-t-xl border-t border-border bg-canvas px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titreId} className="text-base font-semibold text-ink">
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border-strong" aria-hidden />
+        <h2 id={titreId} className="text-base font-medium text-ink">
           {titre}
         </h2>
         {children}

@@ -50,7 +50,7 @@
   --color-info-subtle: #f0f9ff;
   --color-info-border: #7dd3fc;
 
-  /* Sémantiques comptables (doc DESIGN.md — usage strict, ne pas détourner) */
+  /* Sémantiques comptables (doc DESIGN.md - usage strict, ne pas détourner) */
   --color-amount-positive: #16a34a;
   --color-amount-negative: #dc2626;
   --color-amount-neutral: #0f172a;
@@ -112,7 +112,7 @@ body {
   color: #0f172a;
 }
 
-/* DESIGN.md — règle des montants : invariant non négociable. */
+/* DESIGN.md - règle des montants : invariant non négociable. */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -167,7 +167,7 @@ body {
   ---break---
 */
 /* Palette shadcn générique remplacée par les vrais tokens DESIGN.md (pas
-   les valeurs grises par défaut du preset Nova) — voir DESIGN.md
+   les valeurs grises par défaut du preset Nova) - voir DESIGN.md
    "Correspondance Tailwind / shadcn-ui" pour la table de correspondance
    d'origine, complétée ici avec les tokens qui manquaient (muted, accent,
    input, ring). */
@@ -180,7 +180,7 @@ body {
   --popover-foreground: #0f172a; /* ink */
   --primary: #2563eb; /* primary */
   --primary-foreground: #ffffff; /* on-primary */
-  --secondary: #ffffff; /* canvas — button-secondary (DESIGN.md) */
+  --secondary: #ffffff; /* canvas - button-secondary (DESIGN.md) */
   --secondary-foreground: #0f172a; /* ink */
   --muted: #f1f5f9; /* surface-soft */
   --muted-foreground: #475569; /* subtle */
@@ -240,4 +240,104 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+/*
+  Thème mobile (espace chauffeur) : minimal chaud. Posé en surcharge sur
+  `.theme-mobile` pour ne pas toucher le gestionnaire, qui garde la palette
+  de DESIGN.md jusqu'à sa propre passe. Accent rouille distinct du rouge des
+  sorties. Formes serrées : boutons 8 px, cartes 10 px, aucune ombre.
+*/
+.theme-mobile {
+  --background: #fbfaf8;
+  --foreground: #121a25;
+  --card: #ffffff;
+  --card-foreground: #121a25;
+  --primary: #9c4a22;
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;
+  --secondary-foreground: #121a25;
+  --muted-foreground: #4a5461;
+  --accent: #f8efe8;
+  --accent-foreground: #7e3b1a;
+  --destructive: #c0262b;
+  --border: #e9e5de;
+  --input: #d9d3c9;
+  --ring: #9c4a22;
+  --radius: 0.625rem;
+
+  --color-primary: #9c4a22;
+  --color-primary-bright: #b15a2e;
+  --color-primary-deep: #7e3b1a;
+  --color-primary-subtle: #f8efe8;
+  --color-border-focus: #9c4a22;
+  --color-ink: #121a25;
+  --color-body: #121a25;
+  --color-subtle: #4a5461;
+  --color-muted: #667080;
+  --color-faint: #d9d3c9;
+  --color-canvas-app: #fbfaf8;
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f4f1ec;
+  --color-border-strong: #d9d3c9;
+  --color-hairline: #efebe4;
+  --color-danger: #c0262b;
+  --color-amount-negative: #c0262b;
+  --color-amount-positive: #157347;
+  --color-amount-neutral: #121a25;
+  --color-validated: #157347;
+  --color-validated-subtle: #eaf6ef;
+  --color-warning-subtle: #fff6e8;
+  --color-pending-subtle: #fff6e8;
+
+  background-color: #fbfaf8;
+  color: #121a25;
+}
+
+/* Contrôles compacts (réf. Apple) : le composant reste partagé, seule la
+   taille change dans l'espace chauffeur. `data-size` n'existe que si `size`
+   est passé, d'où le `:not` plutôt qu'un test sur "default". */
+.theme-mobile [data-slot="button"]:not([data-size="sm"]) {
+  height: 2.5rem;
+  font-size: 0.875rem;
+}
+.theme-mobile [data-slot="button"][data-size="sm"] {
+  height: 2rem;
+  font-size: 0.8125rem;
+}
+.theme-mobile [data-slot="button"][type="submit"] {
+  width: 100%;
+}
+.theme-mobile [data-slot="input"] {
+  height: 2.625rem;
+  font-size: 0.875rem;
+}
+.theme-mobile [data-slot="button"]:focus-visible,
+.theme-mobile [data-slot="input"]:focus-visible {
+  box-shadow: 0 0 0 3px rgba(156, 74, 34, 0.15);
+}
+.theme-mobile [data-slot="card"] {
+  box-shadow: none;
+}
+/* Un seul bouton rouille par écran : le bouton principal est noir, le rouille
+   se demande explicitement avec la classe `cta`. `data-variant` est absent
+   quand `variant` n'est pas passé (primaire par défaut), d'où les `:not`. */
+.theme-mobile [data-slot="button"]:not([data-variant="secondary"], [data-variant="ghost"], [data-variant="danger"], .cta) {
+  background-color: var(--color-ink);
+}
+.theme-mobile [data-slot="button"]:not([data-variant="secondary"], [data-variant="ghost"], [data-variant="danger"], .cta):hover {
+  background-color: #2a3441;
+}
+/* Règle typographique : poids 400 et 500 seulement. */
+.theme-mobile .font-semibold,
+.theme-mobile .font-bold,
+.theme-mobile b {
+  font-weight: 500;
+}
+.theme-mobile h1 {
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.theme-mobile h2 {
+  font-weight: 500;
 }

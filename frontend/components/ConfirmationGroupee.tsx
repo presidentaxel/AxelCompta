@@ -45,13 +45,14 @@ export function ConfirmationGroupee({
   }
 
   return (
-    <div className="mt-4 rounded-md border border-hairline p-3">
-      <p className="text-sm text-ink">
-        {operations.length} opérations ressemblent à celles que vous avez classées en «{" "}
-        {libelle} ».
+    <div className="rounded-lg border border-primary/20 bg-primary-subtle p-4">
+      <p className="text-sm font-medium text-ink">On a repéré un motif</p>
+      <p className="mt-2 text-sm text-ink">
+        <b className="font-semibold">{operations.length} opérations</b> ressemblent à celles que
+        vous avez classées en « {libelle} ». Les classer aussi ?
       </p>
       {ouvert && (
-        <ul className="mt-2 max-h-64 overflow-y-auto text-xs text-subtle">
+        <ul className="mt-3 max-h-64 overflow-y-auto text-xs text-subtle">
           {operations.map((operation) => (
             <li key={operation.ecritureId} className="flex justify-between gap-3 py-1">
               <span className="min-w-0 truncate">{operation.nom}</span>
@@ -60,23 +61,23 @@ export function ConfirmationGroupee({
           ))}
         </ul>
       )}
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-1.5">
         <Button
           type="button"
-          variant="secondary"
-          className="h-11 w-full"
-          disabled={enCours}
-          onClick={() => setOuvert(!ouvert)}
-        >
-          {ouvert ? "Masquer la liste" : "Voir la liste"}
-        </Button>
-        <Button
-          type="button"
-          className="h-auto min-h-11 w-full px-3 whitespace-normal!"
+          className="h-auto min-h-10 w-full px-3 whitespace-normal!"
           disabled={enCours}
           onClick={() => void confirmer()}
         >
-          {enCours ? "Envoi…" : `Tout classer en « ${libelle} »`}
+          {enCours ? "Envoi…" : `Tout classer (${operations.length})`}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full"
+          disabled={enCours}
+          onClick={() => setOuvert(!ouvert)}
+        >
+          {ouvert ? "Masquer la liste" : "Voir la liste d'abord"}
         </Button>
       </div>
       {erreur && <p className="mt-1 text-xs text-danger">{erreur}</p>}

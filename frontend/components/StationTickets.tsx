@@ -75,7 +75,7 @@ export function StationTickets({
   }
 
   return (
-    <section className="mt-6 border-b border-hairline pb-4">
+    <section className="pt-4">
       <input
         ref={inputRef}
         type="file"
@@ -87,7 +87,7 @@ export function StationTickets({
           evenement.target.value = "";
         }}
       />
-      <h2 className="text-base font-semibold text-ink">Tickets</h2>
+      <h2 className="text-[15px] font-medium text-ink">Tickets manquants</h2>
       <p className="mt-1 text-sm text-subtle">{phraseManquants(sansTicket.length, moisLu)}</p>
       {!lecture && !enLecture && sansTicket.length > 0 && (
         <Button type="button" variant="secondary" className="mt-4 w-full" onClick={ouvrirAppareil}>

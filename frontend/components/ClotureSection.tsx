@@ -2,15 +2,15 @@
 
 // doc 17 §9 Semaine 4 : compte de résultat + bilan simplifié + exports de
 // clôture. **Déplacé le 2026-09-11** (doc 19 §2.1/§5.3) : sur la fiche
-// dossier indiv, pas gestionnaire — le gestionnaire n'a plus de fiche
+// dossier indiv, pas gestionnaire - le gestionnaire n'a plus de fiche
 // dossier détaillée du tout, seulement l'agrégat du dashboard.
 //
 // **Boutons plutôt que `<a href>` depuis le 2026-09-11** (doc 19 §8bis) :
-// ces routes exigent maintenant un jeton indiv — un lien direct ne peut
+// ces routes exigent maintenant un jeton indiv - un lien direct ne peut
 // pas porter l'en-tête `Authorization` et échouerait en 401.
 // `telechargerAvecAuthChauffeur` fait le fetch authentifié puis déclenche
 // l'enregistrement.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Dialogue } from "@/components/Dialogue";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,14 @@ function pieceDeclaration(dossier: DossierResume) {
   };
 }
 
-export function ClotureSection({ dossier }: { dossier: DossierResume }) {
+export function ClotureSection({
+  dossier,
+  apresChiffres,
+}: {
+  dossier: DossierResume;
+  /** Posé juste sous les chiffres clés (accès à l'affectation du résultat). */
+  apresChiffres?: ReactNode;
+}) {
   const [erreur, setErreur] = useState<string | null>(null);
   const [avertissementLiasse, setAvertissementLiasse] = useState(false);
   const [avertissementLu, setAvertissementLu] = useState(false);
@@ -63,7 +70,7 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   async function telecharger(document: DocumentCloture) {
     setErreur(null);
     // Même schéma de nom que le Content-Disposition côté serveur
-    // (demo_api.py : "liasse-{dossier_id}.pdf" etc.) — utile dès qu'on
+    // (demo_api.py : "liasse-{dossier_id}.pdf" etc.) - utile dès qu'on
     // télécharge plusieurs dossiers dans le même dossier de téléchargements.
     const [nom, extension] = document.split(/\.(?=[^.]+$)/);
     const nomFichier = `${nom}-${dossier.dossier_id}.${extension}`;
@@ -83,15 +90,25 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-ink">Résultat</h2>
-      <dl className="mt-3 space-y-2 text-sm">
-        <Ligne label="CA HT" cents={dossier.ca_ht_cts} />
+      <p className="text-xs text-muted">Résultat à ce jour</p>
+      <p
+        className={`mt-1 text-[38px] font-normal leading-none tabular-nums tracking-tight ${
+          dossier.resultat_cts < 0 ? "text-amount-negative" : "text-amount-positive"
+        }`}
+      >
+        {formatMontant(dossier.resultat_cts)}
+      </p>
+      <p className="mt-2 text-sm text-subtle">
+        Ce que l&apos;entreprise a gagné, une fois les charges retirées.
+      </p>
+      <dl className="mt-5 divide-y divide-hairline rounded-lg border border-border bg-canvas px-4 text-sm">
+        <Ligne label="Chiffre d'affaires" cents={dossier.ca_ht_cts} />
         <Ligne label="Charges" cents={dossier.charges_cts} />
-        <Ligne label="Résultat" cents={dossier.resultat_cts} emphasise />
         <Ligne label="Trésorerie" cents={dossier.tresorerie_cts} />
         <Ligne label="TVA à payer" cents={dossier.tva_a_payer_cts} />
       </dl>
-      <h2 className="mt-8 text-base font-semibold text-ink">Pour les impôts</h2>
+      {apresChiffres}
+      <h2 className="mt-8 text-[15px] font-medium text-ink">Pour les impôts</h2>
       <p className="mt-1 text-sm text-subtle">
         Les comptes ne sont pas clôturés. À télécharger et à conserver. La déclaration
         n&apos;est pas envoyée d&apos;ici.
@@ -167,26 +184,11 @@ export function ClotureSection({ dossier }: { dossier: DossierResume }) {
   );
 }
 
-function Ligne({
-  label,
-  cents,
-  emphasise,
-}: {
-  label: string;
-  cents: number;
-  emphasise?: boolean;
-}) {
-  const negatif = cents < 0;
+function Ligne({ label, cents }: { label: string; cents: number }) {
   return (
-    <div className="flex items-baseline justify-between">
+    <div className="flex items-baseline justify-between py-2.5">
       <dt className="text-subtle">{label}</dt>
-      <dd
-        className={`tabular-nums text-right ${emphasise ? "font-semibold" : ""} ${
-          negatif ? "text-amount-negative" : emphasise ? "text-amount-positive" : "text-ink"
-        }`}
-      >
-        {formatMontant(cents)}
-      </dd>
+      <dd className="text-right tabular-nums text-ink">{formatMontant(cents)}</dd>
     </div>
   );
 }
