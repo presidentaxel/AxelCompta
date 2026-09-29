@@ -61,15 +61,15 @@ export default function DemoPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Démo</h1>
-      <p className="mt-2 text-sm text-subtle">
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Démo</h1>
+      <p className="mt-1 max-w-2xl text-[13.5px] text-subtle">
         Remettre les données du portefeuille de démo dans leur état de départ, avant ou après une
         présentation. Coche seulement ce que tu veux effacer.
       </p>
 
       {parties && (
-        <ul className="mt-8">
+        <ul className="mt-6 max-w-2xl">
           {parties.map((partie) => (
             <li key={partie.cle} className="border-b border-hairline">
               <label className="flex cursor-pointer items-start gap-3 py-4">
@@ -89,7 +89,7 @@ export default function DemoPage() {
         </ul>
       )}
 
-      <div className="mt-6 rounded-lg bg-surface-soft px-4 py-3">
+      <div className="mt-6 max-w-2xl rounded-lg bg-surface-soft px-4 py-3">
         <p className="text-sm font-medium text-ink">Jamais touché</p>
         <ul className="mt-1 space-y-0.5 text-sm text-subtle">
           {JAMAIS_TOUCHE.map((ligne) => (

@@ -6,13 +6,16 @@ export function Segments<T extends string>({
   valeur,
   options,
   onChange,
+  label,
 }: {
+  /** Nom du groupe pour les lecteurs d'écran (« Rôle de … »). */
+  label?: string;
   valeur: T;
   options: { valeur: T; libelle: string }[];
   onChange: (valeur: T) => void;
 }) {
   return (
-    <div role="group" className="flex rounded-lg bg-surface-soft p-0.5">
+    <div role="group" aria-label={label} className="flex rounded-lg bg-surface-soft p-0.5">
       {options.map((option) => (
         <button
           key={option.valeur}

@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pastille } from "@/components/Pastille";
+import { Segments } from "@/components/Segments";
 import {
   creerRegle,
   ErreurAuthGestionnaire,
@@ -65,8 +67,13 @@ export default function RappelsPage() {
   const [choisis, setChoisis] = useState<string[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
+  // Le mode strict de React lance l'effet deux fois en développement : sans
+  // garde, chaque passe voit les règles de base « manquantes » et les crée.
+  const initialise = useRef(false);
 
   useEffect(() => {
+    if (initialise.current) return;
+    initialise.current = true;
     listerRegles()
       .then(async (liste) => {
         const manquantes = PREFAITS.filter(
@@ -109,68 +116,107 @@ export default function RappelsPage() {
     }
   }
 
+  const styleCanal = (actif: boolean) =>
+    `h-[30px] rounded-md border px-3 text-[13px] font-medium transition-colors duration-150 ${
+      actif ? "border-ink bg-ink text-on-primary" : "border-border-strong text-subtle hover:border-ink hover:text-ink"
+    }`;
+
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Rappels</h1>
-      <p className="mt-2 text-sm text-subtle">
-        Les trois règles de base sont déjà en place. À gauche, une règle en plus.
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Rappels</h1>
+      <p className="mt-1 text-[13.5px] text-subtle">
+        Les trois règles de base sont déjà en place. Un rappel part par SMS, e-mail ou appel.
       </p>
 
-      <div className="mt-8 grid items-start gap-12 lg:grid-cols-3">
-      <form
-        className="space-y-4 lg:col-span-2"
-        onSubmit={(evenement) => {
-          evenement.preventDefault();
-          void ajouter({
-            libelle: libelle.trim(),
-            message: message.trim(),
-            canaux,
-            declencheur,
-            jours_avant: declencheur === "avant_cloture" ? Number(jours) : null,
-            portee,
-            dossier_ids: choisis,
-          });
-          setLibelle("");
-          setMessage("");
-        }}
-      >
-        <p className="text-sm font-medium text-ink">Règle à toi</p>
-        <Input value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Nom" required disabled={enCours} />
-        <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" required disabled={enCours} />
-        <div className="flex flex-wrap gap-2">
-          {CANAUX.map((canal) => {
-            const actif = canaux.includes(canal.id);
-            return (
-              <button
-                key={canal.id}
-                type="button"
-                onClick={() =>
-                  setCanaux((actuel) => (actif ? actuel.filter((id) => id !== canal.id) : [...actuel, canal.id]))
-                }
-                className={`rounded-full border px-3 py-1.5 text-sm ${actif ? "border-primary bg-primary-subtle text-primary" : "border-border text-subtle"}`}
-              >
-                {canal.libelle}
-              </button>
-            );
-          })}
+      <div className="mt-7 grid items-start gap-10 lg:grid-cols-[1fr_340px]">
+        <div>
+          {erreur && <p className="mb-4 text-sm text-danger">{erreur}</p>}
+          <h2 className="text-[15px] font-medium text-ink">Règles</h2>
+          <ul className="mt-1">
+            {regles?.map((regle) => (
+              <li key={regle.id} className="flex items-start gap-4 border-b border-hairline py-3.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-medium text-ink">{regle.libelle}</span>
+                  <span className="mt-0.5 block text-[13px] text-subtle">{regle.message}</span>
+                  <span className="mt-1 block text-xs text-muted">
+                    {regle.declencheur === "avant_cloture"
+                      ? `${regle.jours_avant} jours avant la clôture`
+                      : "Bouton sur la fiche"}
+                    {" - "}
+                    {regle.portee === "selection" ? `${regle.dossier_ids.length} entreprise(s)` : "Toutes"}
+                  </span>
+                </span>
+                <span className="flex shrink-0 gap-1.5">
+                  {regle.canaux.map((canal) => (
+                    <Pastille key={canal} ton="neutre">
+                      {CANAUX.find((c) => c.id === canal)?.libelle ?? canal}
+                    </Pastille>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {regles && regles.length === 0 && <p className="mt-3 text-sm text-subtle">Aucune règle.</p>}
+          <p className="mt-3 text-xs text-muted">
+            Une règle se déclenche à la main depuis la fiche d&apos;une entreprise, ou toute seule avant la
+            clôture. L&apos;envoi réel attend le branchement du canal.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <button
-            type="button"
-            onClick={() => setDeclencheur("avant_cloture")}
-            className={`rounded-full border px-3 py-1.5 ${declencheur === "avant_cloture" ? "border-primary bg-primary-subtle text-primary" : "border-border text-subtle"}`}
-          >
-            Avant la clôture
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeclencheur("manuel")}
-            className={`rounded-full border px-3 py-1.5 ${declencheur === "manuel" ? "border-primary bg-primary-subtle text-primary" : "border-border text-subtle"}`}
-          >
-            Bouton sur la fiche
-          </button>
+
+        <form
+          className="rounded-[10px] border border-border bg-canvas p-5"
+          onSubmit={(evenement) => {
+            evenement.preventDefault();
+            void ajouter({
+              libelle: libelle.trim(),
+              message: message.trim(),
+              canaux,
+              declencheur,
+              jours_avant: declencheur === "avant_cloture" ? Number(jours) : null,
+              portee,
+              dossier_ids: choisis,
+            });
+            setLibelle("");
+            setMessage("");
+          }}
+        >
+          <h2 className="text-[15px] font-medium text-ink">Nouvelle règle</h2>
+          <p className="mb-4 mt-0.5 text-xs text-muted">Se crée ici, se déclenche depuis la fiche.</p>
+          <div className="space-y-2">
+            <Input value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Nom" required disabled={enCours} />
+            <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" required disabled={enCours} />
+          </div>
+          <p className="mb-1.5 mt-4 text-xs text-muted">Canaux</p>
+          <div className="flex flex-wrap gap-1.5">
+            {CANAUX.map((canal) => {
+              const actif = canaux.includes(canal.id);
+              return (
+                <button
+                  key={canal.id}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() =>
+                    setCanaux((actuel) => (actif ? actuel.filter((id) => id !== canal.id) : [...actuel, canal.id]))
+                  }
+                  className={styleCanal(actif)}
+                >
+                  {canal.libelle}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mb-1.5 mt-4 text-xs text-muted">Déclenchement</p>
+          <Segments
+            label="Déclenchement"
+            valeur={declencheur}
+            onChange={setDeclencheur}
+            options={[
+              { valeur: "avant_cloture", libelle: "Avant la clôture" },
+              { valeur: "manuel", libelle: "Bouton sur la fiche" },
+            ]}
+          />
           {declencheur === "avant_cloture" && (
-            <label className="flex items-center gap-2 text-subtle">
+            <label className="mt-2 flex items-center gap-2 text-[13px] text-subtle">
               <Input
                 value={jours}
                 onChange={(e) => setJours(e.target.value)}
@@ -181,71 +227,42 @@ export default function RappelsPage() {
               jours avant
             </label>
           )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPortee("tous")}
-            className={`rounded-full border px-3 py-1.5 text-sm ${portee === "tous" ? "border-primary bg-primary-subtle text-primary" : "border-border text-subtle"}`}
-          >
-            Toutes les entreprises
-          </button>
-          <button
-            type="button"
-            onClick={() => setPortee("selection")}
-            className={`rounded-full border px-3 py-1.5 text-sm ${portee === "selection" ? "border-primary bg-primary-subtle text-primary" : "border-border text-subtle"}`}
-          >
-            Certaines
-          </button>
-        </div>
-        {portee === "selection" && (
-          <ul className="max-h-40 overflow-y-auto rounded-lg border border-border">
-            {dossiers.map((dossier) => (
-              <li key={dossier.dossier_id}>
-                <label className="flex items-center gap-2 px-3 py-2 text-sm text-ink">
-                  <input
-                    type="checkbox"
-                    checked={choisis.includes(dossier.dossier_id)}
-                    onChange={() =>
-                      setChoisis((actuel) =>
-                        actuel.includes(dossier.dossier_id)
-                          ? actuel.filter((id) => id !== dossier.dossier_id)
-                          : [...actuel, dossier.dossier_id],
-                      )
-                    }
-                  />
-                  {dossier.nom}
-                </label>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Button type="submit" disabled={enCours || canaux.length === 0}>
-          Enregistrer la règle
-        </Button>
-      </form>
-      <div>
-      {erreur && <p className="mb-4 text-sm text-danger">{erreur}</p>}
-      <p className="text-sm font-medium text-ink">Règles</p>
-      <ul className="mt-3">
-        {regles?.map((regle) => (
-          <li key={regle.id} className="border-b border-hairline py-4">
-            <p className="text-sm font-medium text-ink">{regle.libelle}</p>
-            <p className="mt-1 text-sm text-subtle">{regle.message}</p>
-            <p className="mt-1 text-xs text-subtle">
-              {regle.declencheur === "avant_cloture"
-                ? `${regle.jours_avant} jours avant la clôture`
-                : "Bouton sur la fiche"}
-              {" · "}
-              {regle.portee === "selection" ? `${regle.dossier_ids.length} entreprise(s)` : "Toutes"}
-              {" · "}
-              {regle.canaux.join(", ")}
-            </p>
-          </li>
-        ))}
-      </ul>
-      {regles && regles.length === 0 && <p className="mt-3 text-sm text-subtle">Aucune règle.</p>}
-      </div>
+          <p className="mb-1.5 mt-4 text-xs text-muted">Entreprises</p>
+          <Segments
+            label="Entreprises concernées"
+            valeur={portee}
+            onChange={setPortee}
+            options={[
+              { valeur: "tous", libelle: "Toutes" },
+              { valeur: "selection", libelle: "Certaines" },
+            ]}
+          />
+          {portee === "selection" && (
+            <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-border">
+              {dossiers.map((dossier) => (
+                <li key={dossier.dossier_id}>
+                  <label className="flex items-center gap-2 px-3 py-2 text-[13px] text-ink">
+                    <input
+                      type="checkbox"
+                      checked={choisis.includes(dossier.dossier_id)}
+                      onChange={() =>
+                        setChoisis((actuel) =>
+                          actuel.includes(dossier.dossier_id)
+                            ? actuel.filter((id) => id !== dossier.dossier_id)
+                            : [...actuel, dossier.dossier_id],
+                        )
+                      }
+                    />
+                    {dossier.nom}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button type="submit" className="mt-5 w-full" disabled={enCours || canaux.length === 0}>
+            Enregistrer la règle
+          </Button>
+        </form>
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ import {
   reglerRelanceDossier,
   reglerRelancePortefeuille,
 } from "@/lib/auth-gestionnaire";
+import { Pastille } from "@/components/Pastille";
+import { Segments } from "@/components/Segments";
 import { formatDate } from "@/lib/format";
 
 const STATUTS: Record<ConnexionDossier["statut"], string> = {
@@ -76,15 +78,15 @@ export default function ConnexionsBancairesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Connexions bancaires</h1>
-      <p className="mt-2 text-sm text-subtle">
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Connexions bancaires</h1>
+      <p className="mt-1 text-[13.5px] text-subtle">
         Sans connexion valide, les opérations d&apos;un chauffeur n&apos;arrivent plus.
       </p>
       {erreur && <p className="mt-4 text-sm text-danger">{erreur}</p>}
       {donnees && (
         <>
-          <dl className="mt-8 flex flex-wrap gap-x-12 gap-y-4">
+          <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3">
             <Compteur libelle="Expirées" valeur={donnees.compteurs.expire} alerte />
             <Compteur libelle="À confirmer" valeur={donnees.a_reconnecter} alerte />
             <Compteur libelle="À renouveler (14 jours)" valeur={donnees.compteurs.a_renouveler} />
@@ -92,57 +94,57 @@ export default function ConnexionsBancairesPage() {
             <Compteur libelle="Jamais connectées" valeur={donnees.compteurs.jamais_connecte} />
           </dl>
 
-          <section className="mt-10">
-            <h2 className="text-sm font-medium text-ink">Relances des chauffeurs</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {MODES.map(({ mode, titre, detail }) => {
-                const actif = donnees.relance_portefeuille === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={enCours || actif}
-                    onClick={() => void regler(() => reglerRelancePortefeuille(mode))}
-                    aria-pressed={actif}
-                    className={`rounded-md border p-4 text-left ${actif ? "border-primary bg-primary-subtle" : "border-border hover:border-ink"}`}
-                  >
-                    <span className="text-sm font-medium text-ink">{titre}</span>
-                    <span className="mt-1 block text-xs text-subtle">{detail}</span>
-                  </button>
-                );
-              })}
+          <section className="mt-7 flex items-center gap-6 rounded-[10px] border border-border bg-canvas px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15px] font-medium text-ink">Relances des chauffeurs</h2>
+              <p className="mt-0.5 text-[13px] text-subtle">
+                {MODES.find(({ mode }) => mode === donnees.relance_portefeuille)?.detail}
+              </p>
+            </div>
+            <div className="w-64 shrink-0">
+              <Segments
+                valeur={donnees.relance_portefeuille}
+                onChange={(mode) => {
+                  if (!enCours && mode !== donnees.relance_portefeuille) {
+                    void regler(() => reglerRelancePortefeuille(mode));
+                  }
+                }}
+                options={MODES.map(({ mode, titre }) => ({ valeur: mode, libelle: titre }))}
+              />
             </div>
           </section>
 
-          <table className="mt-10 w-full text-left text-sm">
-            <thead className="text-xs text-subtle">
-              <tr className="border-b border-hairline">
-                <th className="py-2 font-medium">Entreprise</th>
-                <th className="py-2 font-medium">Connexion</th>
-                <th className="py-2 font-medium">Expire le</th>
-                <th className="py-2 font-medium">Dernière mise à jour</th>
-                <th className="py-2 font-medium">Relances</th>
+          <table className="mt-7 w-full border-collapse text-left text-[13.5px]">
+            <thead>
+              <tr className="border-b border-border text-[11.5px] font-medium tracking-wide text-muted">
+                <th className="w-[26%] pb-2 pr-3">Entreprise</th>
+                <th className="w-[26%] pb-2 pr-3">Connexion</th>
+                <th className="pb-2 pr-3">Expire le</th>
+                <th className="pb-2 pr-3">Dernière mise à jour</th>
+                <th className="pb-2">Relances</th>
               </tr>
             </thead>
             <tbody>
               {donnees.dossiers.map((dossier) => (
                 <tr key={dossier.dossier_id} className="border-b border-hairline align-top">
-                  <td className="py-3 text-ink">{dossier.nom}</td>
-                  <td className="py-3">
+                  <td className="py-3 pr-3 font-medium text-ink">{dossier.nom}</td>
+                  <td className="py-3 pr-3">
                     <Etat dossier={dossier} />
                   </td>
-                  <td className="py-3 tabular-nums text-ink">
-                    {dossier.expire_le ? formatDate(dossier.expire_le) : "—"}
+                  <td className="py-3 pr-3 tabular-nums text-ink">
+                    {dossier.expire_le ? formatDate(dossier.expire_le) : <span className="text-muted">-</span>}
                     {dossier.jours_restants !== null && dossier.jours_restants >= 0 && (
-                      <span className="block text-xs text-subtle">
+                      <span className="block text-xs text-muted">
                         dans {dossier.jours_restants} jour{dossier.jours_restants > 1 ? "s" : ""}
                       </span>
                     )}
                   </td>
-                  <td className="py-3 tabular-nums text-subtle">
-                    {dossier.dernier_rafraichissement
-                      ? formatDate(dossier.dernier_rafraichissement)
-                      : "—"}
+                  <td className="py-3 pr-3 tabular-nums text-subtle">
+                    {dossier.dernier_rafraichissement ? (
+                      formatDate(dossier.dernier_rafraichissement)
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
                   </td>
                   <td className="py-3">
                     <select
@@ -158,7 +160,7 @@ export default function ConnexionsBancairesPage() {
                           ),
                         );
                       }}
-                      className="rounded-md border border-border bg-canvas px-2 py-1 text-sm text-ink"
+                      className="w-full max-w-52 rounded-md border border-border-strong bg-canvas px-2.5 text-ink"
                     >
                       <option value="portefeuille">
                         Comme le portefeuille ({donnees.relance_portefeuille === "auto" ? "automatique" : "manuel"})
@@ -180,9 +182,9 @@ export default function ConnexionsBancairesPage() {
 function Compteur({ libelle, valeur, alerte = false }: { libelle: string; valeur: number; alerte?: boolean }) {
   return (
     <div>
-      <dt className="text-xs text-subtle">{libelle}</dt>
+      <dt className="text-xs text-muted">{libelle}</dt>
       <dd
-        className={`text-[22px] font-bold tabular-nums ${alerte && valeur > 0 ? "text-danger" : "text-ink"}`}
+        className={`mt-0.5 text-[22px] font-normal tabular-nums tracking-tight ${alerte && valeur > 0 ? "text-danger" : "text-ink"}`}
       >
         {valeur}
       </dd>
@@ -193,10 +195,20 @@ function Compteur({ libelle, valeur, alerte = false }: { libelle: string; valeur
 function Etat({ dossier }: { dossier: ConnexionDossier }) {
   const probleme = SANTES[dossier.sante];
   const urgent = dossier.statut === "expire" || dossier.sante === "auth_requise";
+  const ton =
+    dossier.statut === "jamais_connecte"
+      ? "absent"
+      : urgent
+        ? "negatif"
+        : dossier.statut === "a_renouveler"
+          ? "attention"
+          : "positif";
   return (
-    <span className={urgent ? "text-danger" : dossier.statut === "a_renouveler" ? "text-warning" : "text-ink"}>
-      {STATUTS[dossier.statut]}
-      {probleme && <span className="block text-xs">{probleme}</span>}
+    <span className="block">
+      <Pastille ton={ton} point={ton !== "absent"}>
+        {dossier.sante === "auth_requise" ? "À confirmer" : STATUTS[dossier.statut]}
+      </Pastille>
+      {probleme && <span className={`mt-1 block text-xs ${urgent ? "text-danger" : "text-muted"}`}>{probleme}</span>}
     </span>
   );
 }

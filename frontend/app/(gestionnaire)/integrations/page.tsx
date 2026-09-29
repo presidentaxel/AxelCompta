@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Pastille } from "@/components/Pastille";
 import {
   ErreurAuthGestionnaire,
   lireParametresDemo,
@@ -73,13 +74,13 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Intégrations</h1>
-      <p className="mt-2 text-sm text-subtle">
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Intégrations</h1>
+      <p className="mt-1 text-[13.5px] text-subtle">
         Digifactory est un canal de démonstration. Le reste n&apos;est pas connecté.
       </p>
       {erreur && <p className="mt-4 text-sm text-danger">{erreur}</p>}
-      <ul className="mt-8">
+      <ul className="mt-6 max-w-2xl">
         <li className="flex items-center justify-between gap-6 border-b border-hairline py-4">
           <span>
             <span className="block text-sm font-medium text-ink">Digifactory</span>
@@ -109,7 +110,7 @@ export default function IntegrationsPage() {
               <span className="block text-sm font-medium text-ink">{integration.nom}</span>
               <span className="mt-1 block text-sm text-subtle">{integration.detail}</span>
             </span>
-            <span className="shrink-0 text-xs text-subtle">Prévu</span>
+            <Pastille ton="neutre">Prévu</Pastille>
           </li>
         ))}
       </ul>

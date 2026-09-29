@@ -12,15 +12,17 @@ export default function ConnexionGestionnairePage() {
   const router = useRouter();
 
   return (
-    <main className="mx-auto mt-24 max-w-sm px-4">
-      <FormulaireConnexion
-        titre="Connexion gestionnaire"
-        sousTitre="Accédez à l'état de votre portefeuille."
-        onConnecte={async (email, motDePasse) => {
-          await connexionGestionnaire(email, motDePasse);
-          router.push(cheminDeRetour(window.location.search, "/"));
-        }}
-      />
-    </main>
+    <div className="theme-pro min-h-screen">
+      <main className="mx-auto max-w-sm px-4 pt-24">
+        <FormulaireConnexion
+          titre="Connexion gestionnaire"
+          sousTitre="Accédez à l'état de votre portefeuille."
+          onConnecte={async (email, motDePasse) => {
+            await connexionGestionnaire(email, motDePasse);
+            router.push(cheminDeRetour(window.location.search, "/"));
+          }}
+        />
+      </main>
+    </div>
   );
 }

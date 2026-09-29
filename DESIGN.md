@@ -654,6 +654,32 @@ components:
     maxWidth: 520px
 ---
 
+## Thème "minimal chaud" (v2, 2026-09-29)
+
+Ce thème remplace la palette et les formes décrites plus bas pour tout le
+produit. Il est posé sur `.theme-mobile` (espace chauffeur) et `.theme-pro`
+(gestionnaire) dans `frontend/app/globals.css`, en surcharge des tokens
+`@theme`. Les sections suivantes gardent leurs règles d'usage (montants,
+badges, tableaux, accessibilité), mais **les valeurs de ce paragraphe font
+foi** quand elles diffèrent.
+
+| Sujet | Valeur |
+|---|---|
+| Fond / carte | `#FBFAF8` / `#FFFFFF`, filets `#E9E5DE`, aplat doux `#F4F1EC`. Aucune ombre. |
+| Encre / secondaire / discret | `#121A25` / `#4A5461` / `#667080` (AA). |
+| Accent | rouille `#9C4A22` (survol `#B15A2E`, fond `#F8EFE8`). **Un seul bouton rouille par écran** (classe `cta`) ; le bouton principal par défaut est noir. |
+| Montants | négatifs `#C0262B`, positifs `#157347`, toujours en `tabular-nums`. |
+| Typographie | Inter, poids 400 et 500 uniquement (`font-semibold` et `font-bold` sont ramenés à 500). Titre de page 22 px. |
+| Formes | boutons et champs 8 px, cartes 10 px, pastilles 6 px, boutons de segment 6 px. |
+| Contrôles | mobile 40 px (petit 32 px), PC 34 px (petit 28 px). |
+| Focus | anneau 2 px rouille (`outline`) plus halo doux. |
+| Mobile | quatre onglets : Accueil, Mouvements, Exercice, Compte ; classement une opération à la fois. |
+| PC | barre latérale claire de 232 px, tables à filets, lignes dépliables, largeur utile 1100 px. |
+
+Composants ajoutés : `Segments`, `Pastille`, `Selecteur`, `FriseEntreprise`,
+`LigneOperation`, `DetailOperation`. Tirets cadratins interdits dans le texte
+et le code ajoutés : uniquement "-".
+
 ## Vue d'ensemble
 
 AxeLCompta adopte un **système canvas clair** : le fond de l'application est

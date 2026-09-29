@@ -39,9 +39,9 @@ export default function CompteGestionnairePage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl items-start gap-12 lg:grid-cols-3">
+    <div className="mx-auto grid max-w-[1100px] items-start gap-12 lg:grid-cols-2">
       <form
-        className="space-y-4 lg:col-span-2"
+        className="space-y-3"
         onSubmit={async (evenement) => {
           evenement.preventDefault();
           setInfoNom(null);

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pastille } from "@/components/Pastille";
 import {
   ErreurAuthGestionnaire,
   inviterChauffeur,
@@ -44,13 +45,13 @@ export default function InvitationsPage() {
     [];
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Invitations</h1>
-      <p className="mt-2 text-sm text-subtle">
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Invitations</h1>
+      <p className="mt-1 text-[13.5px] text-subtle">
         Choisis une entreprise et son e-mail. L&apos;invitation part tout de suite.
       </p>
       <form
-        className="mt-8 flex flex-wrap items-center gap-2"
+        className="mt-6 flex flex-wrap items-center gap-2"
         onSubmit={async (evenement) => {
           evenement.preventDefault();
           if (!cible) return;
@@ -71,7 +72,7 @@ export default function InvitationsPage() {
           value={cible}
           onChange={(evenement) => setCible(evenement.target.value)}
           aria-label="Entreprise à inviter"
-          className="h-9 min-w-48 rounded-md border border-border bg-canvas px-3 text-sm text-ink"
+          className="min-w-56 rounded-md border border-border-strong bg-canvas px-3 text-ink"
         >
           <option value="">Entreprise</option>
           {(dossiers ?? []).map((dossier) => (
@@ -139,12 +140,14 @@ export default function InvitationsPage() {
 
       {suivies.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-sm font-semibold text-ink">Déjà lancées</h2>
+          <h2 className="text-[15px] font-medium text-ink">Déjà lancées</h2>
           <ul className="mt-3">
             {suivies.map((dossier) => (
               <li key={dossier.dossier_id} className="flex justify-between border-b border-hairline py-3 text-sm">
                 <span className="text-ink">{dossier.nom}</span>
-                <span className="text-subtle">{libelleCompte(dossier.statut_invitation)}</span>
+                <Pastille ton={dossier.statut_invitation === "actif" ? "positif" : "attention"} point>
+                  {libelleCompte(dossier.statut_invitation)}
+                </Pastille>
               </li>
             ))}
           </ul>

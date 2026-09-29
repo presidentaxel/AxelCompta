@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pastille } from "@/components/Pastille";
+import { Segments } from "@/components/Segments";
 import {
   changerRole,
   ErreurAuthGestionnaire,
@@ -87,14 +89,13 @@ export default function EquipePage() {
         : [];
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Équipe</h1>
-      <p className="mt-2 text-sm text-subtle">Qui voit cette organisation, et jusqu&apos;où.</p>
-      {erreur && <p className="mt-6 text-sm text-danger">{erreur}</p>}
+    <div className="mx-auto max-w-[1100px]">
+      <h1 className="text-[22px] font-medium tracking-tight text-ink">Équipe</h1>
+      <p className="mt-1 text-[13.5px] text-subtle">Qui voit cette organisation, et jusqu&apos;où.</p>
+      {erreur && <p className="mt-5 text-sm text-danger">{erreur}</p>}
 
-      <div className="mt-8 grid items-start gap-12 lg:grid-cols-3">
       <form
-        className="space-y-4 lg:col-span-2"
+        className="mt-6 flex flex-wrap items-center gap-2"
         onSubmit={async (evenement) => {
           evenement.preventDefault();
           setEnCours(true);
@@ -110,49 +111,73 @@ export default function EquipePage() {
           }
         }}
       >
-        <p className="text-sm font-medium text-ink">Inviter quelqu&apos;un</p>
         <Input
           type="email"
           required
           value={emailInvite}
           onChange={(evenement) => setEmailInvite(evenement.target.value)}
-          placeholder="E-mail"
+          placeholder="E-mail de la personne à inviter"
+          aria-label="E-mail de la personne à inviter"
           disabled={enCours}
+          className="w-72"
         />
-        <Segment valeur={roleInvite} onChoisir={setRoleInvite} />
-        <Button type="submit" disabled={enCours} className="w-full">
+        <div className="w-60">
+          <Segment label="Rôle de la personne invitée" valeur={roleInvite} onChoisir={setRoleInvite} />
+        </div>
+        <Button type="submit" disabled={enCours}>
           Envoyer l&apos;invitation
         </Button>
       </form>
-      <ul>
-        {liste.map((membre) => (
-          <li key={membre.email} className="border-b border-hairline py-4">
-            <p className="text-sm font-medium text-ink">
-              {membre.email}
-              <span className="font-normal text-subtle">
-                {" · "}
-                {membre.statut === "actif" ? "Invitation acceptée" : "Invitation envoyée"}
-                {membre.email === email ? " · vous" : ""}
-              </span>
-            </p>
-            <div className="mt-3">
-              <Segment
-                valeur={membre.role}
-                onChoisir={async (role) => {
-                  if (role === membre.role) return;
-                  try {
-                    const misAJour = await changerRole(membre.email, role);
-                    retenir(misAJour);
-                  } catch (exception) {
-                    setErreur(exception instanceof Error ? exception.message : "Échec du changement.");
-                  }
-                }}
-              />
-            </div>
-          </li>
-        ))}
-      </ul>
-      </div>
+
+      <table className="mt-7 w-full border-collapse text-[13.5px]">
+        <thead>
+          <tr className="border-b border-border text-left text-[11.5px] font-medium tracking-wide text-muted">
+            <th className="pb-2 pr-3">Personne</th>
+            <th className="w-[200px] pb-2 pr-3">Statut</th>
+            <th className="w-[260px] pb-2">Rôle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {liste.map((membre) => (
+            <tr key={membre.email} className="border-b border-hairline">
+              <td className="py-3 pr-3 font-medium text-ink">
+                {membre.email}
+                {membre.email === email && (
+                  <span className="ml-2 inline-flex h-[22px] items-center rounded-sm bg-surface-soft px-2 text-xs font-medium text-subtle">
+                    vous
+                  </span>
+                )}
+              </td>
+              <td className="py-3 pr-3">
+                {membre.statut === "actif" ? (
+                  <Pastille ton="positif" point>
+                    Invitation acceptée
+                  </Pastille>
+                ) : (
+                  <Pastille ton="attention" point>
+                    Invitation envoyée
+                  </Pastille>
+                )}
+              </td>
+              <td className="py-3">
+                <Segment
+                  label={`Rôle de ${membre.email}`}
+                  valeur={membre.role}
+                  onChoisir={async (role) => {
+                    if (role === membre.role) return;
+                    try {
+                      const misAJour = await changerRole(membre.email, role);
+                      retenir(misAJour);
+                    } catch (exception) {
+                      setErreur(exception instanceof Error ? exception.message : "Échec du changement.");
+                    }
+                  }}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -160,25 +185,18 @@ export default function EquipePage() {
 function Segment({
   valeur,
   onChoisir,
+  label,
 }: {
   valeur: RoleMembre;
   onChoisir: (role: RoleMembre) => void;
+  label: string;
 }) {
   return (
-    <div className="flex w-full overflow-hidden rounded-md border border-border">
-      {ROLES.map((role) => (
-        <button
-          key={role.id}
-          type="button"
-          title={role.detail}
-          onClick={() => onChoisir(role.id)}
-          className={`h-9 flex-1 border-l border-border text-sm first:border-l-0 ${
-            valeur === role.id ? "bg-surface-soft font-medium text-ink" : "text-subtle hover:bg-canvas-app"
-          }`}
-        >
-          {role.libelle}
-        </button>
-      ))}
-    </div>
+    <Segments
+      label={label}
+      valeur={valeur}
+      onChange={onChoisir}
+      options={ROLES.map((role) => ({ valeur: role.id, libelle: role.libelle }))}
+    />
   );
 }

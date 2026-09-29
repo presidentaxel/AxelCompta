@@ -241,13 +241,24 @@ body {
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+/* Contrôles compacts (réf. Apple) : le composant reste partagé, seule la
+   taille change dans l'espace chauffeur. `data-size` n'existe que si `size`
+   est passé, d'où le `:not` plutôt qu'un test sur "default". */
+.theme-mobile [data-slot="button"]:not([data-size="sm"]) {
+  height: 2.5rem;
+  font-size: 0.875rem;
+}
+.theme-mobile [data-slot="button"][data-size="sm"] {
+  height: 2rem;
+  font-size: 0.8125rem;
+}
 /*
-  Thème mobile (espace chauffeur) : minimal chaud. Posé en surcharge sur
-  `.theme-mobile` pour ne pas toucher le gestionnaire, qui garde la palette
-  de DESIGN.md jusqu'à sa propre passe. Accent rouille distinct du rouge des
-  sorties. Formes serrées : boutons 8 px, cartes 10 px, aucune ombre.
+  Thème "minimal chaud", commun au mobile (`.theme-mobile`, espace chauffeur)
+  et au PC (`.theme-pro`, gestionnaire). Accent rouille distinct du rouge des
+  sorties. Formes serrées : boutons 8 px, cartes 10 px, aucune ombre. Seules
+  les tailles de contrôles changent : 40 px sur mobile, 34 px sur PC.
 */
-.theme-mobile {
+:is(.theme-mobile, .theme-pro) {
   --background: #fbfaf8;
   --foreground: #121a25;
   --card: #ffffff;
@@ -293,51 +304,75 @@ body {
   color: #121a25;
 }
 
-/* Contrôles compacts (réf. Apple) : le composant reste partagé, seule la
-   taille change dans l'espace chauffeur. `data-size` n'existe que si `size`
-   est passé, d'où le `:not` plutôt qu'un test sur "default". */
-.theme-mobile [data-slot="button"]:not([data-size="sm"]) {
-  height: 2.5rem;
-  font-size: 0.875rem;
-}
-.theme-mobile [data-slot="button"][data-size="sm"] {
-  height: 2rem;
-  font-size: 0.8125rem;
-}
 .theme-mobile [data-slot="button"][type="submit"] {
   width: 100%;
 }
-.theme-mobile [data-slot="input"] {
+:is(.theme-mobile, .theme-pro) [data-slot="input"] {
   height: 2.625rem;
   font-size: 0.875rem;
 }
-.theme-mobile [data-slot="button"]:focus-visible,
-.theme-mobile [data-slot="input"]:focus-visible {
+:is(.theme-mobile, .theme-pro) [data-slot="button"]:focus-visible,
+:is(.theme-mobile, .theme-pro) [data-slot="input"]:focus-visible {
   box-shadow: 0 0 0 3px rgba(156, 74, 34, 0.15);
 }
-.theme-mobile [data-slot="card"] {
+:is(.theme-mobile, .theme-pro) [data-slot="card"] {
   box-shadow: none;
 }
 /* Un seul bouton rouille par écran : le bouton principal est noir, le rouille
    se demande explicitement avec la classe `cta`. `data-variant` est absent
    quand `variant` n'est pas passé (primaire par défaut), d'où les `:not`. */
-.theme-mobile [data-slot="button"]:not([data-variant="secondary"], [data-variant="ghost"], [data-variant="danger"], .cta) {
+:is(.theme-mobile, .theme-pro) [data-slot="button"]:not([data-variant="secondary"], [data-variant="ghost"], [data-variant="danger"], .cta) {
   background-color: var(--color-ink);
 }
-.theme-mobile [data-slot="button"]:not([data-variant="secondary"], [data-variant="ghost"], [data-variant="danger"], .cta):hover {
+:is(.theme-mobile, .theme-pro) [data-slot="button"]:not([data-variant="secondary"], [data-variant="ghost"], [data-variant="danger"], .cta):hover {
   background-color: #2a3441;
 }
 /* Règle typographique : poids 400 et 500 seulement. */
-.theme-mobile .font-semibold,
-.theme-mobile .font-bold,
-.theme-mobile b {
+:is(.theme-mobile, .theme-pro) .font-semibold,
+:is(.theme-mobile, .theme-pro) .font-bold,
+:is(.theme-mobile, .theme-pro) b {
   font-weight: 500;
 }
-.theme-mobile h1 {
+:is(.theme-mobile, .theme-pro) h1 {
   font-size: 1.375rem;
   font-weight: 500;
   letter-spacing: -0.01em;
 }
-.theme-mobile h2 {
+:is(.theme-mobile, .theme-pro) h2 {
   font-weight: 500;
+}
+
+/* Contrôles PC : un peu plus petits que sur téléphone. */
+.theme-pro [data-slot="button"]:not([data-size="sm"]) {
+  height: 2.125rem;
+  font-size: 0.84375rem;
+}
+.theme-pro [data-slot="button"][data-size="sm"] {
+  height: 1.75rem;
+  font-size: 0.78125rem;
+}
+.theme-pro [data-slot="input"],
+.theme-pro select {
+  height: 2.125rem;
+  font-size: 0.84375rem;
+}
+
+/* Table : en-têtes en poids 500 (le navigateur met th en gras par défaut). */
+:is(.theme-mobile, .theme-pro) th {
+  font-weight: 500;
+}
+/* Cases à cocher natives en encre, jamais en bleu système. */
+:is(.theme-mobile, .theme-pro) input[type="checkbox"] {
+  accent-color: var(--color-ink);
+}
+/* Focus visible au clavier : anneau net en plus du halo doux. */
+:is(.theme-mobile, .theme-pro) [data-slot="button"]:focus-visible,
+:is(.theme-mobile, .theme-pro) [role="option"]:focus-visible,
+:is(.theme-mobile, .theme-pro) [aria-haspopup="listbox"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+/* Segments plus bas sur PC, comme les autres contrôles. */
+.theme-pro [role="group"] > button {
+  height: 1.75rem;
 }

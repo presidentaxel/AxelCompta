@@ -8,10 +8,10 @@ import { Sidebar } from "@/components/Sidebar";
  */
 export default function GestionnaireLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="theme-pro flex h-screen overflow-hidden bg-canvas-app">
       <Sidebar />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-canvas-app">
-        <main className="flex-1 p-8">{children}</main>
+        <main className="flex-1 px-9 py-7">{children}</main>
       </div>
     </div>
   );
